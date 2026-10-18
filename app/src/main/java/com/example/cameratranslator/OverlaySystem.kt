@@ -309,27 +309,31 @@ fun MainOverlay(
         }
 
         // LAYER 3: Touch Interaction Layer for OCR Box Dragging/Resizing (Hidden in Stealth Mode)
-        if (containerSize != Size.Zero && !isStealthMode) {
+        // Bound dynamically to containerSize and displayMode so dragging never gets stuck!
+        if (containerSize.width > 0f && containerSize.height > 0f && !isStealthMode) {
             Box(
                 modifier = Modifier
                     .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
                     .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
-                    .pointerInput(Unit) {
+                    .pointerInput(containerSize, displayMode) {
                         detectDragGestures { change, dragAmount ->
                             change.consume()
                             val deltaX = dragAmount.x / containerSize.width
                             val deltaY = dragAmount.y / containerSize.height
 
-                            val width = right - left
-                            val height = bottom - top
+                            val currentWidth = right - left
+                            val currentHeight = bottom - top
 
-                            left = (left + deltaX).coerceIn(0f, 1f - width)
-                            top = (top + deltaY).coerceIn(0f, 1f - height)
-                            right = left + width
-                            bottom = top + height
+                            val newLeft = (left + deltaX).coerceIn(0f, 1f - currentWidth)
+                            val newTop = (top + deltaY).coerceIn(0f, 1f - currentHeight)
+
+                            left = newLeft
+                            top = newTop
+                            right = newLeft + currentWidth
+                            bottom = newTop + currentHeight
                         }
                     }
-                    .pointerInput(Unit) {
+                    .pointerInput(containerSize, displayMode) {
                         detectTapGestures(onTap = { offset ->
                             val screenX = (ocrRect.left + offset.x) / containerSize.width
                             val screenY = (ocrRect.top + offset.y) / containerSize.height
@@ -342,11 +346,14 @@ fun MainOverlay(
                     modifier = Modifier
                         .size(40.dp)
                         .align(Alignment.BottomEnd)
-                        .pointerInput(Unit) {
+                        .pointerInput(containerSize, displayMode) {
                             detectDragGestures { change, dragAmount ->
                                 change.consume()
-                                right = (right + dragAmount.x / containerSize.width).coerceIn(left + 0.05f, 1f)
-                                bottom = (bottom + dragAmount.y / containerSize.height).coerceIn(top + 0.02f, 1f)
+                                val deltaX = dragAmount.x / containerSize.width
+                                val deltaY = dragAmount.y / containerSize.height
+
+                                right = (right + deltaX).coerceIn(left + 0.05f, 1f)
+                                bottom = (bottom + deltaY).coerceIn(top + 0.02f, 1f)
                             }
                         }
                 )
