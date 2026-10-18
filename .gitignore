@@ -15,4 +15,6 @@
 local.properties
 *.jks
 *.keystore
+/app/release/
+
 
