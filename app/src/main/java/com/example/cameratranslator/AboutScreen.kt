@@ -100,7 +100,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Google Cloud altyapısıyla en doğru çeviriyi sunar. Çalışması için kullanıcıların Ayarlar bölümünden kendi Google Cloud API Key anahtarlarını girmeleri gerekir. Google Cloud, her ay ilk 500.000 karakteri ücretsiz sunar; bu limit aşıldığında Google hesabınız üzerinden ücretlendirme uygulanır.",
+                        text = "Google Cloud altyapısıyla en doğru çeviriyi sunar. Çalışması için kullanıcıların Ayarlar bölümünden kendi Google Cloud Translation API Key anahtarlarını girmeleri gerekir. Google Cloud, her ay ilk 500.000 karakteri ücretsiz sunar; bu limit aşıldığında Google hesabınız üzerinden ücretlendirme uygulanır.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -143,13 +143,25 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
+                        text = "• Sesli Okuma Kontrolü:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Sesli okuma, Ayarlar ekranındaki 'Sesli okuma' anahtarıyla açılıp kapatılabilir. Ayrıca aktif edildiğinde kamera ekranının sağ araç çubuğunda beliren hızlı hoparlör (🔊/🔇) butonuyla tek tıkla sessize alınabilir.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
                         text = "1. Google Translate (Yerleşik / Tamamen Ücretsiz):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Telefonunuzun dahili ses motorunu kullanır. Tamamen ücretsizdir, API anahtarı gerektirmez ve anında çalışır.",
+                        text = "Telefonunuzun dahili ses motorunu kullanır. Tamamen ücretsizdir, API anahtarı gerektirmez. Ayarlar'dan Ses Hızı ve Ses Perdesi ayarlanabilir; hızlı oyun diyaloglarında ses gecikmesi yaşanırsa ses hızı artırılarak akıcılık sağlanabilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -161,7 +173,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Google Cloud'un insansı Chirp 3: HD yapay zeka ses modellerini (Kore, Puck, Charon vb.) kullanır. Kadın ve Erkek ses seçeneklerinde gerçekçi ve akıcı seslendirme sağlar. Çalışması için Google Cloud TTS API Key gereklidir ve Google Cloud'un aylık ücretsiz kota kullanım limitleri dahilinde çalışır.",
+                        text = "Google Cloud'un insansı Chirp 3: HD yapay zeka ses modellerini (Kore, Puck, Charon vb.) kullanır. Kadın ve Erkek ses seçeneklerinde gerçekçi ve akıcı seslendirme sağlar. Çalışması için Google Cloud TTS API Key gereklidir. Ayarlar'dan Bulut Ses Hızı ayarlanabilir, böylece hızlı diyaloglarda seslendirme geride kalmaz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -179,6 +191,18 @@ fun AboutScreen(onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "• Bağımsız Yazı Boyutları ve Hafıza:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Sinematik Altyazı ve Ekran Çevirisi modlarının çeviri yazı boyutları ve OCR alan pozisyonları (dikey/yatay) tamamen birbirinden bağımsız olarak saklanır. Bir modda yaptığınız ayarlar diğer modu etkilemez.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
                     Text(
                         text = "• Sinematik Altyazı:",
                         fontWeight = FontWeight.Bold,
