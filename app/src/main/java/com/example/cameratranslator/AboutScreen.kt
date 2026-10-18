@@ -192,18 +192,6 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "• Bağımsız Yazı Boyutları ve Hafıza:",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Sinematik Altyazı ve Ekran Çevirisi modlarının çeviri yazı boyutları ve OCR alan pozisyonları (dikey/yatay) tamamen birbirinden bağımsız olarak saklanır. Bir modda yaptığınız ayarlar diğer modu etkilemez.",
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
-                    )
-
-                    Text(
                         text = "• Sinematik Altyazı:",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
