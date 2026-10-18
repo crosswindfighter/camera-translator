@@ -38,6 +38,14 @@
 
 ---
 
+### 🛡️ Güvenlik Bilgilendirmesi
+
+Camera Translator, geliştirdiğim ilk Android uygulamasıdır. Bu nedenle Google Play Protect, geliştiriciye ait daha önce tanımadığı bir uygulama olduğu için kurulum sırasında güvenlik uyarısı gösterebilir.
+
+Uygulamanın APK dosyası Kaspersky OpenTIP ile taranmış ve **Clean (Temiz)** sonucu alınmıştır.
+
+🔗 [Kaspersky tarama raporunu görüntüle](https://opentip.kaspersky.com/8705174536D60ADB7EE02504070A3238E340FA2E4EA239045EBA1C2900BEC72A/results)
+
 ## 🤖 Geliştirme Notu & Teşekkür
 Bu projenin tüm Kotlin mimarisi, OCR stabilizasyonu, kalkan algoritmaları, Jetpack Compose UI tasarımları ve performans optimizasyonları **Google Gemini AI** eşliğinde kodlanmıştır.
 
