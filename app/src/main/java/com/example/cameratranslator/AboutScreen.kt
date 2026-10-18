@@ -247,7 +247,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce yapay zeka seslerine geçer.",
+                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce seslerine geçer.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
