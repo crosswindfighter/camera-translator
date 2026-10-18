@@ -141,10 +141,10 @@ fun MainOverlay(
                 containerSize = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
             }
     ) {
-        // LAYER 1: Scrim & Green OCR Box Border (Border hidden in Stealth Mode, inside is 100% transparent!)
+        // LAYER 1: Scrim & Green OCR Box Border (Green border rendered ONLY in DEFAULT mode!)
         if (containerSize != Size.Zero && !isStealthMode) {
             if (displayMode == DisplayMode.DEFAULT) {
-                // Varsayılan modda ekran kararır, OCR alanı şeffaf kesilir
+                // Sinematik Altyazı modunda ekran kararır, OCR alanı şeffaf kesilir ve yeşil çerçeve çizilir
                 Canvas(modifier = Modifier.fillMaxSize()) {
                     with(drawContext.canvas.nativeCanvas) {
                         val checkPoint = saveLayer(null, null)
@@ -159,27 +159,27 @@ fun MainOverlay(
                         restoreToCount(checkPoint)
                     }
                 }
-            }
 
-            // Green Border Frame and Corner Handle (100% TRANSPARENT CENTER in both modes!)
-            Box(
-                modifier = Modifier
-                    .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
-                    .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
-                    .border(2.dp, Color(0xFF76FF03), RoundedCornerShape(8.dp))
-            ) {
+                // Green Border Frame and Corner Handle (ONLY in DEFAULT mode!)
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
-                        .align(Alignment.BottomEnd)
-                        .background(Color(0xFF76FF03).copy(alpha = 0.3f), RoundedCornerShape(topStart = 12.dp))
-                )
+                        .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
+                        .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
+                        .border(2.dp, Color(0xFF76FF03), RoundedCornerShape(8.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .align(Alignment.BottomEnd)
+                            .background(Color(0xFF76FF03).copy(alpha = 0.3f), RoundedCornerShape(topStart = 12.dp))
+                    )
+                }
             }
         }
 
         // LAYER 2: Subtitle Display
         if (displayMode == DisplayMode.DEFAULT) {
-            // VARSAYILAN MOD: Center Subtitle Overlay
+            // VARSAYILAN (SİNEMATİK ALTYAZI) MOD: Center Subtitle Overlay
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
@@ -252,13 +252,18 @@ fun MainOverlay(
                 }
             }
         } else {
-            // EKRAN ÇEVİRİSİ MODU: Entire OCR Selection Area is a Solid Black Box covering the TV subtitle!
+            // EKRAN ÇEVİRİSİ MODU: Entire OCR Selection Area is a Solid Black Box with Small Cyan Diagonal Arrow ⇲
             if (currentTranslation.isNotEmpty() && containerSize != Size.Zero) {
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
                         .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
                         .background(Color.Black, RoundedCornerShape(8.dp))
+                        .border(
+                            width = if (!isStealthMode) 1.dp else 0.dp,
+                            color = if (!isStealthMode) Color(0xFF00E5FF).copy(alpha = 0.5f) else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        )
                         .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -273,6 +278,24 @@ fun MainOverlay(
                         textAlign = TextAlign.Center,
                         lineHeight = (betaFontSize * 1.20f).sp
                     )
+
+                    // Bottom-Right Corner Resize Arrow Indicator (Small Cyan Diagonal Arrow ⇲, visible when not in Stealth Mode)
+                    if (!isStealthMode) {
+                        Box(
+                            modifier = Modifier
+                                .size(20.dp)
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = 2.dp, end = 2.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "⇲",
+                                color = Color(0xFF00E5FF),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
                 }
             }
         }
