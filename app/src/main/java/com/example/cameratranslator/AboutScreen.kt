@@ -15,7 +15,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -199,7 +198,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Televizyon veya monitör altyazılarını yerinde kapatmak için tasarlanmıştır. Yeşil OCR kutusunu TV altyazısının üzerine getirdiğinizde, Türkçe çeviri siyah bir şerit üzerinde doğrudan TV altyazısının üzerini kapatarak görüntülenir.",
+                        text = "Televizyon veya monitör altyazılarını yerinde kapatmak için tasarlanmıştır. OCR alanı mavi bir çerçeve ve sağ alt köşesinde mavi boyutlandırma okuyla (⇲) kontrol edilir. Bu alanı TV altyazısının üzerine getirdiğinizde, Türkçe çeviri simsiyah bir kutu üzerinde otomatik olarak TV altyazısının üzerini örterek yerleşir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -208,7 +207,56 @@ fun AboutScreen(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Section 4: Pro Tips
+            // Section 4: Control Bar Buttons Explanation
+            SectionHeader("🎮 KONTROL ÇUBUĞU VE HIZLI BUTONLAR")
+            
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "• ▶ Başlat / ■ Durdur:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "'Başlat' butonuna basıldığında kamera altyazıları taramaya ve çevirmeye başlar. 'Durdur' butonuna basıldığında tarama, çeviri ve sesli okuma o milisaniyede tamamen kesilir.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "• Dil Yönü (EN → TR / TR → EN):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce yapay zeka seslerine geçer.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "• Çeviri Yöntemi (☁️ CLOUD / 🆓 FREE / 📴 OFFLINE):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Tek tıkla Google Cloud API, ücretsiz online çeviri ve cihaz içi çevrimdışı ML Kit motorları arasında hızlıca geçiş yapmanızı sağlar.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section 5: Pro Tips
             SectionHeader("💡 EN İYİ OCR PERFORMANSI İÇİN PÜF NOKTALARI")
             
             Surface(
@@ -224,7 +272,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere neden olabilir. Sağ taraftaki Güneş ikonundan parlaklığı kıstığınızda parlamalar söner, OCR harfleri jilet gibi net okur ve çeviri doğruluğu %100'e ulaşır.",
+                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere nedenabilir. Sağ taraftaki Güneş ikonundan parlaklığı kıstığınızda parlamalar söner, OCR harfleri jilet gibi net okur ve çeviri doğruluğu %100'e ulaşır.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
