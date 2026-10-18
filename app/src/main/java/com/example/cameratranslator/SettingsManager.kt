@@ -80,7 +80,7 @@ class SettingsManager(context: Context) {
     }
 
     fun getSubtitleFontSizeDefault(): Float {
-        return prefs.getFloat("subtitle_font_size_default", 40f).coerceIn(20f, 85f)
+        return prefs.getFloat("subtitle_font_size_default", 30f).coerceIn(20f, 85f)
     }
 
     fun saveSubtitleFontSizeScreen(size: Float) {
