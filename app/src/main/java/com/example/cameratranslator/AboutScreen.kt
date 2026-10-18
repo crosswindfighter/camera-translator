@@ -74,7 +74,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
             ) {
                 Text(
-                    text = "Camera Translator, öncelikli olarak Xbox ve PlayStation konsol oyuncuları için geliştirilmiş, istenildiği takdirde PC oyunlarında da kullanılabilen, ekrandaki İngilizce altyazıları ve metinleri gerçek zamanlı olarak Türkçeye çeviren ve seslendiren açık kaynaklı bir kamera çeviri uygulamasıdır.",
+                    text = "Camera Translator, öncelikli olarak Xbox ve PlayStation oyuncuları için geliştirilmiş, istenildiği takdirde PC oyunlarında da kullanılabilen, ekrandaki İngilizce altyazıları ve metinleri gerçek zamanlı olarak Türkçeye çeviren ve seslendiren açık kaynaklı bir kamera çeviri uygulamasıdır.",
                     style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 24.sp,
                     color = MaterialTheme.colorScheme.onSurface,
@@ -186,7 +186,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviriyi telefon ekranının tam ortasında iri ve net bir puntoyla gösterir. Yeni çeviriler geldikçe eski altyazılar yukarı doğru kayar, adeta bir sinema altyazısı deneyimi sunar.",
+                        text = "Çeviriyi telefon ekranının tam ortasında iri ve net bir puntoyla gösterir. Yeni çeviriler geldikçe eski altyazılar yukarı doğru kayar, adeta bir sinema altyazısı deneyimi sunar. OCR alanı yeşil bir çerçeve ve sağ alt köşesinde yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -198,7 +198,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Televizyon veya monitör altyazılarını yerinde kapatmak için tasarlanmıştır. OCR alanı mavi bir çerçeve ve sağ alt köşesinde mavi boyutlandırma okuyla (⇲) kontrol edilir. Bu alanı TV altyazısının üzerine getirdiğinizde, Türkçe çeviri simsiyah bir kutu üzerinde otomatik olarak TV altyazısının üzerini örterek yerleşir.",
+                        text = "Televizyon veya monitör altyazılarını yerinde kapatmak için tasarlanmıştır. OCR alanı sağ alt köşesindeki açık mavi boyutlandırma okuyla (⇲) kontrol edilir. Bu alanı TV altyazısının üzerine getirdiğinizde, Türkçe çeviri simsiyah bir kutu üzerinde otomatik olarak TV altyazısının üzerini örterek yerleşir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -272,7 +272,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere nedenabilir. Sağ taraftaki Güneş ikonundan parlaklığı kıstığınızda parlamalar söner, OCR harfleri jilet gibi net okur ve çeviri doğruluğu %100'e ulaşır.",
+                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere neden olabilir. Sağ taraftaki Güneş ikonundan parlaklığı kıstığınızda parlamalar söner, OCR harfleri jilet gibi net okur ve çeviri doğruluğu %100'e ulaşır.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
