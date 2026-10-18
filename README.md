@@ -1,3 +1,5 @@
+> 🤖 **Not:** Bu uygulama, tüm mimarisi, kalkan algoritmaları ve arayüzleriyle birlikte **Google Gemini** yapay zekası yardımıyla geliştirilmiştir.
+
 # 📷 Camera Translator
 
 **Camera Translator**, öncelikli olarak **Xbox** ve **PlayStation** konsol oyuncuları için geliştirilmiş (isteğe bağlı PC oyunlarında da kullanılabilen), ekrandaki İngilizce altyazıları ve metinleri gerçek zamanlı olarak Türkçeye çeviren ve seslendiren açık kaynaklı bir kamera çeviri uygulamasıdır.
