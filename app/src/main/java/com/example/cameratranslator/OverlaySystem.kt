@@ -160,7 +160,7 @@ fun MainOverlay(
                     }
                 }
 
-                // Green Border Frame and Corner Handle (ONLY in DEFAULT mode!)
+                // Green Border Frame and Green Corner Arrow Handle (ONLY in DEFAULT mode!)
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
@@ -169,10 +169,18 @@ fun MainOverlay(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(20.dp)
                             .align(Alignment.BottomEnd)
-                            .background(Color(0xFF76FF03).copy(alpha = 0.3f), RoundedCornerShape(topStart = 12.dp))
-                    )
+                            .padding(bottom = 2.dp, end = 2.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "⇲",
+                            color = Color(0xFF76FF03),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
