@@ -33,7 +33,7 @@
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz `app-release.apk` dosyasını kurun.
+2. Telefonunuza indirdiğiniz `camera-translator.apk` dosyasını kurun.
 3. Uygulamayı açıp kamera iznini verin ve oyundaki altyazı alanını seçerek çevirinin tadını çıkarın!
 
 ---
