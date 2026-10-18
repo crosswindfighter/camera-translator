@@ -56,3 +56,5 @@ The calculated hash should match the value listed in this report.
 ---
 
 *Published for transparency. This report covers one specific APK build and the security analysis results available at the time of testing.*
+
+<!-- Security report maintained for transparency. -->
