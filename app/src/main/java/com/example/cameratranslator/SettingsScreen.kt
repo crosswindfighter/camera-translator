@@ -1,5 +1,8 @@
 package com.example.cameratranslator
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -23,6 +26,7 @@ import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -87,6 +91,7 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     BackHandler { onBack() }
+    val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusManager = LocalFocusManager.current
     val bringIntoViewRequester = remember { BringIntoViewRequester() }
@@ -856,6 +861,37 @@ fun SettingsScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+
+            // BLOCK 6: Güncellemeler (Updates)
+            SettingsBlockCard {
+                Text("Güncellemeler", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                
+                Text(
+                    text = "Uygulamanın yeni sürümlerini ve güncellemelerini GitHub sayfamız üzerinden manuel olarak takip edip indirebilirsiniz.",
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedButton(
+                    onClick = {
+                        try {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/crosswindfighter/camera-translator/releases"))
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Log.e("SettingsScreen", "Error opening GitHub releases link", e)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        text = "GitHub'da Sürümleri İncele 🚀",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
