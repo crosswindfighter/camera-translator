@@ -50,4 +50,11 @@ Uygulamanın APK dosyası Kaspersky OpenTIP ile taranmış ve **Clean (Temiz)** 
 Bu projenin tüm Kotlin mimarisi, OCR stabilizasyonu, kalkan algoritmaları, Jetpack Compose UI tasarımları ve performans optimizasyonları **Google Gemini AI** eşliğinde kodlanmıştır.
 
 ## 📄 Lisans
-Bu proje açık kaynaklı bir topluluk projesidir.
+
+Camera Translator, MIT lisansı altında yayımlanan açık kaynaklı bir projedir.
+
+Bu lisans kapsamında kaynak kodu kullanılabilir, kopyalanabilir, değiştirilebilir ve dağıtılabilir. Lisansın gerektirdiği telif hakkı ve lisans bildirimleri korunmalıdır.
+
+Lisansın tam metni için [LICENSE](LICENSE) dosyasına bakabilirsiniz.
+
+Üçüncü taraf kütüphaneler ve hizmetler kendi lisans ve kullanım koşullarına tabidir.
