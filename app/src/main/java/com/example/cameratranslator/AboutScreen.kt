@@ -85,7 +85,7 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             // Section 1: Translation Engines
-            SectionHeader("🌐 ÇEVİRİ MODLARI VE KULLANIM")
+            SectionHeader("🌐 ÇEVİRİ YÖNTEMLERİ VE KULLANIM")
             
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -94,19 +94,7 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "1. Cloud Translation (En Yüksek Kalite):",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Google Cloud altyapısıyla en doğru çeviriyi sunar. Çalışması için kullanıcıların Ayarlar bölümünden kendi Google Cloud Translation API Key anahtarlarını girmeleri gerekir. Google Cloud, her ay ilk 500.000 karakteri ücretsiz sunar; bu limit aşıldığında Google hesabınız üzerinden ücretlendirme uygulanır.",
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
-                    )
-
-                    Text(
-                        text = "2. FREE Modu (Ücretsiz Online):",
+                        text = "1. Google Translate (Ücretsiz Online):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
@@ -118,7 +106,19 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "3. OFFLINE Modu (İnternetsiz Çevrimdışı):",
+                        text = "2. Google Cloud (En Yüksek Kalite):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Google Cloud altyapısıyla çevrimiçi çeviri sağlar. Çalışması için kullanıcıların Ayarlar bölümünden kendi Google Cloud Translation API Key anahtarlarını girmeleri gerekir. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "3. Offline (İnternetsiz Çevrimdışı):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
@@ -210,7 +210,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Televizyon veya monitör altyazılarını yerinde kapatmak için tasarlanmıştır. OCR alanı sağ alt köşesindeki açık mavi boyutlandırma okuyla (⇲) kontrol edilir. Bu alanı TV altyazısının üzerine getirdiğinizde, Türkçe çeviri simsiyah bir kutu üzerinde otomatik olarak TV altyazısının üzerini örterek yerleşir.",
+                        text = "Televizyon veya monitör altyazılarını yerinde takip etmek için tasarlanmıştır. Türkçe çeviriyi, orijinal altyazının üzerine konumlandırılan siyah bir şerit üzerinde gösterir. OCR alanı sağ alt köşesindeki açık mavi boyutlandırma okuyla (⇲) ayarlanabilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -253,7 +253,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "• Çeviri Yöntemi (☁️ CLOUD / 🆓 FREE / 📴 OFFLINE):",
+                        text = "• Çeviri Yöntemi (🌐 Google Translate / ☁️ Google Cloud / 📴 Offline):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
@@ -284,7 +284,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere neden olabilir. Sağ taraftaki Güneş ikonundan parlaklığı kıstığınızda parlamalar söner, OCR harfleri jilet gibi net okur ve çeviri doğruluğu %100'e ulaşır.",
+                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere neden olabilir. Sağ taraftaki Güneş ikonundan parlaklık kısıldığında parlamalar söner, OCR okuma doğruluğu ve netliği belirgin şekilde artar.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
