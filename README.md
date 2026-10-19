@@ -8,10 +8,10 @@
 
 ### 🌐 3 Farklı Çeviri Yöntemi
 - 🌐 **Google Translate:** İnternet üzerinden ücretsiz Google Translate altyazı çevirisi.
-- ☁️ **Google Cloud:** Google Cloud Translation altyapısıyla **yüksek kalite** ve hızlı çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır, çevrimiçi bağlantı ve API gerektirir.
+- ☁️ **Google Cloud:** Google Cloud Translation altyapısıyla **yüksek kalite** ve hızlı çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır. Çevrimiçi bağlantı ve API gerektirir.
 - 📴 **Offline:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
 
-### 🔊 Sesli Okuma & Altyazı Seslendirme
+### 🔊 Sesli Okuma & Altyazı Seslendirme (Dublaj)
 - **Dahili Ses Motoru:** Google Translate tabanlı ücretsiz çevrimiçi seslendirme sunar.
 - **Google Cloud Text to Speech (Chirp 3: HD):** İnsansı yapay zeka ses modelleri (`Kore`, `Puck`, `Charon` vb.) ile Kadın ve Erkek ses seçeneklerinde daha doğal ve akıcı seslendirme. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır, çevrimiçi bağlantı ve API gerektirir.
 - **Seslendirme Ayarları:** Hızlı oyun diyaloglarında seslendirme geride kalmasın diye ayarlanabilir ses hızı ve perdesi.
