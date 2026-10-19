@@ -8,7 +8,7 @@
 
 ### 🌐 3 Farklı Çeviri Yöntemi
 - 🌐 **Google Translate:** İnternet üzerinden ücretsiz Google Translate altyazı çevirisi.
-- ☁️ **Google Cloud:** Google Cloud altyapısıyla çevrimiçi çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.
+- ☁️ **Google Cloud:** Google Cloud Translation altyapısıyla **yüksek kalite** ve hızlı çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır, çevrimiçi bağlantı ve API gerektirir.
 - 📴 **Offline:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
 
 ### 🔊 Yapay Zeka Destekli Sesli Okuma (Cloud TTS)
