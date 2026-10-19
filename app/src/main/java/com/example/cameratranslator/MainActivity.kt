@@ -448,9 +448,9 @@ class MainActivity : ComponentActivity() {
                     onToggleStealthMode = { isStealthMode = !isStealthMode },
                     onCycleTranslationMode = {
                         translationMode = when (translationMode) {
-                            TranslationMode.CLOUD -> TranslationMode.FREE
-                            TranslationMode.FREE -> TranslationMode.OFFLINE
-                            TranslationMode.OFFLINE -> TranslationMode.CLOUD
+                            TranslationMode.FREE -> TranslationMode.CLOUD
+                            TranslationMode.CLOUD -> TranslationMode.OFFLINE
+                            TranslationMode.OFFLINE -> TranslationMode.FREE
                         }
                         translationManager.mode = translationMode
                     },
