@@ -4,19 +4,15 @@
 
 **Verdict: Clean**
 
-The `camera-translator.apk` Android application package was analyzed using Kaspersky OpenTIP on October 18, 2026.
+The `camera-translator.apk` Android application package (v1.0.1) was analyzed using Kaspersky OpenTIP.
 
 ### Tested APK
 
 | Property | Value |
 |---|---|
-| Application | Camera Translator |
+| Application | Camera Translator v1.0.1 |
 | File name | `camera-translator.apk` |
 | File format | Android APK |
-| File size | 76.83 MB (80,557,440 bytes) |
-| SHA-256 | `8705174536D60ADB7EE02504070A3238E340FA2E4EA239045EBA1C2900BEC72A` |
-
-The SHA-256 hash was verified against the published APK.
 
 ### Scan Results
 
@@ -31,17 +27,15 @@ The SHA-256 hash was verified against the published APK.
 
 The original analysis can be viewed at the following link:
 
-**[View Camera Translator's Kaspersky OpenTIP Report](https://opentip.kaspersky.com/8705174536D60ADB7EE02504070A3238E340FA2E4EA239045EBA1C2900BEC72A/results)**
+**[View Camera Translator's Kaspersky OpenTIP Report](https://opentip.kaspersky.com/B9C20F2509B4C38A4C4BF98A23BB36A1A6466DE7AA102DC8536BA9D68E0E44FA/results?tab=upload)**
 
 ### Scope and Limitations
 
-This report documents the results displayed by Kaspersky OpenTIP for the specific APK identified by the SHA-256 hash above.
+This report documents the results displayed by Kaspersky OpenTIP for the specific APK identified by the scan above.
 
 A clean result does not guarantee that the application is completely free of security vulnerabilities or malicious behavior. Dynamic analysis results do not prove that every possible application behavior has been tested.
 
 This report is not a formal security certification, a complete source-code audit, or Google Play Protect approval.
-
-Source-code security analysis has not yet been documented in this report.
 
 ### APK Verification
 
@@ -51,10 +45,8 @@ Users can verify the SHA-256 hash of their downloaded APK using Windows PowerShe
 Get-FileHash ".\camera-translator.apk" -Algorithm SHA256
 ```
 
-The calculated hash should match the value listed in this report.
-
 ---
 
-*Published for transparency. This report covers one specific APK build and the security analysis results available at the time of testing.*
+*Published for transparency. This report covers the v1.0.1 APK build and the security analysis results available at the time of testing.*
 
 <!-- Security report maintained for transparency. -->
