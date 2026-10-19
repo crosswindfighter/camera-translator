@@ -23,7 +23,7 @@
 - 📺 **Ekran Çevirisi:** Yeşil/mavi boyutlandırma okuyla (`⇲`) TV altyazısının üzerine konumlandırılır; Türkçe çeviriyi simsiyah bir şerit üzerinde doğrudan orijinal altyazının üzerine basarak örter.
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
-- **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek %100 net OCR okuması sağlar.
+- **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır.
 - **Hayalet / Göz Modu (👁️‍🗨️):** Ekrandaki tüm araç çubuklarını ve çerçeveleri gizler.
 - **Zoom Kontrolü (1x - 5x):** Televizyona yaklaşmadan koltuktan rahat kullanım.
 - **Bağımsız Mod Hafızası:** Dikey ve yatay ekran pozisyonları ile yazı boyutları her mod için bağımsız olarak saklanır.
@@ -38,9 +38,15 @@
 
 ---
 
+### ⚠️ Önemli Not & Bilgilendirme
+
+Camera Translator geliştirdiğim ilk Android uygulamasıdır. Kamera mesafesi, çekim açısı, ekran parlaklığı, font tipi veya oyun içi anlık ışık değişimlerine bağlı olarak OCR teknolojisi zaman zaman bazı harfleri yanlış okuyabilir veya çevirilerde küçük sapmalar yaşanabilir. Karşılaştığınız hata veya geliştirme önerilerini GitHub üzerinden paylaşabilirsiniz.
+
+---
+
 ### 🛡️ Güvenlik Bilgilendirmesi
 
-Camera Translator, geliştirdiğim ilk Android uygulamasıdır. Bu nedenle Google Play Protect, geliştiriciye ait daha önce tanımadığı bir uygulama olduğu için kurulum sırasında güvenlik uyarısı gösterebilir.
+Play Protect, geliştiriciye ait daha önce tanımadığı bir uygulama olduğu için kurulum sırasında güvenlik uyarısı gösterebilir.
 
 Uygulamanın APK dosyası Kaspersky OpenTIP ile taranmış ve **Clean (Temiz)** sonucu alınmıştır.
 
@@ -57,4 +63,4 @@ Bu lisans kapsamında kaynak kodu kullanılabilir, kopyalanabilir, değiştirile
 
 Lisansın tam metni için [LICENSE.md](LICENSE.md) dosyasına bakabilirsiniz.
 
-Üçüncü taraf kütüphaneler ve hizmetler kendi lisans ve kullanım koşullarına tabidir.
+Üçüncü taraf kütüphaneler ve hizmetler kendi lisans me kullanım koşullarına tabidir.
