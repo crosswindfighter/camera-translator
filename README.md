@@ -11,10 +11,10 @@
 - ☁️ **Google Cloud:** Google Cloud Translation altyapısıyla **yüksek kalite** ve hızlı çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır, çevrimiçi bağlantı ve API gerektirir.
 - 📴 **Offline:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
 
-### 🔊 Yapay Zeka Destekli Sesli Okuma (Cloud TTS)
-- **Dahili Ses Motoru:** Ücretsiz ve anında çalışan telefon TTS desteği.
-- **Google Cloud TTS (Chirp 3: HD):** İnsansı yapay zeka ses modelleri (`Kore`, `Puck`, `Charon` vb.) ile Kadın ve Erkek ses seçeneklerinde doğal ve akıcı seslendirme.
-- **Dublaj Ayarları:** Hızlı oyun diyaloglarında seslendirme geride kalmasın diye ayarlanabilir ses hızı ve perdesi.
+### 🔊 Sesli Okuma & Altyazı Seslendirme
+- **Dahili Ses Motoru:** Google Translate tabanlı ücretsiz çevrimiçi seslendirme sunar.
+- **Google Cloud Text to Speech (Chirp 3: HD):** İnsansı yapay zeka ses modelleri (`Kore`, `Puck`, `Charon` vb.) ile Kadın ve Erkek ses seçeneklerinde daha doğal ve akıcı seslendirme. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır, çevrimiçi bağlantı ve API gerektirir.
+- **Seslendirme Ayarları:** Hızlı oyun diyaloglarında seslendirme geride kalmasın diye ayarlanabilir ses hızı ve perdesi.
 
 ### 📺 2 Farklı Çeviri Görünüm Modu
 - 🎬 **Sinematik Altyazı:** Çeviriyi ekranın tam ortasında iri puntoyla gösterir, eski çeviriler yukarı kayar.
