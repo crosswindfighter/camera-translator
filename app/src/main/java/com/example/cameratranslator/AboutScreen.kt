@@ -58,7 +58,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(top = 6.dp)
             ) {
                 Text(
-                    text = "v1.0.0",
+                    text = "v1.0.1",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
