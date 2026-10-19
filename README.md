@@ -1,7 +1,5 @@
 # 📷 Camera Translator
 
-> 🤖 **Not:** Bu uygulama, tüm mimarisi, kalkan algoritmaları ve arayüzleriyle birlikte **Google Gemini** yapay zekası yardımıyla geliştirilmiştir.
-
 **Camera Translator**, öncelikli olarak **Xbox** ve **PlayStation** konsol oyuncuları için geliştirilmiş (isteğe bağlı PC oyunlarında da kullanılabilen), ekrandaki İngilizce altyazıları ve metinleri gerçek zamanlı olarak Türkçeye çeviren ve seslendiren açık kaynaklı bir kamera çeviri uygulamasıdır.
 
 ---
@@ -9,9 +7,9 @@
 ## 🌟 Öne Çıkan Özellikler
 
 ### 🌐 3 Farklı Çeviri Yöntemi
-- **☁️ Cloud Translation:** Google Cloud altyapısıyla en yüksek kalitede çevrimiçi çeviri *(Aylık ilk 500.000 karakter ücretsiz)*.
-- **🆓 FREE Modu:** İnternet bağlantısı üzerinden %100 ücretsiz Google Translate altyazı çevirisi.
-- **📴 OFFLINE Modu:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde %100 çevrimdışı çalışma.
+- ☁️ **Cloud Translation:** Google Cloud altyapısıyla çevrimiçi çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.
+- 🆓 **FREE Modu:** İnternet üzerinden Google Translate altyazı çevirisi.
+- 📴 **OFFLINE Modu:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
 
 ### 🔊 Yapay Zeka Destekli Sesli Okuma (Cloud TTS)
 - **Dahili Ses Motoru:** Ücretsiz ve anında çalışan telefon TTS desteği.
@@ -20,7 +18,7 @@
 
 ### 📺 2 Farklı Çeviri Görünüm Modu
 - 🎬 **Sinematik Altyazı:** Çeviriyi ekranın tam ortasında iri puntoyla gösterir, eski çeviriler yukarı kayar.
-- 📺 **Ekran Çevirisi:** Yeşil/mavi boyutlandırma okuyla (`⇲`) TV altyazısının üzerine konumlandırılır; Türkçe çeviriyi simsiyah bir şerit üzerinde doğrudan orijinal altyazının üzerine basarak örter.
+- 📺 **Ekran Çevirisi:** Türkçe çeviriyi, orijinal altyazının üzerine konumlandırılan siyah bir şerit üzerinde gösterir.
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
 - **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır.
@@ -46,14 +44,17 @@ Camera Translator geliştirdiğim ilk Android uygulamasıdır. Kamera mesafesi, 
 
 ### 🛡️ Güvenlik Bilgilendirmesi
 
-Play Protect, geliştiriciye ait daha önce tanımadığı bir uygulama olduğu için kurulum sırasında güvenlik uyarısı gösterebilir.
-
-Uygulamanın APK dosyası Kaspersky OpenTIP ile taranmış ve **Clean (Temiz)** sonucu alınmıştır.
+Google Play Protect, uygulamayı tanımadığı veya yeterli itibara sahip olmadığı durumlarda kurulum sırasında uyarı gösterebilir. Uygulamanın APK dosyası Kaspersky OpenTIP ile taranmış ve Clean (Temiz) sonucu alınmıştır. Bu sonuç tek başına mutlak güvenlik garantisi değildir.
 
 🔗 [Kaspersky tarama raporunu görüntüle](https://opentip.kaspersky.com/8705174536D60ADB7EE02504070A3238E340FA2E4EA239045EBA1C2900BEC72A/results)
 
+---
+
 ## 🤖 Geliştirme Notu & Teşekkür
-Bu projenin tüm Kotlin mimarisi, OCR stabilizasyonu, kalkan algoritmaları, Jetpack Compose UI tasarımları ve performans optimizasyonları **Google Gemini AI** eşliğinde kodlanmıştır.
+
+Bu proje, Google Gemini yapay zekasının yardımıyla geliştirilmiştir. Geliştirme sürecindeki katkıları için teşekkür ederim.
+
+---
 
 ## 📄 Lisans
 
@@ -63,4 +64,4 @@ Bu lisans kapsamında kaynak kodu kullanılabilir, kopyalanabilir, değiştirile
 
 Lisansın tam metni için [LICENSE.md](LICENSE.md) dosyasına bakabilirsiniz.
 
-Üçüncü taraf kütüphaneler ve hizmetler kendi lisans me kullanım koşullarına tabidir.
+Üçüncü taraf kütüphaneler ve hizmetler kendi lisans ve kullanım koşullarına tabidir.
