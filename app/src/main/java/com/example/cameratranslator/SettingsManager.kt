@@ -96,11 +96,11 @@ class SettingsManager(context: Context) {
     }
 
     fun getTranslationMode(): TranslationMode {
-        val modeName = prefs.getString("translation_mode", TranslationMode.CLOUD.name) ?: TranslationMode.CLOUD.name
+        val modeName = prefs.getString("translation_mode", TranslationMode.FREE.name) ?: TranslationMode.FREE.name
         return try {
             TranslationMode.valueOf(modeName)
         } catch (e: Exception) {
-            TranslationMode.CLOUD
+            TranslationMode.FREE
         }
     }
 
