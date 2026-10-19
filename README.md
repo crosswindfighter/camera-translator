@@ -7,9 +7,9 @@
 ## 🌟 Öne Çıkan Özellikler
 
 ### 🌐 3 Farklı Çeviri Yöntemi
-- ☁️ **Cloud Translation:** Google Cloud altyapısıyla çevrimiçi çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.
-- 🆓 **FREE Modu:** İnternet üzerinden Google Translate altyazı çevirisi.
-- 📴 **OFFLINE Modu:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
+- 🌐 **Google Translate:** İnternet üzerinden ücretsiz Google Translate altyazı çevirisi.
+- ☁️ **Google Cloud:** Google Cloud altyapısıyla çevrimiçi çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.
+- 📴 **Offline:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
 
 ### 🔊 Yapay Zeka Destekli Sesli Okuma (Cloud TTS)
 - **Dahili Ses Motoru:** Ücretsiz ve anında çalışan telefon TTS desteği.
