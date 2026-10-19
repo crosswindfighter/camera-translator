@@ -259,7 +259,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Tek tıkla Google Cloud API, ücretsiz online çeviri ve cihaz içi çevrimdışı ML Kit motorları arasında hızlıca geçiş yapmanızı sağlar.",
+                        text = "Tek tıkla Google Translate (ücretsiz online), yüksek kalitede Google Cloud Translation ve cihaz içi Offline ML Kit motorları arasında hızlıca geçiş yapmanızı sağlar.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
