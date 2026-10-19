@@ -29,6 +29,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.DpOffset
@@ -403,11 +404,15 @@ fun MainOverlay(
         }
 
         // Left Zoom Controls with 1x, 2x, 3x, 4x, 5x (Hidden in Stealth Mode)
+        // Automatically shifts away from camera punch-hole/notch on left edge in landscape mode!
         if (!isStealthMode) {
+            val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
+            val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
+
             Column(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .padding(start = 12.dp)
+                    .padding(start = dynamicStartPadding)
                     .width(40.dp)
                     .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                     .padding(vertical = 8.dp),
@@ -430,10 +435,14 @@ fun MainOverlay(
         }
 
         // Right Controls Column (Vertically Centered on Right Edge)
+        // Automatically shifts away from camera punch-hole/notch on right edge when rotated!
+        val cutoutRightDp = WindowInsets.displayCutout.asPaddingValues().calculateRightPadding(LocalLayoutDirection.current)
+        val dynamicEndPadding = if (cutoutRightDp > 0.dp) cutoutRightDp + 12.dp else 16.dp
+
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 16.dp),
+                .padding(end = dynamicEndPadding),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -545,9 +554,9 @@ fun MainOverlay(
                     shape = RoundedCornerShape(2.dp)
                 ) {
                     val (text, color) = when (translationMode) {
-                        TranslationMode.CLOUD -> "☁️ CLOUD" to Color.Cyan
-                        TranslationMode.FREE -> "🆓 FREE" to Color.White
-                        TranslationMode.OFFLINE -> "📴 OFFLINE" to Color.Yellow
+                        TranslationMode.FREE -> "🌐 Google Translate" to Color.White
+                        TranslationMode.CLOUD -> "☁️ Google Cloud" to Color.Cyan
+                        TranslationMode.OFFLINE -> "📴 Offline" to Color.Yellow
                     }
                     Text(
                         text = text,
