@@ -4,6 +4,7 @@ import android.Manifest
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -455,6 +456,13 @@ class MainActivity : ComponentActivity() {
                         translationManager.mode = translationMode
                     },
                     onTogglePause = {
+                        if (isPaused) {
+                            if (translationMode == TranslationMode.CLOUD && settingsManager.getApiKey().isBlank()) {
+                                Toast.makeText(context, "Lütfen Ayarlar'dan Cloud Translation API anahtarınızı girin.", Toast.LENGTH_LONG).show()
+                                return@MainOverlay
+                            }
+                        }
+
                         isPaused = !isPaused
                         if (isPaused) {
                             translationJob?.cancel()
