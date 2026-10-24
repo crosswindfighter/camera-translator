@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="ct-banner.png" width="100%" alt="Camera Translator">
+  <img src="images/ct-banner.png" width="100%" alt="Camera Translator">
 </p>
 
 # 📷 Camera Translator
