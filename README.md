@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="camera-translator-banner.png" width="100%" alt="Camera Translator">
+</p>
+
 # 📷 Camera Translator
 
 **Camera Translator**, öncelikli olarak **Xbox** ve **PlayStation** konsol oyuncuları için geliştirilmiş (isteğe bağlı PC oyunlarında da kullanılabilen), ekrandaki İngilizce altyazıları ve metinleri gerçek zamanlı olarak Türkçeye çeviren ve seslendiren açık kaynaklı bir kamera çeviri uygulamasıdır.
