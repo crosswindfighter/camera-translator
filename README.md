@@ -22,6 +22,15 @@
 
 ### 📺 2 Farklı Çeviri Görünüm Modu
 - 🎬 **Sinematik Altyazı:** Çeviriyi ekranın tam ortasında iri puntoyla gösterir, eski çeviriler yukarı kayar.
+- <p align="center">
+  <img src="images/Screenshot_20261024_143417_Camera Translator.jpg" width="100%" alt="Camera Translator">
+</p>
+
+- Çeviri aktif olduğunda sağ kısımdaki **Göz** ikonuna basıldığında tüm arayüz gizlenir, odak artar.
+- - <p align="center">
+  <img src="images/Screenshot_20261024_143645_Camera%20Translator.jpg" width="100%" alt="Camera Translator">
+</p>
+
 - 📺 **Ekran Çevirisi:** Türkçe çeviriyi, orijinal altyazının üzerine konumlandırılan siyah bir şerit üzerinde gösterir.
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
