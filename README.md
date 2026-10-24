@@ -28,10 +28,19 @@
 
 - Çeviri aktifken sağ kısımdaki **Göz** ikonuna basıldığında tüm arayüz gizlenir, odak artar.
  <p align="center">
-  <img src="images/Screenshot_20261024_143645_Camera%20Translator.jpg" width="100%" alt="Camera Translator">
-</p>
+  <img src="images/Screenshot_20261024_143645_Camera Translator.jpg" width="100%" alt="Camera Translator">
+ </p>
 
 - 📺 **Ekran Çevirisi:** Türkçe çeviriyi, orijinal altyazının üzerine konumlandırılan siyah bir şerit üzerinde gösterir.
+ <p align="center">
+  <img src="images/Screenshot_20261024_144054_Camera Translator.jpg" width="100%" alt="Camera Translator">
+ </p>
+
+- Çeviri aktif edildiğinde **Göz** ikonuna basılarak tüm arayüz gizlenebilir.
+
+  <p align="center">
+  <img src="images/Screenshot_20261024_144218_Camera Translator.jpg" width="100%" alt="Camera Translator">
+ </p>
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
 - **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır.
