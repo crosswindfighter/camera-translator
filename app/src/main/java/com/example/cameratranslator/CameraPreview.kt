@@ -8,6 +8,9 @@ import android.view.Surface
 import android.view.WindowManager
 import android.content.Context
 import android.os.Build
+import android.hardware.camera2.CaptureRequest
+import androidx.camera.camera2.interop.Camera2CameraControl
+import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
@@ -44,6 +47,7 @@ fun CameraPreview(
     analyzer: ImageAnalysis.Analyzer,
     zoomLevel: Float = 1f,
     exposureIndex: Int = 0,
+    manualFocusValue: Float = 0f,
     onCameraReady: (Camera) -> Unit = {},
     onPreviewViewReady: (PreviewView) -> Unit = {}
 ) {
@@ -147,21 +151,21 @@ fun CameraPreview(
         }
     }
 
-    // Kamera Ayarlarını (Zoom ve Pozlama) Senkronize Et
-    LaunchedEffect(cameraInstance, zoomLevel, exposureIndex) {
+    // Kamera Ayarlarını (Zoom, Pozlama ve Manuel Odak) Senkronize Et
+    LaunchedEffect(cameraInstance, zoomLevel, exposureIndex, manualFocusValue) {
         val camera = cameraInstance ?: return@LaunchedEffect
         
         // 1. Değerler her değiştiğinde anında uygula
         camera.cameraControl.setZoomRatio(zoomLevel)
         camera.cameraControl.setExposureCompensationIndex(exposureIndex)
+        applyManualFocus(camera, manualFocusValue)
         
         // 2. Uygulama her foreground olduğunda (Resume) ayarları tazelemek için
-        // Bazı cihazlarda donanım seviyesindeki resetlemeyi önler.
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            // repeatOnLifecycle her Resume olduğunda bu bloğu tetikler
-            delay(200) // Donanımın hazır olması için kısa bir tolerans
+            delay(200)
             camera.cameraControl.setZoomRatio(zoomLevel)
             camera.cameraControl.setExposureCompensationIndex(exposureIndex)
+            applyManualFocus(camera, manualFocusValue)
         }
     }
 
@@ -169,6 +173,32 @@ fun CameraPreview(
         factory = { previewView },
         modifier = modifier
     )
+}
+
+private var lastAppliedFocus = -1f
+
+private fun applyManualFocus(camera: Camera, focusValue: Float) {
+    if (kotlin.math.abs(focusValue - lastAppliedFocus) < 0.012f && focusValue > 0.02f) return
+    lastAppliedFocus = focusValue
+
+    try {
+        val camera2Control = Camera2CameraControl.from(camera.cameraControl)
+        if (focusValue <= 0.02f) {
+            val options = CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
+                .build()
+            camera2Control.setCaptureRequestOptions(options)
+        } else {
+            val targetDiopters = (focusValue - 0.02f) * 10.0f
+            val options = CaptureRequestOptions.Builder()
+                .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
+                .setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, targetDiopters)
+                .build()
+            camera2Control.setCaptureRequestOptions(options)
+        }
+    } catch (e: Exception) {
+        Log.e("CameraPreview", "Manual focus error", e)
+    }
 }
 
 /**
