@@ -452,6 +452,8 @@ class MainActivity : ComponentActivity() {
         }
 
         var isExposureControlsVisible by rememberSaveable { mutableStateOf(false) }
+        var isFocusControlsVisible by rememberSaveable { mutableStateOf(false) }
+        var manualFocusValue by rememberSaveable { mutableFloatStateOf(0f) }
         var exposureRange by remember { mutableStateOf(-4..4) }
         var isStealthMode by rememberSaveable { mutableStateOf(false) }
 
@@ -470,6 +472,7 @@ class MainActivity : ComponentActivity() {
                     .pointerInput(Unit) {
                         detectTapGestures(onTap = {
                             isExposureControlsVisible = false
+                            isFocusControlsVisible = false
                         })
                     }
             ) {
@@ -480,6 +483,7 @@ class MainActivity : ComponentActivity() {
                         analyzer = analyzer,
                         zoomLevel = zoomLevel,
                         exposureIndex = exposureIndex,
+                        manualFocusValue = manualFocusValue,
                         onCameraReady = { camera ->
                             currentCamera = camera
                             val state = camera.cameraInfo.exposureState
@@ -553,18 +557,19 @@ class MainActivity : ComponentActivity() {
                     },
                     isExposureControlsVisible = isExposureControlsVisible,
                     onToggleExposureControls = {
+                        isFocusControlsVisible = false
                         isExposureControlsVisible = !isExposureControlsVisible
                     },
-                    onExposureIncrement = {
-                        if (exposureIndex < exposureRange.last) {
-                            onExposureChange(exposureIndex + 1)
-                        }
+                    exposureRange = exposureRange,
+                    exposureIndex = exposureIndex,
+                    onExposureIndexChange = onExposureChange,
+                    isFocusControlsVisible = isFocusControlsVisible,
+                    onToggleFocusControls = {
+                        isExposureControlsVisible = false
+                        isFocusControlsVisible = !isFocusControlsVisible
                     },
-                    onExposureDecrement = {
-                        if (exposureIndex > exposureRange.first) {
-                            onExposureChange(exposureIndex - 1)
-                        }
-                    },
+                    manualFocusValue = manualFocusValue,
+                    onManualFocusChange = { manualFocusValue = it },
                     onFocusRequest = { x: Float, y: Float ->
                         val camera = currentCamera
                         if (camera != null) {
