@@ -188,9 +188,13 @@ fun MainOverlay(
 
         // LAYER 2: Subtitle Display
         if (displayMode == DisplayMode.DEFAULT) {
-            // VARSAYILAN (SİNEMATİK ALTYAZI) MOD: Center Subtitle Overlay
+            val safeHorizontalPadding = if (isStealthMode) 24.dp else 72.dp
+
+            // VARSAYILAN (SİNEMATİK ALTYAZI) MOD: Center Subtitle Overlay with Invisible Wall Boundary
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = safeHorizontalPadding),
                 contentAlignment = Alignment.Center
             ) {
                 val effectiveFontSize = remember(currentTranslation, subtitleFontSize) {
@@ -212,7 +216,7 @@ fun MainOverlay(
                     }
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(0.88f)
+                            .fillMaxWidth()
                             .heightIn(max = 120.dp)
                             .align(Alignment.Center)
                             .offset(y = - (activeTextHeightDp / 2 + 68.dp))
@@ -249,7 +253,7 @@ fun MainOverlay(
                         textAlign = TextAlign.Center,
                         lineHeight = (effectiveFontSize * 1.15f).sp,
                         modifier = Modifier
-                            .fillMaxWidth(0.92f)
+                            .fillMaxWidth()
                             .align(Alignment.Center)
                             .onGloballyPositioned { coordinates ->
                                 val heightDp = with(density) { coordinates.size.height.toDp() }
