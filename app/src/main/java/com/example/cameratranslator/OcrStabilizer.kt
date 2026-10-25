@@ -8,7 +8,7 @@ import kotlin.math.min
 
 /**
  * Raw OCR → stabilizer → approved text.
- * OCR pipeline'ına dokunmaz; yalnızca onaylanmış metni yayınlar.
+ * Delivers approved OCR text instantly with zero lag for short and fast dialogue.
  */
 class OcrStabilizer(
     private val onConfirmed: (String) -> Unit
@@ -43,7 +43,7 @@ class OcrStabilizer(
 
     fun submit(raw: String) {
         val text = raw.replace(SPACES_REGEX, " ").trim()
-        if (text.length < 4) return
+        if (text.length < 2) return
 
         var approvedImmediately: String? = null
         synchronized(lock) {
@@ -65,7 +65,7 @@ class OcrStabilizer(
         val runnable = Runnable {
             var approved: String? = null
             synchronized(lock) {
-                if (candidate == expected && candidateHits >= 1 && candidate != null) {
+                if (candidate == expected && candidate != null) {
                     val currentConfirmed = confirmed
                     if (currentConfirmed == null || !similar(candidate!!, currentConfirmed)) {
                         approved = confirmLocked()
@@ -151,8 +151,7 @@ class OcrStabilizer(
 
     companion object {
         private const val TAG = "OCR_STABILIZER"
-        private const val REQUIRED_HITS = 2
-        private const val CONFIRM_DELAY_MS = 180L
+        private const val CONFIRM_DELAY_MS = 50L
         private const val SIMILARITY_THRESHOLD = 0.75f
 
         private val SPACES_REGEX = Regex("[\\s]+")
