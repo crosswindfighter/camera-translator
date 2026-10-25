@@ -2,12 +2,14 @@ package com.example.cameratranslator
 
 import android.content.res.Configuration
 import android.graphics.RectF
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,6 +26,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -56,8 +59,13 @@ fun MainOverlay(
     onToggleStealthMode: () -> Unit = {},
     isExposureControlsVisible: Boolean = false,
     onToggleExposureControls: () -> Unit = {},
-    onExposureIncrement: () -> Unit = {},
-    onExposureDecrement: () -> Unit = {},
+    exposureRange: IntRange = -4..4,
+    exposureIndex: Int = 0,
+    onExposureIndexChange: (Int) -> Unit = {},
+    isFocusControlsVisible: Boolean = false,
+    onToggleFocusControls: () -> Unit = {},
+    manualFocusValue: Float = 0f,
+    onManualFocusChange: (Float) -> Unit = {},
     onFocusRequest: (Float, Float) -> Unit = { _, _ -> },
     onNavigate: (Screen) -> Unit = {},
     isTrToEn: Boolean = false,
@@ -478,26 +486,44 @@ fun MainOverlay(
                 Text(if (isStealthMode) "👁️‍🗨️" else "👁️", fontSize = 24.sp)
             }
 
-            // 4. Exposure Control Sun Button (Hidden in Stealth Mode)
+            // 4. Exposure Control Sun Button
             if (!isStealthMode) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (isExposureControlsVisible) {
-                        IconButton(onClick = onExposureIncrement, modifier = Modifier.size(36.dp)) {
-                            Text("＋", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                    IconButton(onClick = onToggleExposureControls, modifier = Modifier.size(44.dp)) {
-                        Text("☀️", fontSize = 24.sp)
-                    }
-                    if (isExposureControlsVisible) {
-                        IconButton(onClick = onExposureDecrement, modifier = Modifier.size(36.dp)) {
-                            Text("－", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                IconButton(onClick = onToggleExposureControls, modifier = Modifier.size(44.dp)) {
+                    Text("☀️", fontSize = 24.sp)
                 }
             }
+
+            // 5. Manual Focus Control Button
+            if (!isStealthMode) {
+                IconButton(onClick = onToggleFocusControls, modifier = Modifier.size(44.dp)) {
+                    Text("🎯", fontSize = 22.sp)
+                }
+            }
+        }
+
+        // Floating Sliders Overlay (Fixed Anchors on Right, DOES NOT CAUSE TOOLBAR BUTTONS TO SHIFT OR JUMP!)
+        if (!isStealthMode && isExposureControlsVisible) {
+            VerticalSliderCard(
+                value = exposureIndex.toFloat(),
+                valueRange = exposureRange.first.toFloat()..exposureRange.last.toFloat(),
+                onValueChange = { onExposureIndexChange(it.roundToInt()) },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = dynamicEndPadding + 52.dp)
+                    .offset(y = 28.dp)
+            )
+        }
+
+        if (!isStealthMode && isFocusControlsVisible) {
+            VerticalSliderCard(
+                value = manualFocusValue,
+                valueRange = 0f..1f,
+                onValueChange = onManualFocusChange,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = dynamicEndPadding + 52.dp)
+                    .offset(y = 68.dp)
+            )
         }
 
         // Control Bar (Top-Center ONLY in Landscape orientation; Bottom-Center in Portrait for BOTH modes!)
@@ -572,5 +598,85 @@ fun MainOverlay(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun VerticalSliderCard(
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var componentHeightPx by remember { mutableFloatStateOf(1f) }
+    var internalValue by remember(value) { mutableFloatStateOf(value) }
+
+    val normalizedValue = remember(internalValue, valueRange) {
+        val range = valueRange.endInclusive - valueRange.start
+        if (range <= 0f) 0.5f else ((internalValue - valueRange.start) / range).coerceIn(0f, 1f)
+    }
+
+    Box(
+        modifier = modifier
+            .width(28.dp)
+            .height(125.dp)
+            .background(Color.Black.copy(alpha = 0.85f), RoundedCornerShape(14.dp))
+            .border(1.dp, Color.White.copy(alpha = 0.35f), RoundedCornerShape(14.dp))
+            .onGloballyPositioned { coordinates ->
+                if (coordinates.size.height > 0) {
+                    componentHeightPx = coordinates.size.height.toFloat()
+                }
+            }
+            .pointerInput(valueRange) {
+                detectVerticalDragGestures { change, dragAmount ->
+                    change.consume()
+                    val totalRange = valueRange.endInclusive - valueRange.start
+                    val deltaValue = (-dragAmount / componentHeightPx) * totalRange
+                    val newValue = (internalValue + deltaValue).coerceIn(valueRange.start, valueRange.endInclusive)
+                    internalValue = newValue
+                    onValueChange(newValue)
+                }
+            },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        val density = LocalDensity.current
+        val trackMarginDp = 12.dp
+        val trackMarginPx = with(density) { trackMarginDp.toPx() }
+        val availableTrackPx = remember(componentHeightPx, trackMarginPx) {
+            (componentHeightPx - (trackMarginPx * 2f)).coerceAtLeast(1f)
+        }
+        val currentKnobCenterPx = remember(normalizedValue, availableTrackPx, trackMarginPx) {
+            trackMarginPx + (normalizedValue * availableTrackPx)
+        }
+
+        // 1. Background Track Line
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = trackMarginDp)
+                .width(4.dp)
+                .height(with(density) { availableTrackPx.toDp() })
+                .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(2.dp))
+        )
+
+        // 2. Active Filled Blue Level Bar (Aligned EXACTLY to Knob Center!)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = trackMarginDp)
+                .width(4.dp)
+                .height(with(density) { (normalizedValue * availableTrackPx).toDp() })
+                .background(Color(0xFF2196F3), RoundedCornerShape(2.dp))
+        )
+
+        // 3. Cyan Knob Handle (Centered EXACTLY at currentKnobCenterPx!)
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .offset(y = with(density) { (-currentKnobCenterPx).toDp() + 5.dp })
+                .size(width = 18.dp, height = 10.dp)
+                .background(Color(0xFF00E5FF), RoundedCornerShape(5.dp))
+                .border(1.dp, Color.White, RoundedCornerShape(5.dp))
+        )
     }
 }
