@@ -1,6 +1,7 @@
 package com.example.cameratranslator
 
 import android.Manifest
+import android.content.res.Configuration
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -12,20 +13,31 @@ import androidx.camera.core.Camera
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.view.PreviewView
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import kotlinx.coroutines.delay
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -47,6 +59,12 @@ enum class Screen {
 
 class MainActivity : ComponentActivity() {
 
+    private data class OcrApiHistoryItem(
+        val rawText: String,
+        val normalizedText: String,
+        val timestamp: Long
+    )
+
     private val translationManager by lazy { TranslationManager() }
     private lateinit var speechManager: SpeechManager
     private var lastTranslatedSource: String? = null
@@ -54,6 +72,9 @@ class MainActivity : ComponentActivity() {
     private var translationJob: Job? = null
     private var currentCamera: Camera? = null
     private lateinit var settingsManager: SettingsManager
+
+    private val recentOcrApiHistory = mutableListOf<OcrApiHistoryItem>()
+    private var lastApiCallTime = 0L
 
     @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -105,6 +126,21 @@ class MainActivity : ComponentActivity() {
             var zoomLevel by rememberSaveable { mutableFloatStateOf(1f) }
             var exposureIndex by rememberSaveable { mutableIntStateOf(0) }
 
+            var isSplashVisible by remember { mutableStateOf(!hasShownAppLaunchSplash) }
+            val splashAlpha = remember { Animatable(if (!hasShownAppLaunchSplash) 1f else 0f) }
+
+            LaunchedEffect(Unit) {
+                if (isSplashVisible) {
+                    hasShownAppLaunchSplash = true
+                    delay(1200L) // Show opening logo full screen for 1.2s
+                    splashAlpha.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 500) // Smooth 500ms fade-out transition
+                    )
+                    isSplashVisible = false
+                }
+            }
+
             val isDark = when (currentAppTheme) {
                 AppTheme.LIGHT -> false
                 AppTheme.DARK -> true
@@ -112,10 +148,11 @@ class MainActivity : ComponentActivity() {
             }
 
             CameraTranslatorTheme(darkTheme = isDark) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = MaterialTheme.colorScheme.background
-                ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background
+                    ) {
                     when (currentScreen) {
                         Screen.CAMERA -> {
                             CameraContent(
@@ -256,10 +293,32 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+
+                    // Full-Screen Opening Cover Overlay (Adaptive: opening_logo.png in Portrait, opening_logo2.png in Landscape)
+                    if (isSplashVisible) {
+                        val configuration = LocalConfiguration.current
+                        val isLandscapeMode = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                        val openingCoverDrawable = if (isLandscapeMode) R.drawable.opening_logo2 else R.drawable.opening_logo
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer { alpha = splashAlpha.value }
+                                .background(Color.Black)
+                        ) {
+                            Image(
+                                painter = painterResource(id = openingCoverDrawable),
+                                contentDescription = "Opening Cover Logo",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
                 }
             }
         }
     }
+}
 
     @OptIn(ExperimentalPermissionsApi::class)
     @Composable
@@ -306,10 +365,21 @@ class MainActivity : ComponentActivity() {
 
         val stabilizer = remember {
             OcrStabilizer { confirmedText ->
-                if (isSimilarSourceText(confirmedText, lastTranslatedSource)) {
-                    Log.d(PIPELINE_TAG, "Skipping duplicate/similar OCR source before API call: '$confirmedText'")
+                val now = System.currentTimeMillis()
+
+                // QUOTA SHIELD: Is this OCR text duplicate/similar to recent API calls in last 10s or < 1.5s interval?
+                if (isApiCallDuplicateOrSimilar(confirmedText, now)) {
                     return@OcrStabilizer
                 }
+
+                // Record API call in quota shield history
+                lastApiCallTime = now
+                val normNew = normalizeForDeduplication(confirmedText)
+                if (recentOcrApiHistory.size >= 5) {
+                    recentOcrApiHistory.removeAt(0)
+                }
+                recentOcrApiHistory.add(OcrApiHistoryItem(confirmedText, normNew, now))
+
                 lastTranslatedSource = confirmedText
                 val timestamp = System.currentTimeMillis()
                 lastTranslationTimestamp.set(timestamp)
@@ -558,6 +628,53 @@ class MainActivity : ComponentActivity() {
             .trim()
     }
 
+    private fun isApiCallDuplicateOrSimilar(newRawText: String, now: Long): Boolean {
+        // 1. Enforce a mandatory minimum 350ms time gap between API calls for instant response!
+        if (now - lastApiCallTime < 350L) {
+            Log.d(PIPELINE_TAG, "API SHIELD: Throttled API call (< 350ms interval)")
+            return true
+        }
+
+        // 2. Remove items older than 12 seconds from history
+        recentOcrApiHistory.removeAll { (now - it.timestamp) > 12000L }
+
+        val normNew = normalizeForDeduplication(newRawText)
+        if (normNew.length < 2) return true
+
+        val wordsNew = normNew.split(" ").filter { it.length >= 3 }.toSet()
+
+        // 3. Check similarity & word overlap against ALL items in the 5-item history buffer
+        for (item in recentOcrApiHistory) {
+            val sim = computeSimilarity(normNew, item.normalizedText)
+
+            val wordsItem = item.normalizedText.split(" ").filter { it.length >= 3 }.toSet()
+            val commonWords = wordsNew.intersect(wordsItem)
+            val wordOverlapRatio = if (wordsNew.isNotEmpty()) commonWords.size.toFloat() / wordsNew.size.toFloat() else 0f
+
+            if (sim >= 0.50f || wordOverlapRatio >= 0.35f) { // High similarity or word overlap match found in last 12s!
+                Log.d(PIPELINE_TAG, "API SHIELD: Skipping API call, similar or word overlap to previous OCR in last 12s: '$newRawText'")
+                return true
+            }
+        }
+        return false
+    }
+
+    private fun computeSimilarity(a: String, b: String): Float {
+        if (a == b) return 1.0f
+        if (a.isEmpty() || b.isEmpty()) return 0.0f
+
+        val shorter = if (a.length <= b.length) a else b
+        val longer = if (a.length <= b.length) b else a
+
+        if (shorter.length >= 4 && longer.contains(shorter) && (shorter.length.toFloat() / longer.length.toFloat()) >= 0.65f) {
+            return 1.0f
+        }
+
+        val distance = levenshteinDistance(a, b)
+        val maxLength = kotlin.math.max(a.length, b.length)
+        return 1.0f - (distance.toFloat() / maxLength.toFloat())
+    }
+
     private fun isSimilarSourceText(textA: String, textB: String?): Boolean {
         if (textB.isNullOrBlank()) return false
         val normA = normalizeForDeduplication(textA)
@@ -612,5 +729,6 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val PIPELINE_TAG = "PIPELINE"
+        private var hasShownAppLaunchSplash = false
     }
 }
