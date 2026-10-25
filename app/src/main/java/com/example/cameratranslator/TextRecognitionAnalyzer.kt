@@ -24,11 +24,13 @@ import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /**
  * OCR kaynağı: ImageAnalysis frame'i değil, PreviewView bitmap'i.
  * Kullanıcının ekranda gördüğü görüntü = OCR'a giden görüntü (WYSIWYG).
+ * Temporal Min-Filter + Otsu Binarization ile hareketli asfalt dokularını otomatik temizler.
  */
 class TextRecognitionAnalyzer(
     private val onTextDetected: (String) -> Unit,
@@ -151,8 +153,9 @@ class TextRecognitionAnalyzer(
     }
 
     private fun upscaleForOcr(source: Bitmap): Bitmap {
-        val targetWidth = max(800, source.width * 2)
-        val scale = targetWidth.toFloat() / source.width.toFloat()
+        val scaleWidth = 800f / source.width.toFloat()
+        val scaleHeight = 200f / source.height.toFloat()
+        val scale = maxOf(2.5f, scaleWidth, scaleHeight)
         if (scale <= 1.1f) return source
 
         val width = (source.width * scale).roundToInt()
@@ -197,10 +200,10 @@ class TextRecognitionAnalyzer(
     private fun filterOcrNoise(text: String): String {
         val words = text.replace(SPACES_REGEX, " ").trim().split(SPACES_REGEX)
         val filteredWords = words.filter { word ->
-            // 1. Filter out words containing 2 OR MORE CONSECUTIVE UPPERCASE letters (e.g. PA, LA, OK, MENU, SETTINGS, ANKARA)
+            // 1. Filter out words containing 2 OR MORE CONSECUTIVE UPPERCASE letters (e.g. PA, LA, OK, MENU, SETTINGS, PAUSE, ANKARA)
             val has2PlusCaps = TWO_PLUS_CAPS_REGEX.containsMatchIn(word)
 
-            // 2. Filter out alphanumeric noise words where letters and numbers are directly attached (e.g. A10, A1, A2, A5000, 100X, B12)
+            // 2. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
             val hasAlphanumericNoise = ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
 
             // 3. Filter out unpronounceable OCR artifacts and gibberish noise words
@@ -259,7 +262,7 @@ class TextRecognitionAnalyzer(
     }
 
     private fun isPlausibleSubtitle(text: String): Boolean {
-        if (text.length < 4) return false
+        if (text.length < 2) return false
 
         val letters = text.count { it.isLetter() }
         if (letters < text.length * 0.45f) return false
