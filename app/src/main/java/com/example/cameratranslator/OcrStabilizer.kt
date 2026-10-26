@@ -1,33 +1,29 @@
 package com.example.cameratranslator
 
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
 import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Raw OCR → stabilizer → approved text.
- * Delivers approved OCR text instantly with zero lag for short and fast dialogue.
+ * Confirms a subtitle only after repeated, temporally stable OCR samples.
+ * Once confirmed, small OCR fluctuations are ignored until the subtitle clears
+ * or a different reading remains stable long enough to be a new subtitle.
  */
 class OcrStabilizer(
     private val onConfirmed: (String) -> Unit
 ) {
     private val lock = Any()
-    private val mainHandler = Handler(Looper.getMainLooper())
-
     private var confirmed: String? = null
     private var candidate: String? = null
     private var candidateHits = 0
-    private var confirmRunnable: Runnable? = null
+    private var candidateStartedAt = 0L
 
     fun reset() {
         synchronized(lock) {
-            confirmRunnable?.let { mainHandler.removeCallbacks(it) }
-            confirmRunnable = null
             confirmed = null
             candidate = null
             candidateHits = 0
+            candidateStartedAt = 0L
             Log.d(TAG, "Stabilizer fully reset")
         }
     }
@@ -38,6 +34,9 @@ class OcrStabilizer(
     fun notifyEmpty() {
         synchronized(lock) {
             confirmed = null
+            candidate = null
+            candidateHits = 0
+            candidateStartedAt = 0L
         }
     }
 
@@ -45,29 +44,50 @@ class OcrStabilizer(
         val text = raw.replace(SPACES_REGEX, " ").trim()
         if (text.length < 2) return
 
-        var approvedImmediately: String? = null
+        var approved: String? = null
         synchronized(lock) {
             val currentConfirmed = confirmed
             if (currentConfirmed != null && similar(text, currentConfirmed)) {
+                // OCR readings that fluctuate slightly while a subtitle remains visible
+                // belong to the already confirmed subtitle. Keep it locked.
+                candidate = null
+                candidateHits = 0
                 return
             }
 
-            candidate = text
-            approvedImmediately = confirmLocked()
+            if (candidate != null && similar(text, candidate!!)) {
+                candidateHits++
+                candidate = pickBetter(candidate!!, text)
+            } else {
+                candidate = text
+                candidateHits = 1
+                candidateStartedAt = System.currentTimeMillis()
+            }
+
+            val requiredHits = if (currentConfirmed == null) INITIAL_REQUIRED_HITS else NEXT_REQUIRED_HITS
+            val requiredDuration = if (currentConfirmed == null) INITIAL_STABLE_MS else NEXT_STABLE_MS
+            if (candidateHits >= requiredHits && System.currentTimeMillis() - candidateStartedAt >= requiredDuration) {
+                approved = confirmLocked()
+            }
         }
 
-        approvedImmediately?.let { onConfirmed(it) }
+        approved?.let { onConfirmed(it) }
     }
 
     private fun confirmLocked(): String {
-        confirmRunnable?.let { mainHandler.removeCallbacks(it) }
-        confirmRunnable = null
         val text = candidate ?: return ""
         confirmed = text
         candidate = null
         candidateHits = 0
+        candidateStartedAt = 0L
         Log.d(TAG, "Confirmed: \"$text\"")
         return text
+    }
+
+    private fun pickBetter(a: String, b: String): String {
+        val aScore = a.length + if (a.lastOrNull()?.let { it in ".?!" } == true) 4 else 0
+        val bScore = b.length + if (b.lastOrNull()?.let { it in ".?!" } == true) 4 else 0
+        return if (bScore > aScore) b else a
     }
 
     private fun similar(a: String, b: String): Boolean {
@@ -114,6 +134,11 @@ class OcrStabilizer(
 
     companion object {
         private const val TAG = "OCR_STABILIZER"
+        // Keep first subtitle latency low while still requiring repeated OCR evidence.
+        private const val INITIAL_REQUIRED_HITS = 2
+        private const val NEXT_REQUIRED_HITS = 2
+        private const val INITIAL_STABLE_MS = 0L
+        private const val NEXT_STABLE_MS = 0L
         private const val SIMILARITY_THRESHOLD = 0.75f
 
         private val SPACES_REGEX = Regex("\\s+")
