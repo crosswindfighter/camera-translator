@@ -634,30 +634,23 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isApiCallDuplicateOrSimilar(newRawText: String, now: Long): Boolean {
-        // 1. Enforce a mandatory minimum 350ms time gap between API calls for instant response!
-        if (now - lastApiCallTime < 350L) {
-            Log.d(PIPELINE_TAG, "API SHIELD: Throttled API call (< 350ms interval)")
+        // 1. Minimum 200ms time gap between API calls for INSTANT response!
+        if (now - lastApiCallTime < 200L) {
+            Log.d(PIPELINE_TAG, "API SHIELD: Throttled API call (< 200ms interval)")
             return true
         }
 
-        // 2. Remove items older than 12 seconds from history
-        recentOcrApiHistory.removeAll { (now - it.timestamp) > 12000L }
+        // 2. Remove items older than 10 seconds from history
+        recentOcrApiHistory.removeAll { (now - it.timestamp) > 10000L }
 
         val normNew = normalizeForDeduplication(newRawText)
         if (normNew.length < 2) return true
 
-        val wordsNew = normNew.split(" ").filter { it.length >= 3 }.toSet()
-
-        // 3. Check similarity & word overlap against ALL items in the 5-item history buffer
+        // 3. Check 82% Levenshtein similarity against ALL items in 5-item history buffer
         for (item in recentOcrApiHistory) {
             val sim = computeSimilarity(normNew, item.normalizedText)
-
-            val wordsItem = item.normalizedText.split(" ").filter { it.length >= 3 }.toSet()
-            val commonWords = wordsNew.intersect(wordsItem)
-            val wordOverlapRatio = if (wordsNew.isNotEmpty()) commonWords.size.toFloat() / wordsNew.size.toFloat() else 0f
-
-            if (sim >= 0.50f || wordOverlapRatio >= 0.35f) { // High similarity or word overlap match found in last 12s!
-                Log.d(PIPELINE_TAG, "API SHIELD: Skipping API call, similar or word overlap to previous OCR in last 12s: '$newRawText'")
+            if (sim >= 0.82f) {
+                Log.d(PIPELINE_TAG, "API SHIELD: Skipping duplicate API call: '$newRawText'")
                 return true
             }
         }
