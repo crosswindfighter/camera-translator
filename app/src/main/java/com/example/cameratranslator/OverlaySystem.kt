@@ -1,7 +1,6 @@
 package com.example.cameratranslator
 
 import android.content.res.Configuration
-import android.graphics.Bitmap
 import android.graphics.RectF
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
