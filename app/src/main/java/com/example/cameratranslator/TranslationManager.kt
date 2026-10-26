@@ -409,10 +409,6 @@ class CompositeTranslationEngine(
             syncStatus()
         }
     }
-
-    companion object {
-        private const val TAG = "TranslationManager"
-    }
 }
 
 class TranslationManager(
