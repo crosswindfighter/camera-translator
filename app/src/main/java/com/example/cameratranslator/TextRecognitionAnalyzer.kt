@@ -30,7 +30,6 @@ import kotlin.math.roundToInt
 /**
  * OCR kaynağı: ImageAnalysis frame'i değil, PreviewView bitmap'i.
  * Kullanıcının ekranda gördüğü görüntü = OCR'a giden görüntü (WYSIWYG).
- * Temporal Min-Filter + Otsu Binarization ile hareketli asfalt dokularını otomatik temizler.
  */
 class TextRecognitionAnalyzer(
     private val onTextDetected: (String) -> Unit,
