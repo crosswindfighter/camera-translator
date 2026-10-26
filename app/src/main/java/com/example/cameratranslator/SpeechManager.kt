@@ -6,7 +6,6 @@ import android.os.Handler
 import android.os.Looper
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import android.speech.tts.Voice
 import android.util.Base64
 import android.util.Log
 import android.widget.Toast
@@ -921,10 +920,6 @@ class SpeechManager(private val context: Context) : TextToSpeech.OnInitListener 
             speak(textToSpeak, isTrToEn)
             isEnabled = oldEnabled
         }
-    }
-
-    fun speakTest(isTrToEn: Boolean = false) {
-        speakCustomTest("", isTrToEn)
     }
 
     fun stop() {
