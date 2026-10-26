@@ -634,9 +634,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isApiCallDuplicateOrSimilar(newRawText: String, now: Long): Boolean {
-        // 1. Minimum 200ms time gap between API calls for INSTANT response!
-        if (now - lastApiCallTime < 200L) {
-            Log.d(PIPELINE_TAG, "API SHIELD: Throttled API call (< 200ms interval)")
+        // 1. Mandatory 1.5s (1500ms) interval between translations across ALL modes (Cloud, Free, Offline)!
+        if (now - lastApiCallTime < 1500L) {
+            Log.d(PIPELINE_TAG, "PIPELINE SHIELD: Throttled translation (< 1.5s interval)")
             return true
         }
 
@@ -646,11 +646,11 @@ class MainActivity : ComponentActivity() {
         val normNew = normalizeForDeduplication(newRawText)
         if (normNew.length < 2) return true
 
-        // 3. Check 82% Levenshtein similarity against ALL items in 5-item history buffer
+        // 3. Check 75% similarity against ALL items in 5-item history buffer
         for (item in recentOcrApiHistory) {
             val sim = computeSimilarity(normNew, item.normalizedText)
-            if (sim >= 0.82f) {
-                Log.d(PIPELINE_TAG, "API SHIELD: Skipping duplicate API call: '$newRawText'")
+            if (sim >= 0.75f) { // Similar match found in last 10s!
+                Log.d(PIPELINE_TAG, "PIPELINE SHIELD: Skipping duplicate/similar text in last 10s: '$newRawText'")
                 return true
             }
         }
