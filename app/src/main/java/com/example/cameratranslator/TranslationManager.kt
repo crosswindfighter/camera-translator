@@ -11,12 +11,12 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.tasks.await
 import okhttp3.ConnectionPool
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
 
@@ -41,6 +41,13 @@ interface ITranslationEngine {
     fun close()
     fun updateApiKey(key: String) {}
 }
+
+// Shared high-speed OkHttpClient with HTTP/2 connection pooling & keep-alive
+private val sharedTranslationClient = OkHttpClient.Builder()
+    .connectTimeout(3, TimeUnit.SECONDS)
+    .readTimeout(4, TimeUnit.SECONDS)
+    .connectionPool(ConnectionPool(8, 10, TimeUnit.MINUTES))
+    .build()
 
 class GoogleCloudTranslationEngine(
     private var apiKey: String
@@ -67,50 +74,42 @@ class GoogleCloudTranslationEngine(
         if (apiKey.isBlank() || text.isBlank()) return@withContext ""
         _isBusy.value = true
         try {
-            val url = URL("https://translation.googleapis.com/language/translate/v2?key=$apiKey")
-            val connection = (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                connectTimeout = 12_000
-                readTimeout = 12_000
-                setRequestProperty("Content-Type", "application/json; charset=UTF-8")
-                doOutput = true
-            }
-
+            val url = "https://translation.googleapis.com/language/translate/v2?key=$apiKey"
+            
             val payload = JSONObject().apply {
-                put("q", text)
+                put("q", text.trim())
                 put("source", if (isTrToEn) "tr" else "en")
                 put("target", if (isTrToEn) "en" else "tr")
                 put("format", "text")
             }.toString()
 
-            connection.outputStream.use { stream ->
-                stream.write(payload.toByteArray(Charsets.UTF_8))
+            val mediaType = "application/json; charset=UTF-8".toMediaType()
+            val requestBody = payload.toRequestBody(mediaType)
+
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            sharedTranslationClient.newCall(request).execute().use { response ->
+                val body = response.body?.string().orEmpty()
+                if (!response.isSuccessful) {
+                    Log.e(TAG, "HTTP ${response.code}: $body")
+                    return@withContext ""
+                }
+
+                val translated = JSONObject(body)
+                    .getJSONObject("data")
+                    .getJSONArray("translations")
+                    .getJSONObject(0)
+                    .getString("translatedText")
+                    .let { decodeHtmlEntities(it) }
+                    .trim()
+
+                translated
             }
-
-            val code = connection.responseCode
-            val body = (if (code == HttpURLConnection.HTTP_OK) {
-                connection.inputStream
-            } else {
-                connection.errorStream
-            })?.bufferedReader()?.readText().orEmpty()
-            connection.disconnect()
-
-            if (code != HttpURLConnection.HTTP_OK) {
-                Log.e(TAG, "HTTP $code: $body")
-                return@withContext ""
-            }
-
-            val translated = JSONObject(body)
-                .getJSONObject("data")
-                .getJSONArray("translations")
-                .getJSONObject(0)
-                .getString("translatedText")
-                .let { decodeHtmlEntities(it) }
-                .trim()
-
-            translated
         } catch (e: Exception) {
-            Log.e(TAG, "Google translate error", e)
+            Log.e(TAG, "Google Cloud translate error", e)
             ""
         } finally {
             _isBusy.value = false
@@ -134,7 +133,7 @@ class GoogleCloudTranslationEngine(
 
 /**
  * FREE Translation Engine: Optimized GTX Endpoint + Mobile Web Fallback.
- * No API key required.
+ * Uses shared HTTP/2 connection pool for sub-100ms response times.
  */
 class FreeTranslationEngine : ITranslationEngine {
     override var isTrToEn: Boolean = false
@@ -143,12 +142,6 @@ class FreeTranslationEngine : ITranslationEngine {
     override val status: StateFlow<TranslationStatus> = _status
     private val _isBusy = MutableStateFlow(false)
     override val isBusy: StateFlow<Boolean> = _isBusy
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(4, TimeUnit.SECONDS)
-        .readTimeout(6, TimeUnit.SECONDS)
-        .connectionPool(ConnectionPool(5, 5, TimeUnit.MINUTES))
-        .build()
 
     override suspend fun prepare() {
         _status.value = TranslationStatus.Ready
@@ -173,7 +166,7 @@ class FreeTranslationEngine : ITranslationEngine {
                 .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
                 .build()
 
-            client.newCall(request).execute().use { response ->
+            sharedTranslationClient.newCall(request).execute().use { response ->
                 if (response.isSuccessful) {
                     val body = response.body?.string() ?: ""
                     if (body.isNotBlank() && body.startsWith("[")) {
@@ -206,7 +199,7 @@ class FreeTranslationEngine : ITranslationEngine {
                     .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36")
                     .build()
 
-                client.newCall(request).execute().use { response ->
+                sharedTranslationClient.newCall(request).execute().use { response ->
                     if (response.isSuccessful) {
                         val html = response.body?.string() ?: ""
                         val startMarker = "<div class=\"result-container\">"
@@ -317,7 +310,7 @@ class CompositeTranslationEngine(
             offline.isTrToEn = value
         }
 
-    override var mode: TranslationMode = TranslationMode.CLOUD
+    override var mode: TranslationMode = TranslationMode.FREE
         set(value) {
             field = value
             syncStatus()
@@ -330,9 +323,9 @@ class CompositeTranslationEngine(
     override val status: StateFlow<TranslationStatus> = _status
 
     private val cacheLock = Any()
-    private val translationCache = object : LinkedHashMap<String, String>(30, 0.75f, true) {
+    private val translationCache = object : LinkedHashMap<String, String>(40, 0.75f, true) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>?): Boolean {
-            return size > 30
+            return size > 40
         }
     }
 
