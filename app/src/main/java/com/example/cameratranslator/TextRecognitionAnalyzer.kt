@@ -39,8 +39,6 @@ class TextRecognitionAnalyzer(
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
-    private var lastEmittedText = ""
-    private var lastReading = ""
     private var stabilizationJob: Job? = null
     private var emptyFrameCount = 0
 
@@ -68,8 +66,6 @@ class TextRecognitionAnalyzer(
     private fun resetStabilization(reason: String) {
         stabilizationJob?.cancel()
         stabilizationJob = null
-        lastEmittedText = ""
-        lastReading = ""
         emptyFrameCount = 0
         Log.d(TAG, "Stabilization reset ($reason)")
     }
@@ -172,8 +168,6 @@ class TextRecognitionAnalyzer(
     private fun handleEmptyResult(frameId: Long) {
         emptyFrameCount++
         if (emptyFrameCount >= EMPTY_RESET_THRESHOLD) {
-            lastEmittedText = ""
-            lastReading = ""
             stabilizationJob?.cancel()
             stabilizationJob = null
             onEmptyDetected()
@@ -213,27 +207,6 @@ class TextRecognitionAnalyzer(
         return filteredWords.joinToString(" ").trim()
     }
 
-    private fun compareKey(text: String): String {
-        return text.lowercase()
-            .replace(SPACES_REGEX, " ")
-            .replace(Regex("[^a-z0-9çğıöşü\\s]"), "")
-            .trim()
-    }
-
-    private fun isSimilarText(a: String, b: String): Boolean {
-        val keyA = compareKey(a)
-        val keyB = compareKey(b)
-        if (keyA == keyB) return true
-        if (keyA.isEmpty() || keyB.isEmpty()) return false
-
-        val shorter = if (keyA.length <= keyB.length) keyA else keyB
-        val longer = if (keyA.length <= keyB.length) keyB else keyA
-        if (longer.contains(shorter) && shorter.length.toFloat() / longer.length >= 0.75f) {
-            return true
-        }
-        return false
-    }
-
     private fun handleOcrResult(text: String, frameId: Long) {
         if (isPaused.get()) {
             Log.d(TAG, "Frame #$frameId ignored because analyzer is paused.")
@@ -246,17 +219,13 @@ class TextRecognitionAnalyzer(
 
         if (!isPlausibleSubtitle(cleaned)) {
             Log.d(TAG, "Frame #$frameId rejected: \"$cleaned\" (original: \"$text\")")
+            handleEmptyResult(frameId)
             return
         }
 
-        // DEDUPLICATION FIX: Ignore minor punctuation/space/case variations across consecutive frames!
-        if (isSimilarText(cleaned, lastReading) || isSimilarText(cleaned, lastEmittedText)) {
-            return
-        }
-
-        lastReading = cleaned
-        lastEmittedText = cleaned
-        Log.d(TAG, "Frame #$frameId emitting: \"$cleaned\"")
+        // Forward each plausible OCR sample. OcrStabilizer needs repeated frame
+        // evidence to distinguish a real subtitle from transient road texture.
+        if (frameId % 10 == 0L) Log.d(TAG, "Frame #$frameId sampling: \"$cleaned\"")
         onTextDetected(cleaned)
     }
 
