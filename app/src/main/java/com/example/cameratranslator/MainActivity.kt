@@ -21,8 +21,6 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.*
@@ -76,7 +74,6 @@ class MainActivity : ComponentActivity() {
     private val recentOcrApiHistory = mutableListOf<OcrApiHistoryItem>()
     private var lastApiCallTime = 0L
 
-    @OptIn(ExperimentalPermissionsApi::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -430,6 +427,7 @@ class MainActivity : ComponentActivity() {
                 onEmptyDetected = {
                     stabilizer.notifyEmpty()
                     lastTranslatedSource = null
+                    recentOcrApiHistory.clear()
                 }
             )
         }
@@ -634,26 +632,22 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun isApiCallDuplicateOrSimilar(newRawText: String, now: Long): Boolean {
-        // 1. Mandatory 1.5s (1500ms) interval between translations across ALL modes (Cloud, Free, Offline)!
-        if (now - lastApiCallTime < 1500L) {
-            Log.d(PIPELINE_TAG, "PIPELINE SHIELD: Throttled translation (< 1.5s interval)")
-            return true
-        }
-
-        // 2. Remove items older than 10 seconds from history
-        recentOcrApiHistory.removeAll { (now - it.timestamp) > 10000L }
-
         val normNew = normalizeForDeduplication(newRawText)
         if (normNew.length < 2) return true
 
-        // 3. Check 75% similarity against ALL items in 5-item history buffer
+        // 1. Remove items older than 12 seconds from history
+        recentOcrApiHistory.removeAll { (now - it.timestamp) > 12000L }
+
+        // 2. ANCHOR LOCK: Check if new text is duplicate/similar (>= 60% similarity) to current screen anchor
         for (item in recentOcrApiHistory) {
             val sim = computeSimilarity(normNew, item.normalizedText)
-            if (sim >= 0.75f) { // Similar match found in last 10s!
-                Log.d(PIPELINE_TAG, "PIPELINE SHIELD: Skipping duplicate/similar text in last 10s: '$newRawText'")
+            if (sim >= 0.60f) {
+                Log.d(PIPELINE_TAG, "ANCHOR LOCK: Skipping duplicate/similar text on screen: '$newRawText'")
                 return true
             }
         }
+
+        // NEW DISTINCT SENTENCE: Allow INSTANT translation on frame 1!
         return false
     }
 
