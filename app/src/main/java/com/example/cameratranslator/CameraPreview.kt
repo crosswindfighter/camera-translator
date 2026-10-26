@@ -32,9 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import android.os.SystemClock
 import kotlinx.coroutines.delay
@@ -80,7 +79,7 @@ fun CameraPreview(
         val listener = object : OrientationEventListener(context) {
             override fun onOrientationChanged(orientation: Int) {
                 val rotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    context.display?.rotation ?: Surface.ROTATION_0
+                    context.display.rotation
                 } else {
                     @Suppress("DEPRECATION")
                     (context.getSystemService(Context.WINDOW_SERVICE) as WindowManager).defaultDisplay.rotation
