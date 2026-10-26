@@ -293,10 +293,9 @@ class TextRecognitionAnalyzer(
     companion object {
         private const val TAG = "OCR_ANALYZER"
         private const val EMPTY_RESET_THRESHOLD = 3
-        private const val MAX_CONCURRENT_OCR = 2
 
         private val SPACES_REGEX = Regex("\\s+")
-        private val REJECT_PATTERN = Regex("[<>]{1,}|_{2,}|={2,}")
+        private val REJECT_PATTERN = Regex("[<>]+|_{2,}|={2,}")
         private val CAMEL_CASE_PATTERN = Regex("[a-z][A-Z]{2,}[a-z]")
 
         // Regex matching words with 2 or more consecutive uppercase letters (e.g. LA, OK, PA, MENU, SETTINGS, PAUSE, ANKARA)
