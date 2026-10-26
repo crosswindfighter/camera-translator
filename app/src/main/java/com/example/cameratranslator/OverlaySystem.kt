@@ -510,7 +510,7 @@ fun MainOverlay(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = dynamicEndPadding + 52.dp)
-                    .offset(y = 28.dp)
+                    .offset(y = 4.dp)
             )
         }
 
@@ -608,7 +608,9 @@ private fun VerticalSliderCard(
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var componentHeightPx by remember { mutableFloatStateOf(1f) }
+    val density = LocalDensity.current
+    val defaultHeightPx = with(density) { 125.dp.toPx() }
+    var componentHeightPx by remember { mutableFloatStateOf(defaultHeightPx) }
     var internalValue by remember(value) { mutableFloatStateOf(value) }
 
     val normalizedValue = remember(internalValue, valueRange) {
