@@ -59,25 +59,6 @@ class OcrStabilizer(
         approvedImmediately?.let { onConfirmed(it) }
     }
 
-    private fun scheduleConfirmLocked() {
-        confirmRunnable?.let { mainHandler.removeCallbacks(it) }
-        val expected = candidate
-        val runnable = Runnable {
-            var approved: String? = null
-            synchronized(lock) {
-                if (candidate == expected && candidate != null) {
-                    val currentConfirmed = confirmed
-                    if (currentConfirmed == null || !similar(candidate!!, currentConfirmed)) {
-                        approved = confirmLocked()
-                    }
-                }
-            }
-            approved?.let { onConfirmed(it) }
-        }
-        confirmRunnable = runnable
-        mainHandler.postDelayed(runnable, CONFIRM_DELAY_MS)
-    }
-
     private fun confirmLocked(): String {
         confirmRunnable?.let { mainHandler.removeCallbacks(it) }
         confirmRunnable = null
@@ -87,24 +68,6 @@ class OcrStabilizer(
         candidateHits = 0
         Log.d(TAG, "Confirmed: \"$text\"")
         return text
-    }
-
-    private fun pickBetter(a: String, b: String): String {
-        val aScore = score(a)
-        val bScore = score(b)
-        return when {
-            bScore > aScore -> b
-            aScore > bScore -> a
-            b.length > a.length -> b
-            else -> a
-        }
-    }
-
-    private fun score(text: String): Int {
-        var value = text.length
-        if (text.lastOrNull()?.let { it in ".?!" } == true) value += 8
-        value += text.count { it == ' ' } * 2
-        return value
     }
 
     private fun similar(a: String, b: String): Boolean {
@@ -151,9 +114,8 @@ class OcrStabilizer(
 
     companion object {
         private const val TAG = "OCR_STABILIZER"
-        private const val CONFIRM_DELAY_MS = 50L
         private const val SIMILARITY_THRESHOLD = 0.75f
 
-        private val SPACES_REGEX = Regex("[\\s]+")
+        private val SPACES_REGEX = Regex("\\s+")
     }
 }
