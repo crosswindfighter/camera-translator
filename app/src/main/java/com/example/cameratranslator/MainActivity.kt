@@ -79,6 +79,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         hideSystemBars()
 
+        GoogleApiAuth.init(this)
         settingsManager = SettingsManager(this)
         speechManager = SpeechManager(this)
         speechManager.setEnabled(settingsManager.getTtsEnabled())

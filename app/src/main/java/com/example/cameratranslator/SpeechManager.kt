@@ -16,6 +16,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelChildren
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.example.cameratranslator.GoogleApiAuth.googleApiKey
 import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -137,8 +138,8 @@ class SpeechManager(private val context: Context) : TextToSpeech.OnInitListener 
         if (apiKey.isBlank() || engineType != TtsEngineType.CLOUD_TTS) return
         cloudScope.launch {
             try {
-                val url = "https://texttospeech.googleapis.com/v1/voices?languageCode=tr-TR&key=$apiKey"
-                val request = Request.Builder().url(url).get().build()
+                val url = "https://texttospeech.googleapis.com/v1/voices?languageCode=tr-TR"
+                val request = Request.Builder().url(url).googleApiKey(apiKey).get().build()
                 httpClient.newCall(request).execute().use { /* Keep TLS socket active */ }
             } catch (_: Exception) {
                 // Silently ignore warm-up errors
@@ -154,8 +155,8 @@ class SpeechManager(private val context: Context) : TextToSpeech.OnInitListener 
                 val apiKey = ttsApiKey.trim()
                 if (apiKey.isNotBlank()) {
                     try {
-                        val url = "https://texttospeech.googleapis.com/v1/voices?languageCode=tr-TR&key=$apiKey"
-                        val request = Request.Builder().url(url).get().build()
+                        val url = "https://texttospeech.googleapis.com/v1/voices?languageCode=tr-TR"
+                        val request = Request.Builder().url(url).googleApiKey(apiKey).get().build()
                         httpClient.newCall(request).execute().use { /* Keep TLS socket permanently warm */ }
                     } catch (_: Exception) {}
                 }
@@ -574,9 +575,10 @@ class SpeechManager(private val context: Context) : TextToSpeech.OnInitListener 
                 })
             }.toString()
 
-            val url = "https://texttospeech.googleapis.com/v1/text:synthesize?key=$apiKey"
+            val url = "https://texttospeech.googleapis.com/v1/text:synthesize"
             val request = Request.Builder()
                 .url(url)
+                .googleApiKey(apiKey)
                 .post(jsonBody.toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .build()
 

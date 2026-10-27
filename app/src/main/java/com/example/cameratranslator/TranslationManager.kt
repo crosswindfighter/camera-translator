@@ -10,6 +10,7 @@ import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.tasks.await
+import com.example.cameratranslator.GoogleApiAuth.googleApiKey
 import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -74,7 +75,7 @@ class GoogleCloudTranslationEngine(
         if (apiKey.isBlank() || text.isBlank()) return@withContext ""
         _isBusy.value = true
         try {
-            val url = "https://translation.googleapis.com/language/translate/v2?key=$apiKey"
+            val url = "https://translation.googleapis.com/language/translate/v2"
             
             val payload = JSONObject().apply {
                 put("q", text.trim())
@@ -88,6 +89,7 @@ class GoogleCloudTranslationEngine(
 
             val request = Request.Builder()
                 .url(url)
+                .googleApiKey(apiKey)
                 .post(requestBody)
                 .build()
 
@@ -296,7 +298,7 @@ class MLKitTranslationEngine : ITranslationEngine {
 }
 
 class CompositeTranslationEngine(
-    apiKey: String = BuildConfig.GOOGLE_TRANSLATE_API_KEY,
+    apiKey: String = "",
     private val google: GoogleCloudTranslationEngine = GoogleCloudTranslationEngine(apiKey),
     private val free: ITranslationEngine = FreeTranslationEngine(),
     private val offline: ITranslationEngine = MLKitTranslationEngine()

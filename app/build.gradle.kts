@@ -3,16 +3,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-fun readLocalProperty(key: String): String {
-    val file = rootProject.file("local.properties")
-    if (!file.exists()) return ""
-    return file.readLines()
-        .firstOrNull { line -> line.startsWith("$key=") }
-        ?.substringAfter("=")
-        ?.trim()
-        .orEmpty()
-}
-
 android {
     namespace = "com.example.cameratranslator"
     compileSdk {
@@ -28,11 +18,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField(
-            "String",
-            "GOOGLE_TRANSLATE_API_KEY",
-            "\"${readLocalProperty("GOOGLE_TRANSLATE_API_KEY")}\""
-        )
+        // API anahtarı APK'ya gömülmez; kullanıcı Ayarlar ekranından girer.
+        // (APK'ya gömülen anahtar, APK açılarak herkes tarafından okunabilir.)
     }
 
     buildTypes {
