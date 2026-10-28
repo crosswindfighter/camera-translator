@@ -44,7 +44,8 @@ object UpdateChecker {
             val json = JSONObject(response.body?.string().orEmpty())
             ReleaseInfo(
                 version = json.getString("tag_name").trim().removePrefix("v").removePrefix("V"),
-                pageUrl = json.optString("html_url", RELEASES_PAGE),
+                // Sunucudan gelen adres tarayıcıda açılacağı için sadece bu reponun sayfalarına izin ver
+                pageUrl = json.optString("html_url", "").takeIf { it.startsWith("$RELEASES_PAGE/") } ?: RELEASES_PAGE,
                 notes = json.optString("body", "").trim()
             )
         }

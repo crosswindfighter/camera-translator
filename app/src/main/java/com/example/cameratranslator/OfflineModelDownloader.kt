@@ -61,19 +61,63 @@ object OfflineModelDownloader {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var job: Job? = null
     private var directory: File? = null
+    /** Eski konum (Android/data/...): Android 10 ve öncesinde başka uygulamalar değiştirebiliyordu. */
+    private var legacyDirectory: File? = null
 
     private val _state = MutableStateFlow<State>(State.NotInstalled)
     val state: StateFlow<State> = _state
 
+    /** Uygulamanın özel alanı: başka uygulamalar model dosyalarını okuyamaz/değiştiremez. */
+    fun modelDirectory(context: Context): File = File(context.filesDir, OpusTranslationEngine.MODEL_DIR_NAME)
+
     fun init(context: Context) {
-        directory = context.getExternalFilesDir(OpusTranslationEngine.MODEL_DIR_NAME)
-        if (job?.isActive != true) _state.value = if (isInstalled()) State.Installed else State.NotInstalled
+        directory = modelDirectory(context)
+        legacyDirectory = context.getExternalFilesDir(OpusTranslationEngine.MODEL_DIR_NAME)
+        if (job?.isActive == true) return
+        when {
+            isInstalled(directory) -> {
+                _state.value = State.Installed
+                legacyDirectory?.deleteRecursively()
+            }
+            isInstalled(legacyDirectory) -> migrateFromLegacy()
+            else -> _state.value = State.NotInstalled
+        }
     }
 
-    /** Elle kopyalanmış dosyalar da kabul edilir: tüm dosyalar doğru boyutta mı? */
-    private fun isInstalled(): Boolean {
-        val dir = directory ?: return false
+    /** Tüm dosyalar doğru boyutta mı? */
+    private fun isInstalled(dir: File? = directory): Boolean {
+        if (dir == null) return false
         return FILES.all { File(dir, it.name).let { f -> f.isFile && f.length() == it.size } }
+    }
+
+    /**
+     * Eski sürümün paylaşılan depolamaya indirdiği modeli özel alana taşır; tekrar
+     * indirmeye gerek kalmaz. Taşınan her dosya SHA-256 ile doğrulanır.
+     */
+    private fun migrateFromLegacy() {
+        val dir = directory ?: return
+        val legacy = legacyDirectory ?: return
+        job = scope.launch {
+            _state.value = State.Verifying
+            try {
+                dir.mkdirs()
+                for (file in FILES) {
+                    val part = File(dir, file.name + ".part")
+                    File(legacy, file.name).copyTo(part, overwrite = true)
+                    if (!sha256(part).equals(file.sha256, ignoreCase = true)) {
+                        part.delete()
+                        throw IllegalStateException("${file.name} doğrulanamadı")
+                    }
+                    if (!part.renameTo(File(dir, file.name))) throw IllegalStateException("${file.name} taşınamadı")
+                }
+                legacy.deleteRecursively()
+                _state.value = State.Installed
+            } catch (e: Exception) {
+                Log.e(TAG, "Legacy model migration failed", e)
+                dir.listFiles()?.forEach { it.delete() }
+                _state.value = State.NotInstalled
+            }
+        }
     }
 
     fun isOnMeteredNetwork(context: Context): Boolean {
@@ -109,6 +153,7 @@ object OfflineModelDownloader {
     fun delete() {
         job?.cancel()
         directory?.listFiles()?.forEach { it.delete() }
+        legacyDirectory?.deleteRecursively()
         _state.value = State.NotInstalled
     }
 

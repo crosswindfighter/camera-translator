@@ -2,12 +2,15 @@
 <!--
    Android 12+ için yedekleme / cihaz aktarım kuralları.
    app_settings.xml API anahtarlarını içerir; buluta veya başka cihaza aktarılmaz.
+   opus_en_tr/ 355 MB'lık OPUS modeli: yedek kotasını aşar, uygulamadan tekrar indirilebilir.
 -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="sharedpref" path="app_settings.xml" />
+        <exclude domain="file" path="opus_en_tr/" />
     </cloud-backup>
     <device-transfer>
         <exclude domain="sharedpref" path="app_settings.xml" />
+        <exclude domain="file" path="opus_en_tr/" />
     </device-transfer>
 </data-extraction-rules>

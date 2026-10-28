@@ -159,7 +159,9 @@ class MainActivity : ComponentActivity() {
             var showOpusPrompt by remember {
                 mutableStateOf(
                     !settingsManager.getOpusPromptShown() &&
-                        OfflineModelDownloader.state.value !is OfflineModelDownloader.State.Installed
+                        OfflineModelDownloader.state.value !is OfflineModelDownloader.State.Installed &&
+                        // eski konumdan taşınıyorsa model zaten var
+                        OfflineModelDownloader.state.value !is OfflineModelDownloader.State.Verifying
                 )
             }
 
@@ -422,8 +424,9 @@ class MainActivity : ComponentActivity() {
                             title = { Text("⚡ OPUS ile internetsiz çeviri") },
                             text = {
                                 Text(
-                                    "OPUS, çeviriyi tamamen telefonunuzda yapan yüksek kaliteli çeviri motorudur. " +
-                                        "Bir kez indirin ($totalMb MB), sonra internet, API anahtarı veya ücret olmadan çalışır.\n\n" +
+                                    "OPUS, çeviriyi tamamen telefonunuzda yapan ücretsiz bir çeviri motorudur. " +
+                                        "Bir kez indirin ($totalMb MB), sonra internet, API anahtarı veya ücret olmadan çalışır. " +
+                                        "Argo ve deyimlerde Google Translate kadar doğru olmayabilir.\n\n" +
                                         "İstemezseniz Google Translate ile de kullanabilirsiniz; OPUS'u daha sonra Ayarlar'dan indirebilirsiniz."
                                 )
                             },

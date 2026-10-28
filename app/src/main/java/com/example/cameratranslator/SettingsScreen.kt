@@ -79,7 +79,7 @@ private fun OfflineModelSection(
 
     Text("⚡ OPUS Çeviri Motoru", fontSize = 18.sp, fontWeight = FontWeight.Bold)
     Text(
-        "Bir kez indirin ($totalMb MB), sonra internet olmadan bile yüksek kaliteli İngilizce → Türkçe çeviri yapın. API anahtarı, kota veya ücret yok. Türkçe → İngilizce yönünde standart çevrimdışı motor kullanılır.",
+        "Bir kez indirin ($totalMb MB), sonra internet olmadan ücretsiz İngilizce → Türkçe çeviri yapın. API anahtarı, kota veya ücret yok. Argo ve deyimlerde Google Translate kadar doğru olmayabilir. Türkçe → İngilizce yönünde standart çevrimdışı motor kullanılır.",
         fontSize = 12.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )

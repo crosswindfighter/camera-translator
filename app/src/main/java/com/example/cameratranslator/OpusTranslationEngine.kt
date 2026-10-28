@@ -22,9 +22,9 @@ import java.text.Normalizer
  * OPUS çeviri motoru: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), ONNX int8.
  * Tamamen telefonda çalışır; internet, API anahtarı veya kota gerekmez.
  *
- * Model dosyaları (bilgisayarda hazırlanıp telefona kopyalanır):
- *   Android/data/com.example.cameratranslator/files/opus_en_tr/
- *     encoder_model.onnx, decoder_model_merged.onnx, source_pieces.tsv, vocab.json
+ * Model dosyaları OfflineModelDownloader ile uygulamanın özel alanına indirilir
+ * (filesDir/opus_en_tr/): encoder_model.onnx, decoder_model_merged.onnx,
+ * source_pieces.tsv, vocab.json
  *
  * Sadece İngilizce -> Türkçe. Ters yön için CompositeTranslationEngine ML Kit'e düşer.
  */
@@ -37,7 +37,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
     private val _isBusy = MutableStateFlow(false)
     override val isBusy: StateFlow<Boolean> = _isBusy
 
-    val modelDir: File? = context.getExternalFilesDir(MODEL_DIR_NAME)
+    val modelDir: File? = OfflineModelDownloader.modelDirectory(context)
 
     private val loadMutex = Mutex()
     private val runMutex = Mutex()

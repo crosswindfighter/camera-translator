@@ -126,13 +126,13 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "1. ⚡ OPUS (Önerilen — İnternetsiz, Yüksek Kalite):",
+                        text = "1. ⚡ OPUS (Varsayılan — İnternetsiz, Ücretsiz):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Uygulamanın ana çeviri motoru. Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT modeliyle (opus-mt-tc-big-en-tr) çeviri tamamen telefonunuzun içinde yapılır. Bir kez indirilir; sonrasında internet bağlantısı, API anahtarı, kota veya ücret olmadan, online servislere yakın kalitede ve anında çeviri yapar. Uçak modunda bile çalışır.",
+                        text = "Uygulamanın ana çeviri motoru. Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT modeliyle (opus-mt-tc-big-en-tr) çeviri tamamen telefonunuzun içinde yapılır. Bir kez indirilir; sonrasında internet bağlantısı, API anahtarı, kota veya ücret olmadan hızlıca çeviri yapar. Uçak modunda bile çalışır.\n\nGünlük diyaloglarda çoğunlukla anlaşılır çeviriler verir; ancak argo, deyimler ve OCR'ın hatalı okuduğu metinlerde hata yapabilir. Daha doğru çeviri istediğinizde Google Translate modunu kullanabilirsiniz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -320,7 +320,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Tek tıkla internetsiz ve yüksek kaliteli ⚡ OPUS ile ücretsiz online 🌐 Google Translate arasında geçiş yapmanızı sağlar. ☁️ Google Cloud, Ayarlar'dan açılırsa bu sıraya eklenir.",
+                        text = "Tek tıkla internetsiz ve ücretsiz ⚡ OPUS ile ücretsiz online 🌐 Google Translate arasında geçiş yapmanızı sağlar. ☁️ Google Cloud, Ayarlar'dan açılırsa bu sıraya eklenir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

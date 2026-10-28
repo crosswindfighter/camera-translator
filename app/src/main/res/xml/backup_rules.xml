@@ -2,7 +2,9 @@
 <!--
    Android 11 ve öncesi için yedekleme kuralları.
    app_settings.xml API anahtarlarını içerir; Google yedeğine gönderilmez.
+   opus_en_tr/ 355 MB'lık OPUS modeli: yedek kotasını aşar, uygulamadan tekrar indirilebilir.
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="app_settings.xml" />
+    <exclude domain="file" path="opus_en_tr/" />
 </full-backup-content>
