@@ -90,9 +90,11 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             _isBusy.value = true
             val startedAt = SystemClock.elapsedRealtime()
             try {
+                // OCR'ın eklediği şapkalı harfler (fúcker, Vēspucci) modelde <unk> oluyordu
+                val source = tokenizer?.cleanSource(text).orEmpty()
                 // Cümle cümle çevirmek, modelin çok cümleli altyazılarda ilk cümleyi
                 // atlamasını önlüyor (testte "Siktir, kanka." kayboluyordu).
-                val result = SENTENCE_SPLIT.split(text.trim())
+                val result = SENTENCE_SPLIT.split(source)
                     .filter { it.isNotBlank() }
                     .joinToString(" ") { translateSentence(it) }
                     .trim()
@@ -184,7 +186,8 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
         var best = 0
         var bestValue = Float.NEGATIVE_INFINITY
         for (i in 0 until logits.remaining()) {
-            if (i == PAD_ID) continue // HF generation_config: bad_words_ids = [[pad]]
+            // pad: HF generation_config bad_words_ids; unk: ekrana "<unk>" basılmasın
+            if (i == PAD_ID || i == UNK_ID) continue
             val v = logits.get(i)
             if (v > bestValue) {
                 bestValue = v
@@ -230,6 +233,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
 
         private const val PAD_ID = 57059
         private const val EOS_ID = 43741
+        private const val UNK_ID = 52508
 
         private val SENTENCE_SPLIT = Regex("(?<=[.!?])\\s+")
     }
@@ -246,6 +250,23 @@ private class MarianTokenizer(
 ) {
     private val maxPieceLength = pieceScores.keys.maxOf { it.length }
     private val unknownScore = pieceScores.values.min() - 10f
+    private val knownChars: Set<Char> = buildSet { pieceScores.keys.forEach { piece -> piece.forEach { add(it) } } }
+
+    /**
+     * OCR çıktısını modele uygun hale getirir: OCR'ın uydurduğu şapkalı harfler
+     * (fúcker, Vēspucci, thát) düz harfe çevrilir, tek başına "|" (yanlış okunmuş "I")
+     * düzeltilir, modelin hiç tanımadığı karakterler atılır. Aksi halde bunlar <unk>
+     * oluyor ve model ya "<unk>" basıyor ya da cümlenin bir kısmını atlıyordu.
+     */
+    fun cleanSource(text: String): String {
+        var t = text
+        for ((from, to) in CHAR_REPLACEMENTS) t = t.replace(from, to)
+        t = STANDALONE_PIPE.replace(t, "I")
+        t = COMBINING_MARKS.replace(Normalizer.normalize(t, Normalizer.Form.NFD), "")
+        val sb = StringBuilder(t.length)
+        for (c in t) sb.append(if (c in knownChars || c.isWhitespace()) c else ' ')
+        return sb.toString().trim().split(WHITESPACE).joinToString(" ")
+    }
 
     fun encode(text: String): LongArray {
         val normalized = Normalizer.normalize(text, Normalizer.Form.NFKC)
@@ -293,7 +314,7 @@ private class MarianTokenizer(
 
     fun decode(ids: List<Int>): String = buildString {
         for (id in ids) {
-            if (id == EOS_ID || id == PAD_ID) continue
+            if (id == EOS_ID || id == PAD_ID || id == UNK_ID) continue
             append(idToPiece.getOrNull(id) ?: continue)
         }
     }.replace(SPACE_MARK, " ").trim()
@@ -301,6 +322,12 @@ private class MarianTokenizer(
     companion object {
         private const val SPACE_MARK = "▁"
         private val WHITESPACE = Regex("\\s+")
+        private val COMBINING_MARKS = Regex("\\p{Mn}+")
+        private val STANDALONE_PIPE = Regex("(?<!\\S)\\|(?!\\S)")
+        // Model sözlüğünde olmayan, ama İngilizce karşılığı belli karakterler
+        private val CHAR_REPLACEMENTS = listOf(
+            "…" to "...", "ı" to "i", "ß" to "ss", "ø" to "o", "æ" to "ae", "ł" to "l", "đ" to "d"
+        )
         private const val UNK_ID = 52508
         private const val EOS_ID = 43741
         private const val PAD_ID = 57059
