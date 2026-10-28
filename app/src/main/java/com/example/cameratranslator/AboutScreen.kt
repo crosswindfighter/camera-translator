@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.cameratranslator.ui.theme.SectionCardStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,9 +35,11 @@ fun AboutScreen(onBack: () -> Unit) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Geri")
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = SectionCardStyle.screenBackground())
             )
-        }
+        },
+        containerColor = SectionCardStyle.screenBackground()
     ) { padding ->
         Column(
             modifier = Modifier
@@ -77,7 +80,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 modifier = Modifier.padding(top = 6.dp)
             ) {
                 Text(
-                    text = "v1.0.2",
+                    text = "v${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
@@ -90,7 +93,9 @@ fun AboutScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f)
+                color = SectionCardStyle.cardColor(darkAlpha = 0.35f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
             ) {
                 Text(
                     text = "Camera Translator, öncelikli olarak Xbox ve PlayStation oyuncuları için geliştirilmiş, istenildiği takdirde PC oyunlarında da kullanılabilen, ekrandaki İngilizce altyazıları ve metinleri gerçek zamanlı olarak Türkçeye çeviren ve seslendiren açık kaynaklı bir kamera çeviri uygulamasıdır.",
@@ -109,7 +114,9 @@ fun AboutScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
@@ -137,15 +144,38 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "3. Offline (İnternetsiz Çevrimdışı):",
+                        text = "3. Offline (Yüksek Kaliteli, İnternetsiz):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Google ML Kit teknolojisini kullanarak internet bağlantısına veya API anahtarına ihtiyaç duymadan %100 cihaz üzerinde çevrimdışı çalışır.",
+                        text = "Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT çeviri modeliyle (opus-mt-tc-big-en-tr) tamamen telefonunuzun içinde çalışır. İnternet bağlantısı, API anahtarı veya kullanım kotası gerektirmez; çeviri kalitesi online servislere yakındır ve çeviriler anında gelir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
+                    )
+                    Text(
+                        text = "Kurulum:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "1. Ayarlar → \"Offline+ Çeviri Modeli\" bölümünden İndir'e dokunun (355 MB, tek seferlik; Wi-Fi önerilir).\n" +
+                            "2. İndirme bitince dosyalar otomatik doğrulanır ve model kullanıma hazır olur. İndirme yarıda kesilirse kaldığı yerden devam eder.\n" +
+                            "3. Kamera ekranındaki çeviri yöntemi butonundan 📴 Offline'ı seçin. Model aktifken etikette yeşil \"📴 Offline+\" yazar.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                    Text(
+                        text = "Not: Bu model yalnızca İngilizce → Türkçe çeviri yapar. Dil yönü Türkçe → İngilizce seçildiğinde uygulama otomatik olarak Google ML Kit çevrimdışı motoruna geçer (etiket sarı \"📴 Offline\" olur) ve bu yönde çeviri kalitesi bir miktar düşer. Yön tekrar İngilizce → Türkçe yapıldığında yüksek kaliteli modele otomatik olarak geri dönülür. Model henüz indirilmemişse de ML Kit kullanılır.",
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "Model lisansı: CC-BY 4.0 — Helsinki-NLP / OPUS-MT, Tatoeba Challenge.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -158,7 +188,9 @@ fun AboutScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
@@ -207,7 +239,9 @@ fun AboutScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
@@ -244,7 +278,9 @@ fun AboutScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
@@ -266,7 +302,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce seslerine geçer.",
+                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce seslerine geçer. (Offline modunda bu yönde ML Kit kullanılır.)",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -278,7 +314,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Tek tıkla Google Translate (ücretsiz online), yüksek kalitede Google Cloud Translation ve cihaz içi Offline ML Kit motorları arasında hızlıca geçiş yapmanızı sağlar.",
+                        text = "Tek tıkla Google Translate (ücretsiz online), yüksek kalitede Google Cloud Translation ve internetsiz, yüksek kaliteli Offline (OPUS-MT) motorları arasında hızlıca geçiş yapmanızı sağlar.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -293,7 +329,9 @@ fun AboutScreen(onBack: () -> Unit) {
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 shape = RoundedCornerShape(16.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(

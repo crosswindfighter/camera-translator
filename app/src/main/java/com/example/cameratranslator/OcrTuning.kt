@@ -8,6 +8,9 @@ object OcrTuning {
     /** Beyaz altyazı filtresi: parlak/renksiz yazıyı bırakır, asfalt gibi dokulu arka planı siler. */
     @Volatile var textMaskEnabled: Boolean = true
 
-    /** OCR'a giden görüntüleri ve okunan metni telefona kaydeder (ayar yaparken teşhis için). */
+    /**
+     * OCR'a giden görüntüleri ve okunan metni telefona kaydeder (ayar yaparken teşhis için).
+     * Geliştirici aracı: sürümde arayüzden kaldırıldı, gerektiğinde buradan true yapılır.
+     */
     @Volatile var debugDumpEnabled: Boolean = false
 }

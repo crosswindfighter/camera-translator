@@ -29,7 +29,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.resume
 
 enum class TranslationMode {
-    CLOUD, FREE, OFFLINE, OFFLINE_PLUS
+    CLOUD, FREE, OFFLINE
 }
 
 sealed class TranslationStatus {
@@ -50,6 +50,10 @@ interface ITranslationEngine {
     fun updateApiKey(key: String) {}
     /** Ağ bağlantısını önceden ısıtır (çevrimiçi motorlar için). */
     fun warmUp() {}
+    /** Offline+ modeli indirildi/değişti: gerekiyorsa yeniden yükle. */
+    suspend fun reloadOfflineModel() {}
+    /** Offline+ modelini bellekten çıkar (dosyalar silinmeden önce). */
+    suspend fun releaseOfflineModel() {}
 }
 
 // Shared high-speed OkHttpClient with HTTP/2 connection pooling & keep-alive
@@ -400,9 +404,17 @@ class CompositeTranslationEngine(
             field = value
             syncStatus()
             if (switchedToFree) free.warmUp()
-            // ~350 MB'lık model sadece bu mod seçilince belleğe yüklenir
-            if (value == TranslationMode.OFFLINE_PLUS) scope.launch { offlinePlus?.prepare() }
+            // ~350 MB'lık Offline+ modeli sadece Offline modu seçilince belleğe yüklenir
+            // (model indirilmemişse prepare sessizce hata durumuna geçer, ML Kit kullanılır)
+            if (value == TranslationMode.OFFLINE) scope.launch { offlinePlus?.prepare() }
         }
+
+    /**
+     * Offline modunda hangi motor? Model hazırsa ve yön İngilizce -> Türkçe ise Offline+
+     * (OPUS-MT), aksi halde ML Kit. Yön değişince otomatik ve sessizce geçiş yapar.
+     */
+    private fun useOfflinePlus(): Boolean =
+        mode == TranslationMode.OFFLINE && !isTrToEn && offlinePlus?.isReady == true
 
     private val _isBusy = MutableStateFlow(false)
     override val isBusy: StateFlow<Boolean> = _isBusy
@@ -423,7 +435,7 @@ class CompositeTranslationEngine(
 
     private fun cacheKey(source: String): String {
         // Mod ve yön anahtarın parçası: başka motorun çevirisi bu moda sızmasın
-        return "${mode.name}|$isTrToEn|" + source.lowercase()
+        return "${mode.name}|$isTrToEn|${useOfflinePlus()}|" + source.lowercase()
             .replace(Regex("[^a-z0-9çğıöşü\\s]"), "")
             .replace(Regex("\\s+"), " ")
             .trim()
@@ -459,12 +471,23 @@ class CompositeTranslationEngine(
         if (mode == TranslationMode.FREE) free.warmUp()
     }
 
+    override suspend fun reloadOfflineModel() {
+        val plus = offlinePlus ?: return
+        plus.unload()
+        if (mode == TranslationMode.OFFLINE) plus.prepare()
+        syncStatus()
+    }
+
+    override suspend fun releaseOfflineModel() {
+        offlinePlus?.unload()
+        syncStatus()
+    }
+
     private fun syncStatus() {
         val currentEngine = when (mode) {
             TranslationMode.CLOUD -> google
             TranslationMode.FREE -> free
-            TranslationMode.OFFLINE -> offline
-            TranslationMode.OFFLINE_PLUS -> offlinePlus ?: offline
+            TranslationMode.OFFLINE -> if (useOfflinePlus()) offlinePlus ?: offline else offline
         }
         val newStatus = currentEngine.status.value
         if (_status.value != newStatus) {
@@ -489,12 +512,8 @@ class CompositeTranslationEngine(
                 free.translate(text)
             }
             TranslationMode.OFFLINE -> {
-                offline.translate(text)
-            }
-            TranslationMode.OFFLINE_PLUS -> {
-                // Model hazır değilse ya da Türkçe -> İngilizce yönündeysek ML Kit devralır
                 val plus = offlinePlus
-                if (plus != null && plus.isReady && !isTrToEn) {
+                if (plus != null && useOfflinePlus()) {
                     plus.translate(text).ifBlank { offline.translate(text) }
                 } else {
                     offline.translate(text)

@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -55,6 +57,7 @@ fun MainOverlay(
     onZoomChange: (Float) -> Unit,
     onOcrAreaChange: (RectF, Float, Float) -> Unit,
     translationMode: TranslationMode = TranslationMode.CLOUD,
+    isOfflinePlusActive: Boolean = false,
     onCycleTranslationMode: () -> Unit = {},
     displayMode: DisplayMode = DisplayMode.DEFAULT,
     showDisplayModeQuickSwitch: Boolean = false,
@@ -500,7 +503,13 @@ fun MainOverlay(
             // 5. Manual Focus Control Button
             if (!isStealthMode) {
                 IconButton(onClick = onToggleFocusControls, modifier = Modifier.size(44.dp)) {
-                    Text("🎯", fontSize = 22.sp)
+                    // Kameralardaki odak çerçevesi simgesi; panel açıkken vurgulu
+                    Icon(
+                        imageVector = Icons.Filled.CenterFocusStrong,
+                        contentDescription = "Manuel odak",
+                        tint = if (isFocusControlsVisible) Color(0xFFFFD54F) else Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
                 }
             }
         }
@@ -519,15 +528,40 @@ fun MainOverlay(
         }
 
         if (!isStealthMode && isFocusControlsVisible) {
-            VerticalSliderCard(
-                value = manualFocusValue,
-                valueRange = 0f..1f,
-                onValueChange = onManualFocusChange,
+            val isAutoFocus = manualFocusValue < AUTO_FOCUS_ZONE
+            Column(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .padding(end = dynamicEndPadding + 52.dp)
-                    .offset(y = 68.dp)
-            )
+                    .offset(y = 80.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // En alttaki yeşil bölge otomatik odak; oraya çekilince AUTO'ya oturur
+                VerticalSliderCard(
+                    value = manualFocusValue,
+                    valueRange = 0f..1f,
+                    onValueChange = { v -> onManualFocusChange(if (v < AUTO_FOCUS_ZONE) 0f else v) },
+                    autoZoneFraction = AUTO_FOCUS_ZONE
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .background(
+                            if (isAutoFocus) Color(0xFF2E7D32) else Color.Black.copy(alpha = 0.85f),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .border(1.dp, if (isAutoFocus) Color(0xFF7CFC00) else Color.White.copy(alpha = 0.35f), RoundedCornerShape(8.dp))
+                        .clickable { onManualFocusChange(0f) }
+                        .padding(horizontal = 5.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "AUTO",
+                        color = if (isAutoFocus) Color.White else Color.White.copy(alpha = 0.7f),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
 
         // Control Bar (Top-Center ONLY in Landscape orientation; Bottom-Center in Portrait for BOTH modes!)
@@ -590,8 +624,8 @@ fun MainOverlay(
                     val (text, color) = when (translationMode) {
                         TranslationMode.FREE -> "🌐 Google Translate" to Color.White
                         TranslationMode.CLOUD -> "☁️ Google Cloud" to Color.Cyan
-                        TranslationMode.OFFLINE -> "📴 Offline" to Color.Yellow
-                        TranslationMode.OFFLINE_PLUS -> "📴 Offline+" to Color(0xFF7CFC00)
+                        TranslationMode.OFFLINE ->
+                            if (isOfflinePlusActive) "📴 Offline+" to Color(0xFF7CFC00) else "📴 Offline" to Color.Yellow
                     }
                     Text(
                         text = text,
@@ -611,7 +645,9 @@ private fun VerticalSliderCard(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    /** >0 ise kaydırıcının alt kısmında bu oranda yeşil "otomatik" bölge çizilir. */
+    autoZoneFraction: Float = 0f
 ) {
     val density = LocalDensity.current
     val defaultHeightPx = with(density) { 125.dp.toPx() }
@@ -665,6 +701,18 @@ private fun VerticalSliderCard(
                 .height(with(density) { availableTrackPx.toDp() })
                 .background(Color.White.copy(alpha = 0.25f), RoundedCornerShape(2.dp))
         )
+
+        // 1b. Otomatik bölge (yeşil, izin en altında)
+        if (autoZoneFraction > 0f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = trackMarginDp)
+                    .width(8.dp)
+                    .height(with(density) { (autoZoneFraction * availableTrackPx).toDp() })
+                    .background(Color(0xFF7CFC00).copy(alpha = 0.8f), RoundedCornerShape(3.dp))
+            )
+        }
 
         // 2. Active Filled Blue Level Bar (Aligned EXACTLY to Knob Center!)
         Box(

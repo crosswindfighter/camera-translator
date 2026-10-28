@@ -5,6 +5,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
+import com.example.cameratranslator.ui.theme.SectionCardStyle
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
@@ -44,14 +45,215 @@ private fun SettingsBlockCard(
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+        color = SectionCardStyle.cardColor(darkAlpha = 0.45f),
+        border = SectionCardStyle.cardBorder(),
+        shadowElevation = SectionCardStyle.cardShadow()
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             content = content
         )
+    }
+}
+
+@Composable
+private fun OfflineModelSection(
+    state: OfflineModelDownloader.State,
+    onDownload: () -> Unit,
+    onCancel: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val context = LocalContext.current
+    val totalMb = OfflineModelDownloader.totalBytes / 1_000_000
+    var showMeteredDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+
+    val startDownload: () -> Unit = {
+        if (OfflineModelDownloader.isOnMeteredNetwork(context)) {
+            showMeteredDialog = true
+        } else {
+            onDownload()
+        }
+    }
+
+    Text("📴 Offline+ Çeviri Modeli", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Text(
+        "İnternetsiz, yüksek kaliteli İngilizce → Türkçe çeviri. Bir kere indirilir ($totalMb MB). Yüklüyse Offline modu bunu kullanır; Türkçe → İngilizce yönünde standart Offline motoru devreye girer.",
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    when (state) {
+        is OfflineModelDownloader.State.NotInstalled -> {
+            Button(onClick = startDownload, modifier = Modifier.fillMaxWidth()) {
+                Text("İndir ($totalMb MB)")
+            }
+        }
+        is OfflineModelDownloader.State.Downloading -> {
+            LinearProgressIndicator(progress = { state.progress }, modifier = Modifier.fillMaxWidth())
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "%${(state.progress * 100).toInt()} • ${state.downloadedBytes / 1_000_000} / $totalMb MB",
+                    fontSize = 13.sp
+                )
+                OutlinedButton(onClick = onCancel) { Text("İptal") }
+            }
+        }
+        is OfflineModelDownloader.State.Verifying -> {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text("Dosyalar doğrulanıyor...", fontSize = 13.sp)
+        }
+        is OfflineModelDownloader.State.Installed -> {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("✅ Yüklü — Offline modunda otomatik kullanılır", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                TextButton(onClick = { showDeleteDialog = true }) { Text("Sil") }
+            }
+        }
+        is OfflineModelDownloader.State.Failed -> {
+            Text("⚠️ ${state.message}", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+            Button(onClick = startDownload, modifier = Modifier.fillMaxWidth()) {
+                Text("Tekrar dene (kaldığı yerden devam eder)")
+            }
+        }
+    }
+
+    Text(
+        "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), CC-BY 4.0",
+        fontSize = 11.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    if (showMeteredDialog) {
+        AlertDialog(
+            onDismissRequest = { showMeteredDialog = false },
+            title = { Text("Mobil veri") },
+            text = { Text("Wi-Fi'a bağlı değilsiniz. Model $totalMb MB; mobil veriyle indirmek istiyor musunuz?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showMeteredDialog = false
+                    onDownload()
+                }) { Text("İndir") }
+            },
+            dismissButton = { TextButton(onClick = { showMeteredDialog = false }) { Text("Vazgeç") } }
+        )
+    }
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Modeli sil") },
+            text = { Text("Offline+ modeli silinsin mi? Tekrar kullanmak için yeniden indirmeniz gerekir ($totalMb MB).") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showDeleteDialog = false
+                    onDelete()
+                }) { Text("Sil") }
+            },
+            dismissButton = { TextButton(onClick = { showDeleteDialog = false }) { Text("Vazgeç") } }
+        )
+    }
+}
+
+private sealed class UpdateCheckState {
+    object Idle : UpdateCheckState()
+    object Checking : UpdateCheckState()
+    object UpToDate : UpdateCheckState()
+    data class Available(val release: UpdateChecker.ReleaseInfo) : UpdateCheckState()
+    object Failed : UpdateCheckState()
+}
+
+@Composable
+private fun UpdatesSection() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var state by remember { mutableStateOf<UpdateCheckState>(UpdateCheckState.Idle) }
+
+    fun openPage(url: String) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            Log.e("SettingsScreen", "Error opening GitHub releases link", e)
+        }
+    }
+
+    Text("Güncellemeler", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Text(
+        text = "Yüklü sürüm: v${UpdateChecker.currentVersion}. Yeni bir sürüm yayınlandığında uygulama açılışta sizi bir kez bilgilendirir; dilediğiniz zaman buradan da kontrol edebilirsiniz.",
+        fontSize = 13.sp,
+        lineHeight = 20.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+
+    when (val s = state) {
+        is UpdateCheckState.Available -> {
+            Text(
+                "🎉 Yeni sürüm mevcut: v${s.release.version}",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
+            )
+            Button(
+                onClick = { openPage(s.release.pageUrl) },
+                modifier = Modifier.fillMaxWidth().height(46.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Yeni sürümü indir", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        is UpdateCheckState.UpToDate ->
+            Text("✅ En güncel sürümü kullanıyorsunuz.", fontSize = 14.sp)
+        is UpdateCheckState.Failed ->
+            Text(
+                "⚠️ Kontrol edilemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.",
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.error
+            )
+        else -> Unit
+    }
+
+    if (state !is UpdateCheckState.Available) {
+        OutlinedButton(
+            onClick = {
+                state = UpdateCheckState.Checking
+                scope.launch {
+                    state = try {
+                        val latest = UpdateChecker.fetchLatest()
+                        if (UpdateChecker.isNewer(latest.version, UpdateChecker.currentVersion)) {
+                            UpdateCheckState.Available(latest)
+                        } else {
+                            UpdateCheckState.UpToDate
+                        }
+                    } catch (e: Exception) {
+                        Log.w("SettingsScreen", "Update check failed: ${e.message}")
+                        UpdateCheckState.Failed
+                    }
+                }
+            },
+            enabled = state !is UpdateCheckState.Checking,
+            modifier = Modifier.fillMaxWidth().height(46.dp),
+            shape = RoundedCornerShape(12.dp)
+        ) {
+            if (state is UpdateCheckState.Checking) {
+                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                Spacer(modifier = Modifier.width(10.dp))
+                Text("Kontrol ediliyor...", fontSize = 14.sp)
+            } else {
+                Text("Güncellemeleri kontrol et 🔄", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+
+    TextButton(onClick = { openPage(UpdateChecker.RELEASES_PAGE) }, modifier = Modifier.fillMaxWidth()) {
+        Text("Tüm sürümleri GitHub'da gör", fontSize = 13.sp)
     }
 }
 
@@ -65,7 +267,10 @@ fun SettingsScreen(
     currentDisplayMode: DisplayMode = DisplayMode.DEFAULT,
     showDisplayModeQuickSwitch: Boolean = false,
     isOcrTextMaskEnabled: Boolean = true,
-    isOcrDebugEnabled: Boolean = false,
+    offlineModelState: OfflineModelDownloader.State = OfflineModelDownloader.State.NotInstalled,
+    onDownloadOfflineModel: () -> Unit = {},
+    onCancelOfflineModelDownload: () -> Unit = {},
+    onDeleteOfflineModel: () -> Unit = {},
     isTtsEnabled: Boolean = false,
     currentTtsEngineType: TtsEngineType = TtsEngineType.NATIVE,
     speechRate: Float = 1.15f,
@@ -80,7 +285,6 @@ fun SettingsScreen(
     onDisplayModeChange: (DisplayMode) -> Unit = {},
     onShowDisplayModeQuickSwitchChange: (Boolean) -> Unit = {},
     onOcrTextMaskEnabledChange: (Boolean) -> Unit = {},
-    onOcrDebugEnabledChange: (Boolean) -> Unit = {},
     onApiKeySave: (String) -> Unit,
     onTtsApiKeySave: (String) -> Unit = {},
     onTtsEnabledChange: (Boolean) -> Unit = {},
@@ -136,11 +340,12 @@ fun SettingsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
+                    containerColor = SectionCardStyle.screenBackground(),
                     titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
+        containerColor = SectionCardStyle.screenBackground(),
         modifier = Modifier.imePadding()
     ) { padding ->
         Column(
@@ -157,7 +362,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -218,7 +423,7 @@ fun SettingsScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
                         .padding(4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
@@ -263,6 +468,16 @@ fun SettingsScreen(
                 }
             }
 
+            // BLOCK: Offline+ Çeviri Modeli
+            SettingsBlockCard {
+                OfflineModelSection(
+                    state = offlineModelState,
+                    onDownload = onDownloadOfflineModel,
+                    onCancel = onCancelOfflineModelDownload,
+                    onDelete = onDeleteOfflineModel
+                )
+            }
+
             // BLOCK: Metin Okuma (OCR)
             SettingsBlockCard {
                 Text("Metin Okuma (OCR)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -275,7 +490,7 @@ fun SettingsScreen(
                     Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                         Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                         Text(
-                            "Asfalt gibi dokulu arka planları silip yalnızca beyaz altyazıyı okur. Renkli altyazılı oyunlarda kapatın.",
+                            "Arka planı (siyah kutusu) olmayan beyaz altyazılarda kelimeler bozuk veya hatalı okunuyorsa açmanız önerilir. Yalnızca beyaz altyazılarda etkilidir.",
                             fontSize = 12.sp,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -283,27 +498,6 @@ fun SettingsScreen(
                     Switch(
                         checked = isOcrTextMaskEnabled,
                         onCheckedChange = { onOcrTextMaskEnabledChange(it) }
-                    )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text("OCR debug kaydı", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Text(
-                            "OCR'ın gördüğü görüntüleri kaydeder: Android/data/com.example.cameratranslator/files/ocr_debug",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isOcrDebugEnabled,
-                        onCheckedChange = { onOcrDebugEnabledChange(it) }
                     )
                 }
             }
@@ -332,7 +526,7 @@ fun SettingsScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                    .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
                                     .padding(4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
@@ -511,7 +705,7 @@ fun SettingsScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                    .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
                                     .padding(4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
@@ -570,7 +764,7 @@ fun SettingsScreen(
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(12.dp))
+                                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
                                         .clickable { isVoiceDialogVisible = true }
                                         .padding(16.dp)
                                 ) {
@@ -914,33 +1108,7 @@ fun SettingsScreen(
 
             // BLOCK 6: Güncellemeler (Updates)
             SettingsBlockCard {
-                Text("Güncellemeler", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                
-                Text(
-                    text = "Uygulamanın yeni sürümlerini ve güncellemelerini GitHub sayfamız üzerinden manuel olarak takip edip indirebilirsiniz.",
-                    fontSize = 13.sp,
-                    lineHeight = 20.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedButton(
-                    onClick = {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/crosswindfighter/camera-translator/releases"))
-                            context.startActivity(intent)
-                        } catch (e: Exception) {
-                            Log.e("SettingsScreen", "Error opening GitHub releases link", e)
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth().height(46.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(
-                        text = "GitHub'da Sürümleri İncele 🚀",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
+                UpdatesSection()
             }
         }
     }

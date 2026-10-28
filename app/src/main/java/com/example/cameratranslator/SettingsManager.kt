@@ -82,12 +82,21 @@ class SettingsManager(context: Context) {
         return prefs.getBoolean("ocr_text_mask_enabled", true)
     }
 
-    fun saveOcrDebugEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean("ocr_debug_enabled", enabled).apply()
+    fun saveLastUpdateCheckAt(timeMillis: Long) {
+        prefs.edit().putLong("last_update_check_at", timeMillis).apply()
     }
 
-    fun getOcrDebugEnabled(): Boolean {
-        return prefs.getBoolean("ocr_debug_enabled", false)
+    fun getLastUpdateCheckAt(): Long {
+        return prefs.getLong("last_update_check_at", 0L)
+    }
+
+    /** Açılışta "yeni sürüm" penceresi gösterilmiş son sürüm (aynı sürüm için tekrar sorulmaz). */
+    fun savePromptedUpdateVersion(version: String) {
+        prefs.edit().putString("prompted_update_version", version).apply()
+    }
+
+    fun getPromptedUpdateVersion(): String {
+        return prefs.getString("prompted_update_version", "") ?: ""
     }
 
     // Independent Subtitle Font Size for Default Mode vs Screen Mode
@@ -113,6 +122,8 @@ class SettingsManager(context: Context) {
 
     fun getTranslationMode(): TranslationMode {
         val modeName = prefs.getString("translation_mode", TranslationMode.FREE.name) ?: TranslationMode.FREE.name
+        // Eski ayrı "Offline+" modu artık Offline modunun içinde
+        if (modeName == "OFFLINE_PLUS") return TranslationMode.OFFLINE
         return try {
             TranslationMode.valueOf(modeName)
         } catch (e: Exception) {

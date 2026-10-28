@@ -13,7 +13,7 @@
 ### 🌐 3 Farklı Çeviri Yöntemi
 - 🌐 **Google Translate:** İnternet üzerinden ücretsiz Google Translate altyazı çevirisi.
 - ☁️ **Google Cloud:** Google Cloud Translation altyapısıyla **yüksek kalite** ve hızlı çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır. Çevrimiçi bağlantı ve API gerektirir.
-- 📴 **Offline:** Google ML Kit teknolojisiyle internete ihtiyaç duymadan cihaz üzerinde çevrimdışı çalışma.
+- 📴 **Offline:** Helsinki Üniversitesi'nin [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) modeliyle tamamen telefonda, internetsiz, API anahtarsız ve kotasız **yüksek kaliteli** İngilizce → Türkçe çeviri. Model, uygulamanın Ayarlar ekranından bir kez indirilir (355 MB). Türkçe → İngilizce yönünde ve model indirilmemişken Google ML Kit çevrimdışı motoru kullanılır (bu durumda çeviri kalitesi bir miktar düşer).
 
 ### 🔊 Sesli Okuma & Altyazı Seslendirme (Dublaj)
 - **Dahili Ses Motoru:** Google Translate tabanlı ücretsiz çevrimiçi seslendirme sunar.
@@ -87,3 +87,5 @@ Bu lisans kapsamında kaynak kodu kullanılabilir, kopyalanabilir, değiştirile
 Lisansın tam metni için [LICENSE.md](LICENSE.md) dosyasına bakabilirsiniz.
 
 Üçüncü taraf kütüphaneler ve hizmetler kendi lisans ve kullanım koşullarına tabidir.
+
+**Offline+ çeviri modeli:** [Helsinki-NLP/opus-mt-tc-big-en-tr](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) (Tiedemann & Thottingal, OPUS-MT / Tatoeba Challenge), [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) lisansıyla. Uygulamanın indirdiği dosyalar bu modelin ONNX formatına çevrilmiş ve 8-bit sıkıştırılmış halidir; dönüştürme betikleri [tools/offline_model](tools/offline_model) klasöründedir. Model, [ONNX Runtime](https://onnxruntime.ai/) (MIT) ile çalıştırılır.

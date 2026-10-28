@@ -1,7 +1,9 @@
 package com.example.cameratranslator
 
 import android.Manifest
+import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -21,8 +23,11 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
@@ -84,8 +89,8 @@ class MainActivity : ComponentActivity() {
         GoogleApiAuth.init(this)
         settingsManager = SettingsManager(this)
         OcrDebugDumper.init(this)
+        OfflineModelDownloader.init(this)
         OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
-        OcrTuning.debugDumpEnabled = settingsManager.getOcrDebugEnabled()
         speechManager = SpeechManager(this)
         speechManager.setEnabled(settingsManager.getTtsEnabled())
         speechManager.setSpeechRate(settingsManager.getSpeechRate())
@@ -104,13 +109,23 @@ class MainActivity : ComponentActivity() {
             translationManager.prepare()
         }
 
+        // Offline+ modeli indirme bitince (Offline modu seçiliyse) hemen kullanılabilir olsun
+        lifecycleScope.launch {
+            var wasInstalled = OfflineModelDownloader.state.value is OfflineModelDownloader.State.Installed
+            OfflineModelDownloader.state.collect { state ->
+                val installed = state is OfflineModelDownloader.State.Installed
+                if (installed && !wasInstalled) translationManager.reloadOfflineModel()
+                wasInstalled = installed
+            }
+        }
+
         setContent {
             var currentScreen by rememberSaveable { mutableStateOf(Screen.CAMERA) }
+            val offlineModelState by OfflineModelDownloader.state.collectAsStateWithLifecycle()
             var currentAppTheme by remember { mutableStateOf(settingsManager.getTheme()) }
             var displayMode by remember { mutableStateOf(settingsManager.getDisplayMode()) }
             var showDisplayModeQuickSwitch by remember { mutableStateOf(settingsManager.getShowDisplayModeQuickSwitch()) }
             var isOcrTextMaskEnabled by remember { mutableStateOf(OcrTuning.textMaskEnabled) }
-            var isOcrDebugEnabled by remember { mutableStateOf(OcrTuning.debugDumpEnabled) }
             var subtitleFontSizeDefault by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeDefault()) }
             var subtitleFontSizeScreen by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeScreen()) }
 
@@ -130,6 +145,14 @@ class MainActivity : ComponentActivity() {
             // Retain Zoom & Exposure state across screen navigation and orientation changes
             var zoomLevel by rememberSaveable { mutableFloatStateOf(1f) }
             var exposureIndex by rememberSaveable { mutableIntStateOf(0) }
+            // Odak: ekranlar arası (Ayarlar/Hakkında) korunur; uygulama tamamen kapanınca
+            // diske yazılmadığı için tekrar 0 = otomatik odakla başlar
+            var manualFocusValue by rememberSaveable { mutableFloatStateOf(0f) }
+
+            var availableUpdate by remember { mutableStateOf<UpdateChecker.ReleaseInfo?>(null) }
+            LaunchedEffect(Unit) {
+                availableUpdate = UpdateChecker.checkOnLaunch(settingsManager)
+            }
 
             var isSplashVisible by remember { mutableStateOf(!hasShownAppLaunchSplash) }
             val splashAlpha = remember { Animatable(if (!hasShownAppLaunchSplash) 1f else 0f) }
@@ -165,6 +188,8 @@ class MainActivity : ComponentActivity() {
                                 exposureIndex = exposureIndex,
                                 onZoomChange = { zoomLevel = it },
                                 onExposureChange = { exposureIndex = it },
+                                manualFocusValue = manualFocusValue,
+                                onManualFocusChange = { manualFocusValue = it },
                                 isTrToEn = isTrToEn,
                                 isTtsEnabled = isTtsEnabled,
                                 subtitleFontSize = activeSubtitleFontSize,
@@ -190,7 +215,15 @@ class MainActivity : ComponentActivity() {
                                 currentDisplayMode = displayMode,
                                 showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
                                 isOcrTextMaskEnabled = isOcrTextMaskEnabled,
-                                isOcrDebugEnabled = isOcrDebugEnabled,
+                                offlineModelState = offlineModelState,
+                                onDownloadOfflineModel = { OfflineModelDownloader.start() },
+                                onCancelOfflineModelDownload = { OfflineModelDownloader.cancel() },
+                                onDeleteOfflineModel = {
+                                    lifecycleScope.launch {
+                                        translationManager.releaseOfflineModel()
+                                        OfflineModelDownloader.delete()
+                                    }
+                                },
                                 isTtsEnabled = isTtsEnabled,
                                 currentTtsEngineType = ttsEngineType,
                                 speechRate = speechRate,
@@ -225,12 +258,6 @@ class MainActivity : ComponentActivity() {
                                     isOcrTextMaskEnabled = enabled
                                     OcrTuning.textMaskEnabled = enabled
                                     settingsManager.saveOcrTextMaskEnabled(enabled)
-                                },
-                                onOcrDebugEnabledChange = { enabled ->
-                                    isOcrDebugEnabled = enabled
-                                    if (enabled) OcrDebugDumper.clear()
-                                    OcrTuning.debugDumpEnabled = enabled
-                                    settingsManager.saveOcrDebugEnabled(enabled)
                                 },
                                 onApiKeySave = { key ->
                                     settingsManager.saveApiKey(key)
@@ -332,6 +359,36 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+
+                    // Yeni sürüm penceresi: her sürüm için yalnızca bir kez, açılış logosundan sonra
+                    val update = availableUpdate
+                    if (update != null && !isSplashVisible) {
+                        val dismiss: () -> Unit = {
+                            settingsManager.savePromptedUpdateVersion(update.version)
+                            availableUpdate = null
+                        }
+                        AlertDialog(
+                            onDismissRequest = dismiss,
+                            title = { Text("🎉 Yeni sürüm mevcut") },
+                            text = {
+                                Text(
+                                    "Camera Translator v${update.version} yayınlandı (yüklü sürüm: v${UpdateChecker.currentVersion}). " +
+                                        "Yeni özellikler ve iyileştirmeler için güncellemeniz önerilir."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    dismiss()
+                                    try {
+                                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.pageUrl)))
+                                    } catch (e: Exception) {
+                                        Log.e(PIPELINE_TAG, "Cannot open release page", e)
+                                    }
+                                }) { Text("Şimdi güncelle") }
+                            },
+                            dismissButton = { TextButton(onClick = dismiss) { Text("Daha sonra") } }
+                        )
+                    }
                 }
             }
         }
@@ -345,6 +402,8 @@ class MainActivity : ComponentActivity() {
         exposureIndex: Int,
         onZoomChange: (Float) -> Unit,
         onExposureChange: (Int) -> Unit,
+        manualFocusValue: Float,
+        onManualFocusChange: (Float) -> Unit,
         isTrToEn: Boolean,
         isTtsEnabled: Boolean,
         subtitleFontSize: Float,
@@ -472,7 +531,6 @@ class MainActivity : ComponentActivity() {
 
         var isExposureControlsVisible by rememberSaveable { mutableStateOf(false) }
         var isFocusControlsVisible by rememberSaveable { mutableStateOf(false) }
-        var manualFocusValue by rememberSaveable { mutableFloatStateOf(0f) }
         var exposureRange by remember { mutableStateOf(-4..4) }
         var isStealthMode by rememberSaveable { mutableStateOf(false) }
 
@@ -528,9 +586,14 @@ class MainActivity : ComponentActivity() {
                     statusText.isNotEmpty() -> statusText
                     isPaused -> ""
                     currentTranslation.isNotEmpty() -> currentTranslation
-                    isBusy && translationMode != TranslationMode.OFFLINE && translationMode != TranslationMode.OFFLINE_PLUS -> "Çevriliyor..."
+                    isBusy && translationMode != TranslationMode.OFFLINE -> "Çevriliyor..."
                     else -> "Altyazı bekleniyor..."
                 }
+
+                // Etiket: Offline modunda model yüklü ve yön EN -> TR ise "Offline+" görünür
+                val offlineModelState by OfflineModelDownloader.state.collectAsStateWithLifecycle()
+                val isOfflinePlusActive = translationMode == TranslationMode.OFFLINE && !isTrToEn &&
+                    offlineModelState is OfflineModelDownloader.State.Installed
 
                 MainOverlay(
                     currentTranslation = displayResult,
@@ -538,14 +601,14 @@ class MainActivity : ComponentActivity() {
                     isPaused = isPaused,
                     zoomLevel = zoomLevel,
                     translationMode = translationMode,
+                    isOfflinePlusActive = isOfflinePlusActive,
                     isStealthMode = isStealthMode,
                     onToggleStealthMode = { isStealthMode = !isStealthMode },
                     onCycleTranslationMode = {
                         translationMode = when (translationMode) {
                             TranslationMode.FREE -> TranslationMode.CLOUD
                             TranslationMode.CLOUD -> TranslationMode.OFFLINE
-                            TranslationMode.OFFLINE -> TranslationMode.OFFLINE_PLUS
-                            TranslationMode.OFFLINE_PLUS -> TranslationMode.FREE
+                            TranslationMode.OFFLINE -> TranslationMode.FREE
                         }
                         translationManager.mode = translationMode
                     },
@@ -589,7 +652,7 @@ class MainActivity : ComponentActivity() {
                         isFocusControlsVisible = !isFocusControlsVisible
                     },
                     manualFocusValue = manualFocusValue,
-                    onManualFocusChange = { manualFocusValue = it },
+                    onManualFocusChange = onManualFocusChange,
                     onFocusRequest = { x: Float, y: Float ->
                         val camera = currentCamera
                         if (camera != null) {

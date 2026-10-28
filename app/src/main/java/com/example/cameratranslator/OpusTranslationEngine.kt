@@ -31,7 +31,7 @@ import java.text.Normalizer
 class OpusTranslationEngine(context: Context) : ITranslationEngine {
 
     override var isTrToEn: Boolean = false
-    override var mode: TranslationMode = TranslationMode.OFFLINE_PLUS
+    override var mode: TranslationMode = TranslationMode.OFFLINE
     private val _status = MutableStateFlow<TranslationStatus>(TranslationStatus.Idle)
     override val status: StateFlow<TranslationStatus> = _status
     private val _isBusy = MutableStateFlow(false)
@@ -59,7 +59,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             val missing = REQUIRED_FILES.filter { dir == null || !File(dir, it).isFile }
             if (missing.isNotEmpty()) {
                 Log.w(TAG, "Model files missing in $dir: $missing")
-                _status.value = TranslationStatus.Error("Offline+ modeli bulunamadı")
+                _status.value = TranslationStatus.Error("Offline+ modeli indirilmedi (Ayarlar)")
                 return@withLock
             }
             _status.value = TranslationStatus.DownloadingModel
@@ -192,6 +192,14 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             }
         }
         return best
+    }
+
+    /** Modeli bellekten çıkarır; süren bir çevirinin bitmesini bekler (dosya silinmeden önce çağrılır). */
+    suspend fun unload() {
+        loadMutex.withLock {
+            runMutex.withLock { releaseSessions() }
+        }
+        _status.value = TranslationStatus.Idle
     }
 
     private fun releaseSessions() {

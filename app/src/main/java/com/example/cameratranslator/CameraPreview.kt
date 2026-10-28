@@ -161,13 +161,13 @@ fun CameraPreview(
         camera.cameraControl.setZoomRatio(zoomLevel)
         camera.cameraControl.setExposureCompensationIndex(exposureIndex)
         applyManualFocus(camera, manualFocusValue)
-        
+
         // 2. Uygulama her foreground olduğunda (Resume) ayarları tazelemek için
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(200)
             camera.cameraControl.setZoomRatio(zoomLevel)
             camera.cameraControl.setExposureCompensationIndex(exposureIndex)
-            applyManualFocus(camera, manualFocusValue)
+            applyManualFocus(camera, manualFocusValue, force = true)
         }
     }
 
@@ -177,21 +177,34 @@ fun CameraPreview(
     )
 }
 
-private var lastAppliedFocus = -1f
+/** Odak kaydırıcısının alt kısmı: bu değerin altı otomatik odak (AF). */
+const val AUTO_FOCUS_ZONE = 0.08f
 
-private fun applyManualFocus(camera: Camera, focusValue: Float) {
-    if (kotlin.math.abs(focusValue - lastAppliedFocus) < 0.012f && focusValue > 0.02f) return
+/** Telefon kameralarının yakın odak sınırı ~10 cm = 10 diyoptri. */
+private const val MAX_FOCUS_DIOPTERS = 10f
+
+private var lastAppliedFocus = -1f
+private var lastFocusCamera: Camera? = null
+
+private fun applyManualFocus(camera: Camera, focusValue: Float, force: Boolean = false) {
+    // Kaydırma sırasında her küçük değişimde istek yağdırmamak için; ama kamera
+    // yeniden bağlandıysa (Ayarlar'dan dönüş, döndürme) değer aynı olsa da uygula.
+    if (!force && camera === lastFocusCamera && kotlin.math.abs(focusValue - lastAppliedFocus) < 0.004f) return
     lastAppliedFocus = focusValue
+    lastFocusCamera = camera
 
     try {
         val camera2Control = Camera2CameraControl.from(camera.cameraControl)
-        if (focusValue <= 0.02f) {
+        if (focusValue < AUTO_FOCUS_ZONE) {
             val options = CaptureRequestOptions.Builder()
                 .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
                 .build()
             camera2Control.setCaptureRequestOptions(options)
         } else {
-            val targetDiopters = (focusValue - 0.02f) * 10.0f
+            // Karesel eğri: kaydırıcının büyük kısmı uzak mesafelere (TV: 2-4 m = 0.25-0.5 diyoptri)
+            // ayrılır. Eskiden doğrusaldı ve TV mesafesi kaydırıcının en alttaki %3'üne sıkışıyordu.
+            val t = ((focusValue - AUTO_FOCUS_ZONE) / (1f - AUTO_FOCUS_ZONE)).coerceIn(0f, 1f)
+            val targetDiopters = MAX_FOCUS_DIOPTERS * t * t
             val options = CaptureRequestOptions.Builder()
                 .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
                 .setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, targetDiopters)
