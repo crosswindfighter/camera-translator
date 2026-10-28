@@ -103,7 +103,7 @@ Camera Translator geliştirdiğim ilk Android uygulamasıdır. Karşılaştığ�
 
 Google Play Protect, uygulamayı tanımadığı veya yeterli itibara sahip olmadığı durumlarda kurulum sırasında uyarı gösterebilir. Uygulamanın en güncel v1.0.1 APK dosyası Kaspersky OpenTIP ile taranmış ve Clean (Temiz) sonucu alınmıştır. Bu sonuç tek başına mutlak güvenlik garantisi değildir.
 
-🔗 [Kaspersky OpenTIP v1.0.1 tarama raporunu görüntüle](https://opentip.kaspersky.com/03591F4B4D2B92D7C7227316D645F9F592AAB089854983BC7009A6325EA93D36/results?tab=upload)
+🔗 [Kaspersky OpenTIP v1.0.2 tarama raporunu görüntüle](https://opentip.kaspersky.com/3883484B38090DD9657FE45F04B5515416D4FF32233AFD76011B266A9CA69482/results?tab=upload)
 
 ---
 
