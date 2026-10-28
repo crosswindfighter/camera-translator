@@ -71,6 +71,9 @@ dependencies {
     // Networking
     implementation(libs.okhttp)
 
+    // Offline+ çeviri motoru (OPUS-MT modeli için)
+    implementation(libs.onnxruntime.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

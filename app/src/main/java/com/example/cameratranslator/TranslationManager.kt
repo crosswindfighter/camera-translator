@@ -1,5 +1,6 @@
 package com.example.cameratranslator
 
+import android.os.SystemClock
 import android.text.Html
 import android.util.Log
 import com.google.mlkit.common.model.DownloadConditions
@@ -9,20 +10,26 @@ import com.google.mlkit.nl.translate.Translator
 import com.google.mlkit.nl.translate.TranslatorOptions
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.tasks.await
 import com.example.cameratranslator.GoogleApiAuth.googleApiKey
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.ConnectionPool
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
+import java.io.IOException
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
+import kotlin.coroutines.resume
 
 enum class TranslationMode {
-    CLOUD, FREE, OFFLINE
+    CLOUD, FREE, OFFLINE, OFFLINE_PLUS
 }
 
 sealed class TranslationStatus {
@@ -41,6 +48,8 @@ interface ITranslationEngine {
     suspend fun prepare()
     fun close()
     fun updateApiKey(key: String) {}
+    /** Ağ bağlantısını önceden ısıtır (çevrimiçi motorlar için). */
+    fun warmUp() {}
 }
 
 // Shared high-speed OkHttpClient with HTTP/2 connection pooling & keep-alive
@@ -134,8 +143,19 @@ class GoogleCloudTranslationEngine(
 }
 
 /**
- * FREE Translation Engine: Optimized GTX Endpoint + Mobile Web Fallback.
- * Uses shared HTTP/2 connection pool for sub-100ms response times.
+ * FREE Translation Engine: iki ücretsiz Google uç noktasını yarıştırır.
+ *
+ *  1. Chrome sözlük eklentisi uç noktası (clients5.google.com) — ana yol.
+ *     Peş peşe isteklerde ölçülen süre ~90 ms ve çok kararlı.
+ *  2. GTX (translate.googleapis.com) — yedek. Aynı çeviriyi verir ama peş peşe
+ *     isteklerde 0,2–0,8 sn arasında dalgalanıyor (eskiden ana yoldu, yavaşlık buydu).
+ *
+ * Ana yol [HEDGE_DELAY_MS] içinde cevap vermezse yedek de gönderilir ve hangisi
+ * önce dolu cevap verirse o kullanılır; yavaş kalan istek iptal edilir. Böylece
+ * tek bir yavaş/takılan istek çeviriyi saniyelerce bekletmez.
+ *
+ * Eski mobil web yedeği (translate.google.com/m) kaldırıldı: bölgemizde onay
+ * sayfasına yönlendirdiği için hep boş dönüp ~0,5 sn kaybettiriyordu.
  */
 class FreeTranslationEngine : ITranslationEngine {
     override var isTrToEn: Boolean = false
@@ -147,86 +167,145 @@ class FreeTranslationEngine : ITranslationEngine {
 
     override suspend fun prepare() {
         _status.value = TranslationStatus.Ready
+        warmUp()
     }
 
-    override suspend fun translate(text: String): String = withContext(Dispatchers.IO) {
-        if (text.isBlank()) return@withContext ""
+    /**
+     * İki sunucuya da küçük bir istek atarak TLS bağlantısını önceden açar.
+     * İlk çeviride el sıkışma (~100-300 ms) beklenmez; bağlantı havuzda kalır.
+     */
+    override fun warmUp() {
+        sharedTranslationClient.newCall(buildGtxRequest("hi", "en", "tr")).enqueue(IgnoreCallback)
+        sharedTranslationClient.newCall(buildChromeRequest("hi", "en", "tr")).enqueue(IgnoreCallback)
+    }
+
+    override suspend fun translate(text: String): String {
+        if (text.isBlank()) return ""
         _isBusy.value = true
-        
-        var resultText = ""
+        val startedAt = SystemClock.elapsedRealtime()
         val cleanText = text.trim()
         val sl = if (isTrToEn) "tr" else "en"
         val tl = if (isTrToEn) "en" else "tr"
 
-        // STRATEGY 1: Lightweight GTX JSON API (Fastest response & minimal payload size)
-        try {
-            val encoded = URLEncoder.encode(cleanText, "UTF-8").replace("+", "%20")
-            val url = "https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sl&tl=$tl&dt=t&q=$encoded"
-            
-            val request = Request.Builder()
-                .url(url)
-                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36")
-                .build()
-
-            sharedTranslationClient.newCall(request).execute().use { response ->
-                if (response.isSuccessful) {
-                    val body = response.body?.string() ?: ""
-                    if (body.isNotBlank() && body.startsWith("[")) {
-                        val root = JSONArray(body)
-                        val firstPart = root.optJSONArray(0)
-                        if (firstPart != null) {
-                            val sb = StringBuilder()
-                            for (i in 0 until firstPart.length()) {
-                                val row = firstPart.optJSONArray(i)
-                                val part = row?.optString(0, "") ?: ""
-                                if (part != "null") sb.append(part)
-                            }
-                            resultText = sb.toString().trim()
-                        }
-                    }
+        return try {
+            val result = coroutineScope {
+                val primary = async { requestChrome(cleanText, sl, tl) }
+                // Ana yol hızlıysa yedeği hiç göndermeden bitir
+                val early = withTimeoutOrNull(HEDGE_DELAY_MS) { primary.await() }
+                val value = when {
+                    !early.isNullOrBlank() -> early
+                    early != null -> requestGtx(cleanText, sl, tl) // ana yol boş döndü
+                    else -> firstNonBlank(primary, async { requestGtx(cleanText, sl, tl) })
                 }
+                coroutineContext.cancelChildren() // kaybeden isteği iptal et
+                value
             }
+            Log.d(TAG, "Translated in ${SystemClock.elapsedRealtime() - startedAt} ms")
+            result
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            Log.e("FreeEngine", "GTX Endpoint Exception: ${e.message}")
+            Log.e(TAG, "Free translate error", e)
+            ""
+        } finally {
+            _isBusy.value = false
         }
+    }
 
-        // STRATEGY 2: Mobile Web HTML (Fallback if GTX returns empty)
-        if (resultText.isBlank()) {
-            try {
-                val encoded = URLEncoder.encode(cleanText, "UTF-8")
-                val url = "https://translate.google.com/m?hl=tr&sl=$sl&tl=$tl&q=$encoded"
-                
-                val request = Request.Builder()
-                    .url(url)
-                    .header("User-Agent", "Mozilla/5.0 (Linux; Android 13; SM-S901B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36")
-                    .build()
-
-                sharedTranslationClient.newCall(request).execute().use { response ->
-                    if (response.isSuccessful) {
-                        val html = response.body?.string() ?: ""
-                        val startMarker = "<div class=\"result-container\">"
-                        val endMarker = "</div>"
-                        val startIndex = html.indexOf(startMarker)
-                        if (startIndex != -1) {
-                            val contentStart = startIndex + startMarker.length
-                            val endIndex = html.indexOf(endMarker, contentStart)
-                            if (endIndex != -1) {
-                                val rawResult = html.substring(contentStart, endIndex)
-                                resultText = Html.fromHtml(rawResult, Html.FROM_HTML_MODE_LEGACY).toString().trim()
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.e("FreeEngine", "Mobile Web Fallback Exception: ${e.message}")
+    private suspend fun requestGtx(text: String, sl: String, tl: String): String {
+        val body = sharedTranslationClient.newCall(buildGtxRequest(text, sl, tl)).awaitBody() ?: return ""
+        return try {
+            val firstPart = JSONArray(body).optJSONArray(0) ?: return ""
+            val sb = StringBuilder()
+            for (i in 0 until firstPart.length()) {
+                val part = firstPart.optJSONArray(i)?.optString(0, "") ?: ""
+                if (part != "null") sb.append(part)
             }
+            sb.toString().trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "GTX parse error", e)
+            ""
         }
+    }
 
-        _isBusy.value = false
-        resultText
+    private suspend fun requestChrome(text: String, sl: String, tl: String): String {
+        val body = sharedTranslationClient.newCall(buildChromeRequest(text, sl, tl)).awaitBody() ?: return ""
+        return try {
+            // Biçim: ["çeviri"] ya da ["çeviri","kaynak dil"] dizileri içeren bir dizi
+            val root = JSONArray(body)
+            when (val first = root.opt(0)) {
+                is String -> first
+                is JSONArray -> first.optString(0, "")
+                else -> ""
+            }.trim()
+        } catch (e: Exception) {
+            Log.e(TAG, "Chrome endpoint parse error", e)
+            ""
+        }
+    }
+
+    private fun buildGtxRequest(text: String, sl: String, tl: String): Request {
+        val encoded = URLEncoder.encode(text, "UTF-8").replace("+", "%20")
+        return Request.Builder()
+            .url("https://translate.googleapis.com/translate_a/single?client=gtx&sl=$sl&tl=$tl&dt=t&q=$encoded")
+            .header("User-Agent", DESKTOP_USER_AGENT)
+            .build()
+    }
+
+    private fun buildChromeRequest(text: String, sl: String, tl: String): Request {
+        val encoded = URLEncoder.encode(text, "UTF-8").replace("+", "%20")
+        return Request.Builder()
+            .url("https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=$sl&tl=$tl&q=$encoded")
+            .header("User-Agent", DESKTOP_USER_AGENT)
+            .build()
+    }
+
+    /** Sıradaki ilk dolu sonucu döndürür; hepsi boşsa "". */
+    private suspend fun firstNonBlank(vararg requests: Deferred<String>): String {
+        val pending = requests.toMutableList()
+        while (pending.isNotEmpty()) {
+            val (finished, value) = select<Pair<Deferred<String>, String>> {
+                pending.forEach { request -> request.onAwait { request to it } }
+            }
+            pending.remove(finished)
+            if (value.isNotBlank()) return value
+        }
+        return ""
     }
 
     override fun close() = Unit
+
+    private object IgnoreCallback : Callback {
+        override fun onFailure(call: Call, e: IOException) = Unit
+        override fun onResponse(call: Call, response: Response) = response.close()
+    }
+
+    companion object {
+        private const val TAG = "FreeEngine"
+        // Ana yol normalde ~90 ms; 300 ms'yi geçtiyse takılmış say, yedeği de gönder
+        private const val HEDGE_DELAY_MS = 300L
+        private const val DESKTOP_USER_AGENT =
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36"
+    }
+}
+
+/**
+ * OkHttp isteğini askıya alınabilir şekilde çalıştırır. Coroutine iptal edilirse
+ * HTTP isteği de iptal edilir (bloklayan execute() bunu yapamıyordu).
+ * Başarılı cevapta gövdeyi, aksi halde null döner.
+ */
+private suspend fun Call.awaitBody(): String? = suspendCancellableCoroutine { continuation ->
+    continuation.invokeOnCancellation { cancel() }
+    enqueue(object : Callback {
+        override fun onFailure(call: Call, e: IOException) {
+            if (continuation.isActive) continuation.resume(null)
+        }
+
+        override fun onResponse(call: Call, response: Response) {
+            val body = response.use { if (it.isSuccessful) it.body?.string() else null }
+            if (continuation.isActive) continuation.resume(body)
+        }
+    })
 }
 
 class MLKitTranslationEngine : ITranslationEngine {
@@ -301,7 +380,9 @@ class CompositeTranslationEngine(
     apiKey: String = "",
     private val google: GoogleCloudTranslationEngine = GoogleCloudTranslationEngine(apiKey),
     private val free: ITranslationEngine = FreeTranslationEngine(),
-    private val offline: ITranslationEngine = MLKitTranslationEngine()
+    private val offline: ITranslationEngine = MLKitTranslationEngine(),
+    /** Offline+ (OPUS-MT). Context gerektirdiği için dışarıdan verilir; yoksa ML Kit kullanılır. */
+    private val offlinePlus: OpusTranslationEngine? = null
 ) : ITranslationEngine {
 
     override var isTrToEn: Boolean = false
@@ -310,12 +391,17 @@ class CompositeTranslationEngine(
             google.isTrToEn = value
             free.isTrToEn = value
             offline.isTrToEn = value
+            offlinePlus?.isTrToEn = value
         }
 
     override var mode: TranslationMode = TranslationMode.FREE
         set(value) {
+            val switchedToFree = value == TranslationMode.FREE && field != value
             field = value
             syncStatus()
+            if (switchedToFree) free.warmUp()
+            // ~350 MB'lık model sadece bu mod seçilince belleğe yüklenir
+            if (value == TranslationMode.OFFLINE_PLUS) scope.launch { offlinePlus?.prepare() }
         }
 
     private val _isBusy = MutableStateFlow(false)
@@ -323,6 +409,8 @@ class CompositeTranslationEngine(
 
     private val _status = MutableStateFlow<TranslationStatus>(TranslationStatus.Idle)
     override val status: StateFlow<TranslationStatus> = _status
+
+    private var keepWarmJob: Job? = null
 
     private val cacheLock = Any()
     private val translationCache = object : LinkedHashMap<String, String>(40, 0.75f, true) {
@@ -334,7 +422,8 @@ class CompositeTranslationEngine(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     private fun cacheKey(source: String): String {
-        return source.lowercase()
+        // Mod ve yön anahtarın parçası: başka motorun çevirisi bu moda sızmasın
+        return "${mode.name}|$isTrToEn|" + source.lowercase()
             .replace(Regex("[^a-z0-9çğıöşü\\s]"), "")
             .replace(Regex("\\s+"), " ")
             .trim()
@@ -348,10 +437,26 @@ class CompositeTranslationEngine(
         offline.status.onEach { syncStatus() }.launchIn(scope)
         google.status.onEach { syncStatus() }.launchIn(scope)
         free.status.onEach { syncStatus() }.launchIn(scope)
-        
-        merge(offline.isBusy, google.isBusy, free.isBusy)
+        offlinePlus?.status?.onEach { syncStatus() }?.launchIn(scope)
+
+        merge(offline.isBusy, google.isBusy, free.isBusy, offlinePlus?.isBusy ?: MutableStateFlow(false))
             .onEach { _isBusy.value = it }
             .launchIn(scope)
+
+        // Ücretsiz modda bağlantıyı sıcak tut: altyazılar arası sessizlikte bağlantı
+        // kapanırsa sonraki çeviri yeniden TLS el sıkışması bekliyordu.
+        if (keepWarmJob?.isActive != true) {
+            keepWarmJob = scope.launch {
+                while (isActive) {
+                    delay(KEEP_WARM_INTERVAL_MS)
+                    if (mode == TranslationMode.FREE) free.warmUp()
+                }
+            }
+        }
+    }
+
+    override fun warmUp() {
+        if (mode == TranslationMode.FREE) free.warmUp()
     }
 
     private fun syncStatus() {
@@ -359,6 +464,7 @@ class CompositeTranslationEngine(
             TranslationMode.CLOUD -> google
             TranslationMode.FREE -> free
             TranslationMode.OFFLINE -> offline
+            TranslationMode.OFFLINE_PLUS -> offlinePlus ?: offline
         }
         val newStatus = currentEngine.status.value
         if (_status.value != newStatus) {
@@ -385,6 +491,15 @@ class CompositeTranslationEngine(
             TranslationMode.OFFLINE -> {
                 offline.translate(text)
             }
+            TranslationMode.OFFLINE_PLUS -> {
+                // Model hazır değilse ya da Türkçe -> İngilizce yönündeysek ML Kit devralır
+                val plus = offlinePlus
+                if (plus != null && plus.isReady && !isTrToEn) {
+                    plus.translate(text).ifBlank { offline.translate(text) }
+                } else {
+                    offline.translate(text)
+                }
+            }
         }
 
         if (result.isNotBlank()) {
@@ -401,6 +516,7 @@ class CompositeTranslationEngine(
         google.close()
         free.close()
         offline.close()
+        offlinePlus?.close()
         scope.cancel()
     }
 
@@ -410,6 +526,10 @@ class CompositeTranslationEngine(
             google.prepare()
             syncStatus()
         }
+    }
+
+    companion object {
+        private const val KEEP_WARM_INTERVAL_MS = 25_000L
     }
 }
 

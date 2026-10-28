@@ -12,10 +12,16 @@ import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.view.PreviewView
 import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
@@ -32,7 +38,8 @@ import kotlin.math.roundToInt
  * Kullanıcının ekranda gördüğü görüntü = OCR'a giden görüntü (WYSIWYG).
  */
 class TextRecognitionAnalyzer(
-    private val onTextDetected: (String) -> Unit,
+    /** (metin, ML Kit güveni 0..1) */
+    private val onTextDetected: (String, Float) -> Unit,
     private val onEmptyDetected: () -> Unit = {}
 ) : ImageAnalysis.Analyzer {
 
@@ -98,6 +105,8 @@ class TextRecognitionAnalyzer(
     }
 
     private suspend fun runOcr(previewBitmap: Bitmap, area: RectF, frameId: Long) {
+        var upscaled: Bitmap? = null
+        var masked: Bitmap? = null
         try {
             val cropRect = PreviewCoordinateMapper.mapNormalizedToBitmapRect(
                 area,
@@ -105,11 +114,7 @@ class TextRecognitionAnalyzer(
                 previewBitmap.height
             )
 
-            if (cropRect.width() < 30 || cropRect.height() < 12) {
-                activeOcrTasks.decrementAndGet()
-                previewBitmap.recycle()
-                return
-            }
+            if (cropRect.width() < 30 || cropRect.height() < 12) return
 
             val cropped = Bitmap.createBitmap(
                 previewBitmap,
@@ -118,39 +123,84 @@ class TextRecognitionAnalyzer(
                 cropRect.width(),
                 cropRect.height()
             )
-            previewBitmap.recycle()
+            // OCR alanı tüm kareyi kapsıyorsa createBitmap aynı nesneyi döndürür
+            if (cropped !== previewBitmap) previewBitmap.recycle()
 
-            val ocrBitmap = upscaleForOcr(cropped)
-            if (ocrBitmap !== cropped) cropped.recycle()
+            val original = upscaleForOcr(cropped)
+            if (original !== cropped) cropped.recycle()
+            upscaled = original
 
-            val image = InputImage.fromBitmap(ocrBitmap, 0)
-            recognizer.process(image)
-                .addOnSuccessListener { visionText ->
-                    val text = visionText.text.trim()
-                    if (frameId % 10 == 0L) Log.d(TAG, "Frame #$frameId OCR Result: \"$text\"")
-                    if (text.isNotBlank()) handleOcrResult(text, frameId)
-                    else handleEmptyResult(frameId)
+            // Beyaz altyazı filtresi; görüntü uygun değilse null döner
+            val filtered = if (OcrTuning.textMaskEnabled) SubtitleTextMask.apply(original) else null
+            masked = filtered
+            OcrDebugDumper.maybeSaveFrames(frameId, original, filtered)
+
+            // Filtre karanlık sahnede çok iyi, açık renkli zeminde bazen kötü çalışıyor.
+            // İkisini paralel okut, ML Kit'in daha emin olduğunu kullan.
+            val (originalResult, filteredResult) = coroutineScope {
+                val o = async { recognize(original, frameId) }
+                val f = filtered?.let { bitmap -> async { recognize(bitmap, frameId) } }
+                o.await() to f?.await()
+            }
+            val useFiltered = filteredResult != null && isBetter(filteredResult.first, originalResult?.first)
+            val best = if (useFiltered) filteredResult else originalResult
+
+            val source = buildString {
+                if (filteredResult != null) {
+                    append("filtre ").append(formatConfidence(filteredResult.first.confidence)).append(" | ")
                 }
-                .addOnFailureListener { e ->
-                    Log.e(TAG, "Frame #$frameId ML Kit error", e)
-                }
-                .addOnCompleteListener {
-                    activeOcrTasks.decrementAndGet()
-                    ocrBitmap.recycle()
-                }
+                append("orijinal ").append(formatConfidence(originalResult?.first?.confidence ?: 0f))
+                append(if (useFiltered) " → filtre" else " → orijinal")
+            }
+
+            withContext(Dispatchers.Main) {
+                val reading = best?.first ?: OcrReading("", 0f)
+                val text = reading.text
+                OcrDebugDumper.logResult(frameId, best?.second.orEmpty(), text, reading.confidence, source)
+                if (frameId % 10 == 0L) Log.d(TAG, "Frame #$frameId OCR Result ($source): \"$text\"")
+                if (text.isNotBlank()) handleOcrResult(text, reading.confidence, frameId)
+                else handleEmptyResult(frameId)
+            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
-            activeOcrTasks.decrementAndGet()
-            try {
-                if (!previewBitmap.isRecycled) previewBitmap.recycle()
-            } catch (_: Exception) {}
             Log.e(TAG, "Frame #$frameId error", e)
+        } finally {
+            activeOcrTasks.decrementAndGet()
+            if (!previewBitmap.isRecycled) previewBitmap.recycle()
+            upscaled?.let { if (!it.isRecycled) it.recycle() }
+            masked?.recycle()
         }
     }
+
+    /** ML Kit'i çalıştırır; (ayıklanmış okuma, ML Kit ham metni) döner, hata olursa null. */
+    private suspend fun recognize(bitmap: Bitmap, frameId: Long): Pair<OcrReading, String>? {
+        return try {
+            val visionText = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
+            extractSubtitleText(visionText) to visionText.text
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Frame #$frameId ML Kit error", e)
+            null
+        }
+    }
+
+    private fun isBetter(candidate: OcrReading, other: OcrReading?): Boolean {
+        if (other == null || other.text.isBlank()) return candidate.text.isNotBlank()
+        if (candidate.text.isBlank()) return false
+        return candidate.confidence > other.confidence
+    }
+
+    private fun formatConfidence(value: Float): String = String.format(java.util.Locale.US, "%.2f", value)
 
     private fun upscaleForOcr(source: Bitmap): Bitmap {
         val scaleWidth = 800f / source.width.toFloat()
         val scaleHeight = 200f / source.height.toFloat()
-        val scale = maxOf(2.5f, scaleWidth, scaleHeight)
+        // 1080p'de alan zaten büyük; genişliği sınırlamak OCR süresini sabit tutar,
+        // harfler bu boyutta ML Kit için fazlasıyla yeterli yükseklikte kalır.
+        val maxScale = maxOf(1f, MAX_OCR_WIDTH / source.width.toFloat())
+        val scale = minOf(maxOf(2.5f, scaleWidth, scaleHeight), maxScale)
         if (scale <= 1.1f) return source
 
         val width = (source.width * scale).roundToInt()
@@ -163,6 +213,32 @@ class TextRecognitionAnalyzer(
         }
         canvas.drawBitmap(source, Matrix().apply { postScale(scale, scale) }, paint)
         return scaled
+    }
+
+    private data class OcrReading(val text: String, val confidence: Float)
+
+    /**
+     * ML Kit sonucunu kendi satır sırasıyla birleştirir ve okumanın ortalama
+     * güvenini hesaplar. Güven satırları atmak için değil, aynı altyazının
+     * birkaç okuması arasından en temizini seçmek için kullanılır
+     * (satır atmak cümleleri yarım bırakıyordu).
+     */
+    private fun extractSubtitleText(visionText: Text): OcrReading {
+        val lines = visionText.textBlocks
+            .flatMap { it.lines }
+            .filter { line -> line.text.count { it.isLetter() } >= MIN_LINE_LETTERS }
+        if (lines.isEmpty()) return OcrReading("", 0f)
+
+        var weightedConfidence = 0f
+        var totalLength = 0
+        for (line in lines) {
+            val length = line.text.length
+            weightedConfidence += line.confidence.coerceIn(0f, 1f) * length
+            totalLength += length
+        }
+        val confidence = if (totalLength > 0) weightedConfidence / totalLength else 0f
+        val text = lines.joinToString("\n") { it.text.trim() }.trim()
+        return OcrReading(text, confidence)
     }
 
     private fun handleEmptyResult(frameId: Long) {
@@ -207,7 +283,7 @@ class TextRecognitionAnalyzer(
         return filteredWords.joinToString(" ").trim()
     }
 
-    private fun handleOcrResult(text: String, frameId: Long) {
+    private fun handleOcrResult(text: String, confidence: Float, frameId: Long) {
         if (isPaused.get()) {
             Log.d(TAG, "Frame #$frameId ignored because analyzer is paused.")
             return
@@ -218,15 +294,17 @@ class TextRecognitionAnalyzer(
         val cleaned = filterOcrNoise(text)
 
         if (!isPlausibleSubtitle(cleaned)) {
+            // Bozuk okuma "altyazı yok" sayılmaz: asfalt üstündeki altyazı birkaç kare
+            // bozuk okununca stabilizer sıfırlanıyor ve cümle kaçıyordu. Gerçek boşluk
+            // ML Kit'in hiç metin bulmamasıyla (handleEmptyResult) algılanır.
             Log.d(TAG, "Frame #$frameId rejected: \"$cleaned\" (original: \"$text\")")
-            handleEmptyResult(frameId)
             return
         }
 
         // Forward each plausible OCR sample. OcrStabilizer needs repeated frame
         // evidence to distinguish a real subtitle from transient road texture.
         if (frameId % 10 == 0L) Log.d(TAG, "Frame #$frameId sampling: \"$cleaned\"")
-        onTextDetected(cleaned)
+        onTextDetected(cleaned, confidence)
     }
 
     private fun isPlausibleSubtitle(text: String): Boolean {
@@ -262,6 +340,8 @@ class TextRecognitionAnalyzer(
     companion object {
         private const val TAG = "OCR_ANALYZER"
         private const val EMPTY_RESET_THRESHOLD = 3
+        private const val MAX_OCR_WIDTH = 2400f
+        private const val MIN_LINE_LETTERS = 3
 
         private val SPACES_REGEX = Regex("\\s+")
         private val REJECT_PATTERN = Regex("[<>]+|_{2,}|={2,}")

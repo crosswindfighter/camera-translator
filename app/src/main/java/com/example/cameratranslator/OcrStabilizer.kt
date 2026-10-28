@@ -5,25 +5,30 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * Confirms a subtitle only after repeated, temporally stable OCR samples.
+ * Confirms a subtitle only after repeated OCR samples agree.
+ *
+ * Asfalt gibi dokulu arka planlarda aynı altyazı her karede biraz farklı okunur
+ * ve araya tamamen bozuk okumalar girer. Bu yüzden "arka arkaya 2 benzer okuma"
+ * yerine son [WINDOW_MS] içindeki okumalara bakılır: araya bozuk kareler girse
+ * bile aynı altyazının 2 benzer okuması bir araya gelince onaylanır ve grubun
+ * en güvenilir (ML Kit güveni en yüksek) okuması seçilir.
+ *
  * Once confirmed, small OCR fluctuations are ignored until the subtitle clears
- * or a different reading remains stable long enough to be a new subtitle.
+ * or a different reading repeats enough to be a new subtitle.
  */
 class OcrStabilizer(
     private val onConfirmed: (String) -> Unit
 ) {
+    private data class Reading(val text: String, val confidence: Float, val at: Long)
+
     private val lock = Any()
     private var confirmed: String? = null
-    private var candidate: String? = null
-    private var candidateHits = 0
-    private var candidateStartedAt = 0L
+    private val recent = ArrayDeque<Reading>()
 
     fun reset() {
         synchronized(lock) {
             confirmed = null
-            candidate = null
-            candidateHits = 0
-            candidateStartedAt = 0L
+            recent.clear()
             Log.d(TAG, "Stabilizer fully reset")
         }
     }
@@ -34,13 +39,11 @@ class OcrStabilizer(
     fun notifyEmpty() {
         synchronized(lock) {
             confirmed = null
-            candidate = null
-            candidateHits = 0
-            candidateStartedAt = 0L
+            recent.clear()
         }
     }
 
-    fun submit(raw: String) {
+    fun submit(raw: String, confidence: Float = 0f) {
         val text = raw.replace(SPACES_REGEX, " ").trim()
         if (text.length < 2) return
 
@@ -50,44 +53,34 @@ class OcrStabilizer(
             if (currentConfirmed != null && similar(text, currentConfirmed)) {
                 // OCR readings that fluctuate slightly while a subtitle remains visible
                 // belong to the already confirmed subtitle. Keep it locked.
-                candidate = null
-                candidateHits = 0
+                recent.clear()
                 return
             }
 
-            if (candidate != null && similar(text, candidate!!)) {
-                candidateHits++
-                candidate = pickBetter(candidate!!, text)
-            } else {
-                candidate = text
-                candidateHits = 1
-                candidateStartedAt = System.currentTimeMillis()
-            }
+            val now = System.currentTimeMillis()
+            while (recent.isNotEmpty() && now - recent.first().at > WINDOW_MS) recent.removeFirst()
 
-            val requiredHits = if (currentConfirmed == null) INITIAL_REQUIRED_HITS else NEXT_REQUIRED_HITS
-            val requiredDuration = if (currentConfirmed == null) INITIAL_STABLE_MS else NEXT_STABLE_MS
-            if (candidateHits >= requiredHits && System.currentTimeMillis() - candidateStartedAt >= requiredDuration) {
-                approved = confirmLocked()
+            val reading = Reading(text, confidence, now)
+            val group = recent.filter { similar(it.text, text) } + reading
+            recent.addLast(reading)
+            while (recent.size > WINDOW_SIZE) recent.removeFirst()
+
+            if (group.size >= REQUIRED_HITS) {
+                val best = group.maxBy { score(it) }
+                confirmed = best.text
+                recent.clear()
+                approved = best.text
+                Log.d(TAG, "Confirmed (${group.size} hits, conf=${best.confidence}): \"${best.text}\"")
             }
         }
 
         approved?.let { onConfirmed(it) }
     }
 
-    private fun confirmLocked(): String {
-        val text = candidate ?: return ""
-        confirmed = text
-        candidate = null
-        candidateHits = 0
-        candidateStartedAt = 0L
-        Log.d(TAG, "Confirmed: \"$text\"")
-        return text
-    }
-
-    private fun pickBetter(a: String, b: String): String {
-        val aScore = a.length + if (a.lastOrNull()?.let { it in ".?!" } == true) 4 else 0
-        val bScore = b.length + if (b.lastOrNull()?.let { it in ".?!" } == true) 4 else 0
-        return if (bScore > aScore) b else a
+    /** Önce ML Kit güveni; güven yoksa/eşitse cümle sonu noktalaması ve uzunluk. */
+    private fun score(reading: Reading): Float {
+        val punctuationBonus = if (reading.text.lastOrNull()?.let { it in ".?!" } == true) 4f else 0f
+        return reading.confidence * 100f + punctuationBonus + reading.text.length * 0.05f
     }
 
     private fun similar(a: String, b: String): Boolean {
@@ -135,10 +128,10 @@ class OcrStabilizer(
     companion object {
         private const val TAG = "OCR_STABILIZER"
         // Keep first subtitle latency low while still requiring repeated OCR evidence.
-        private const val INITIAL_REQUIRED_HITS = 2
-        private const val NEXT_REQUIRED_HITS = 2
-        private const val INITIAL_STABLE_MS = 0L
-        private const val NEXT_STABLE_MS = 0L
+        private const val REQUIRED_HITS = 2
+        // ~6 OCR/sn ile 1.5 sn ≈ 9 okuma; araya giren bozuk kareleri tolere eder
+        private const val WINDOW_MS = 1500L
+        private const val WINDOW_SIZE = 8
         private const val SIMILARITY_THRESHOLD = 0.75f
 
         private val SPACES_REGEX = Regex("\\s+")

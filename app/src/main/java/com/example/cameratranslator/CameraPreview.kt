@@ -117,13 +117,16 @@ fun CameraPreview(
             .setResolutionSelector(
                 ResolutionSelector.Builder()
                     .setResolutionStrategy(
+                        // 1080p: zoom yapılmış TV altyazısında harf kenarları 720p'ye göre belirgin şekilde daha net.
                         ResolutionStrategy(
-                            Size(1280, 720),
+                            Size(1920, 1080),
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                         )
                     )
                     .build()
             )
+            // RGBA çıktısı: YUV -> JPEG -> Bitmap dönüşümündeki sıkıştırma bozulmaları ortadan kalkar.
+            .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
             .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
             .build()
             .also { it.setAnalyzer(analysisExecutor, gatedAnalyzer) }

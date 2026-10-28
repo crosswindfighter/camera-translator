@@ -591,6 +591,7 @@ fun MainOverlay(
                         TranslationMode.FREE -> "🌐 Google Translate" to Color.White
                         TranslationMode.CLOUD -> "☁️ Google Cloud" to Color.Cyan
                         TranslationMode.OFFLINE -> "📴 Offline" to Color.Yellow
+                        TranslationMode.OFFLINE_PLUS -> "📴 Offline+" to Color(0xFF7CFC00)
                     }
                     Text(
                         text = text,

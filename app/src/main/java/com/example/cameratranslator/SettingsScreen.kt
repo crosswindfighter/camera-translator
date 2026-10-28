@@ -64,6 +64,8 @@ fun SettingsScreen(
     subtitleFontSize: Float = 38f,
     currentDisplayMode: DisplayMode = DisplayMode.DEFAULT,
     showDisplayModeQuickSwitch: Boolean = false,
+    isOcrTextMaskEnabled: Boolean = true,
+    isOcrDebugEnabled: Boolean = false,
     isTtsEnabled: Boolean = false,
     currentTtsEngineType: TtsEngineType = TtsEngineType.NATIVE,
     speechRate: Float = 1.15f,
@@ -77,6 +79,8 @@ fun SettingsScreen(
     onSubtitleFontSizeChange: (Float) -> Unit = {},
     onDisplayModeChange: (DisplayMode) -> Unit = {},
     onShowDisplayModeQuickSwitchChange: (Boolean) -> Unit = {},
+    onOcrTextMaskEnabledChange: (Boolean) -> Unit = {},
+    onOcrDebugEnabledChange: (Boolean) -> Unit = {},
     onApiKeySave: (String) -> Unit,
     onTtsApiKeySave: (String) -> Unit = {},
     onTtsEnabledChange: (Boolean) -> Unit = {},
@@ -255,6 +259,51 @@ fun SettingsScreen(
                     Switch(
                         checked = showDisplayModeQuickSwitch,
                         onCheckedChange = { onShowDisplayModeQuickSwitchChange(it) }
+                    )
+                }
+            }
+
+            // BLOCK: Metin Okuma (OCR)
+            SettingsBlockCard {
+                Text("Metin Okuma (OCR)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "Asfalt gibi dokulu arka planları silip yalnızca beyaz altyazıyı okur. Renkli altyazılı oyunlarda kapatın.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isOcrTextMaskEnabled,
+                        onCheckedChange = { onOcrTextMaskEnabledChange(it) }
+                    )
+                }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("OCR debug kaydı", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "OCR'ın gördüğü görüntüleri kaydeder: Android/data/com.example.cameratranslator/files/ocr_debug",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isOcrDebugEnabled,
+                        onCheckedChange = { onOcrDebugEnabledChange(it) }
                     )
                 }
             }

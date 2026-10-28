@@ -65,7 +65,16 @@ private fun ImageProxy.toRgbaBitmapWithStride(): Bitmap? {
         height,
         Bitmap.Config.ARGB_8888
     )
-    fullBitmap.copyPixelsFromBuffer(buffer)
+    // Bazı cihazlarda son satırın dolgusu tamponda yoktur; copyPixelsFromBuffer
+    // tam boyut ister, bu yüzden eksikse sıfırlarla tamamlanmış bir kopya kullan.
+    val bytesNeeded = fullBitmap.rowBytes * height
+    val source = if (buffer.remaining() >= bytesNeeded) buffer else {
+        ByteBuffer.allocate(bytesNeeded).apply {
+            put(buffer)
+            rewind()
+        }
+    }
+    fullBitmap.copyPixelsFromBuffer(source)
     
     // ViewPort cropRect uygulayarak görüntüyü kısıtla
     val crop = this.cropRect

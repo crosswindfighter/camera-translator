@@ -74,6 +74,22 @@ class SettingsManager(context: Context) {
         return prefs.getBoolean("show_display_mode_quick_switch", false)
     }
 
+    fun saveOcrTextMaskEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("ocr_text_mask_enabled", enabled).apply()
+    }
+
+    fun getOcrTextMaskEnabled(): Boolean {
+        return prefs.getBoolean("ocr_text_mask_enabled", true)
+    }
+
+    fun saveOcrDebugEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("ocr_debug_enabled", enabled).apply()
+    }
+
+    fun getOcrDebugEnabled(): Boolean {
+        return prefs.getBoolean("ocr_debug_enabled", false)
+    }
+
     // Independent Subtitle Font Size for Default Mode vs Screen Mode
     fun saveSubtitleFontSizeDefault(size: Float) {
         prefs.edit().putFloat("subtitle_font_size_default", size.coerceIn(20f, 85f)).apply()

@@ -63,7 +63,9 @@ class MainActivity : ComponentActivity() {
         val timestamp: Long
     )
 
-    private val translationManager by lazy { TranslationManager() }
+    private val translationManager by lazy {
+        TranslationManager(CompositeTranslationEngine(offlinePlus = OpusTranslationEngine(applicationContext)))
+    }
     private lateinit var speechManager: SpeechManager
     private var lastTranslatedSource: String? = null
     private val lastTranslationTimestamp = AtomicLong(0)
@@ -81,6 +83,9 @@ class MainActivity : ComponentActivity() {
 
         GoogleApiAuth.init(this)
         settingsManager = SettingsManager(this)
+        OcrDebugDumper.init(this)
+        OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
+        OcrTuning.debugDumpEnabled = settingsManager.getOcrDebugEnabled()
         speechManager = SpeechManager(this)
         speechManager.setEnabled(settingsManager.getTtsEnabled())
         speechManager.setSpeechRate(settingsManager.getSpeechRate())
@@ -104,6 +109,8 @@ class MainActivity : ComponentActivity() {
             var currentAppTheme by remember { mutableStateOf(settingsManager.getTheme()) }
             var displayMode by remember { mutableStateOf(settingsManager.getDisplayMode()) }
             var showDisplayModeQuickSwitch by remember { mutableStateOf(settingsManager.getShowDisplayModeQuickSwitch()) }
+            var isOcrTextMaskEnabled by remember { mutableStateOf(OcrTuning.textMaskEnabled) }
+            var isOcrDebugEnabled by remember { mutableStateOf(OcrTuning.debugDumpEnabled) }
             var subtitleFontSizeDefault by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeDefault()) }
             var subtitleFontSizeScreen by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeScreen()) }
 
@@ -182,6 +189,8 @@ class MainActivity : ComponentActivity() {
                                 subtitleFontSize = activeSubtitleFontSize,
                                 currentDisplayMode = displayMode,
                                 showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
+                                isOcrTextMaskEnabled = isOcrTextMaskEnabled,
+                                isOcrDebugEnabled = isOcrDebugEnabled,
                                 isTtsEnabled = isTtsEnabled,
                                 currentTtsEngineType = ttsEngineType,
                                 speechRate = speechRate,
@@ -211,6 +220,17 @@ class MainActivity : ComponentActivity() {
                                 onShowDisplayModeQuickSwitchChange = { show ->
                                     showDisplayModeQuickSwitch = show
                                     settingsManager.saveShowDisplayModeQuickSwitch(show)
+                                },
+                                onOcrTextMaskEnabledChange = { enabled ->
+                                    isOcrTextMaskEnabled = enabled
+                                    OcrTuning.textMaskEnabled = enabled
+                                    settingsManager.saveOcrTextMaskEnabled(enabled)
+                                },
+                                onOcrDebugEnabledChange = { enabled ->
+                                    isOcrDebugEnabled = enabled
+                                    if (enabled) OcrDebugDumper.clear()
+                                    OcrTuning.debugDumpEnabled = enabled
+                                    settingsManager.saveOcrDebugEnabled(enabled)
                                 },
                                 onApiKeySave = { key ->
                                     settingsManager.saveApiKey(key)
@@ -422,8 +442,8 @@ class MainActivity : ComponentActivity() {
 
         val analyzer = remember {
             TextRecognitionAnalyzer(
-                onTextDetected = { ocrText ->
-                    stabilizer.submit(ocrText)
+                onTextDetected = { ocrText, confidence ->
+                    stabilizer.submit(ocrText, confidence)
                 },
                 onEmptyDetected = {
                     stabilizer.notifyEmpty()
@@ -508,7 +528,7 @@ class MainActivity : ComponentActivity() {
                     statusText.isNotEmpty() -> statusText
                     isPaused -> ""
                     currentTranslation.isNotEmpty() -> currentTranslation
-                    isBusy && translationMode != TranslationMode.OFFLINE -> "Çevriliyor..."
+                    isBusy && translationMode != TranslationMode.OFFLINE && translationMode != TranslationMode.OFFLINE_PLUS -> "Çevriliyor..."
                     else -> "Altyazı bekleniyor..."
                 }
 
@@ -524,7 +544,8 @@ class MainActivity : ComponentActivity() {
                         translationMode = when (translationMode) {
                             TranslationMode.FREE -> TranslationMode.CLOUD
                             TranslationMode.CLOUD -> TranslationMode.OFFLINE
-                            TranslationMode.OFFLINE -> TranslationMode.FREE
+                            TranslationMode.OFFLINE -> TranslationMode.OFFLINE_PLUS
+                            TranslationMode.OFFLINE_PLUS -> TranslationMode.FREE
                         }
                         translationManager.mode = translationMode
                     },
