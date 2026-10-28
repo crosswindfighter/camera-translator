@@ -90,8 +90,9 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             _isBusy.value = true
             val startedAt = SystemClock.elapsedRealtime()
             try {
-                // OCR'ın eklediği şapkalı harfler (fúcker, Vēspucci) modelde <unk> oluyordu
-                val source = tokenizer?.cleanSource(text).orEmpty()
+                // OCR'ın eklediği şapkalı harfler (fúcker, Vēspucci) modelde <unk> oluyordu;
+                // ardından OPUS'un bilmediği argo sade İngilizceye çevrilir (dog -> dude vb.)
+                val source = SlangNormalizer.normalize(tokenizer?.cleanSource(text).orEmpty())
                 // Cümle cümle çevirmek, modelin çok cümleli altyazılarda ilk cümleyi
                 // atlamasını önlüyor (testte "Siktir, kanka." kayboluyordu).
                 val result = SENTENCE_SPLIT.split(source)
