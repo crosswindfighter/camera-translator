@@ -6,7 +6,7 @@ package com.example.cameratranslator
  */
 object OcrTuning {
     /** Beyaz altyazı filtresi: parlak/renksiz yazıyı bırakır, asfalt gibi dokulu arka planı siler. */
-    @Volatile var textMaskEnabled: Boolean = true
+    @Volatile var textMaskEnabled: Boolean = false
 
     /**
      * OCR'a giden görüntüleri ve okunan metni telefona kaydeder (ayar yaparken teşhis için).

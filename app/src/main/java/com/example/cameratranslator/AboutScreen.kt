@@ -457,6 +457,12 @@ fun AboutScreen(onBack: () -> Unit) {
                 ) {
                     Text("📄 Kaynak kodu (GitHub)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
+                TextButton(
+                    onClick = { openLink(context, "https://github.com/crosswindfighter/camera-translator/blob/main/THIRD-PARTY-NOTICES.md") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Lisanslar ve üçüncü taraf bildirimleri", fontSize = 13.sp)
+                }
             }
 
             Spacer(modifier = Modifier.height(36.dp))

@@ -266,7 +266,7 @@ fun SettingsScreen(
     subtitleFontSize: Float = 38f,
     currentDisplayMode: DisplayMode = DisplayMode.DEFAULT,
     showDisplayModeQuickSwitch: Boolean = false,
-    isOcrTextMaskEnabled: Boolean = true,
+    isOcrTextMaskEnabled: Boolean = false,
     offlineModelState: OfflineModelDownloader.State = OfflineModelDownloader.State.NotInstalled,
     onDownloadOfflineModel: () -> Unit = {},
     onCancelOfflineModelDownload: () -> Unit = {},

@@ -79,7 +79,7 @@ class SettingsManager(context: Context) {
     }
 
     fun getOcrTextMaskEnabled(): Boolean {
-        return prefs.getBoolean("ocr_text_mask_enabled", true)
+        return prefs.getBoolean("ocr_text_mask_enabled", false)
     }
 
     fun saveCloudModeEnabled(enabled: Boolean) {
