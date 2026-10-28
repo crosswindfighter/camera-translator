@@ -422,7 +422,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Camera Translator altyazıyı televizyon ekranından kamerayla okur. Kamera mesafesi, açı, odak, ekran parlaklığı, yazı tipi ve özellikle altyazının arkasındaki hareketli/dokulu sahneler (araba sürerken asfalt, karlı ya da parlak zeminler) nedeniyle bazı kelimeler yanlış okunabilir, eksik okunabilir veya hiç algılanmayabilir. Bu durumda çeviri de hatalı ya da anlamsız olabilir; çok kısa süre ekranda kalan altyazılar kaçabilir.",
+                        text = "Camera Translator altyazıyı televizyon ekranından kamerayla okur. Kamera mesafesi, açı, odak, ekran parlaklığı, yazı tipi ve özellikle altyazının arkasındaki hareketli/dokulu sahneler (araba sürerken asfalt, karlı ya da parlak zeminler) nedeniyle bazı kelimeler yanlış okunabilir, eksik okunabilir veya hiç algılanmayabilir. Bu durumda çeviri de hatalı ya da anlamsız olabilir; çok kısa süre ekranda kalan altyazılar kaçabilir. Bu risk her zaman vardır ve tamamen ortadan kaldırılamaz; ekrandaki görüntüyü kamerayla okuyan her uygulamanın doğal bir sınırıdır.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -449,34 +449,12 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Camera Translator, yapay zeka asistanlarıyla birlikte geliştirildi.",
+                        text = "Camera Translator'ın temelleri Google Gemini ile atıldı; uygulama sonrasında Claude (Anthropic) ile geliştirildi. Bugün kullandığınız OPUS çeviri motoru, OCR iyileştirmeleri ve güvenlik düzenlemeleri bu sürecin ürünüdür.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
                     Text(
-                        text = "• Google Gemini:",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Uygulamanın temelleri Gemini ile atıldı: kamera, OCR, çeviri ve seslendirme altyapısı ile ilk sürümler.",
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
-                    )
-                    Text(
-                        text = "• Claude (Anthropic):",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Uygulamanın bugünkü haline gelmesinde büyük pay sahibi: ⚡ OPUS çeviri motorunun geliştirilmesi ve telefona entegrasyonu, OCR doğruluğundaki iyileştirmeler, Google Translate hızlandırması, API anahtarı güvenliği ve sürüm hazırlıkları Claude ile birlikte yapıldı.",
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
-                    )
-                    Text(
-                        text = "Her iki asistana da katkıları için teşekkürler. Fikirler, testler ve kararlar geliştiriciye aittir.",
+                        text = "Her iki asistana da katkıları için teşekkürler. Fikirler, testler ve kararlar geliştiriciye aittir. Ayrıntılı geliştirme listesi GitHub sayfasındadır.",
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

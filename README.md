@@ -82,6 +82,7 @@ Camera Translator altyazıyı televizyon ekranından **kamerayla** okur; bu yüz
 - Kamera mesafesi, açı, odak, ekran parlaklığı ve yazı tipine bağlı olarak bazı kelimeler **yanlış okunabilir, eksik okunabilir veya hiç algılanmayabilir.**
 - Altyazının arkasındaki **hareketli veya dokulu sahneler** (araba sürerken asfalt, karlı ya da parlak zeminler) okumayı özellikle zorlaştırır.
 - Yanlış okunan metin **hatalı veya anlamsız çeviriye** dönüşebilir; ekranda çok kısa kalan altyazılar kaçabilir.
+- **Bu risk her zaman vardır ve tamamen ortadan kaldırılamaz.** Ekrandaki görüntüyü kamerayla okuyan her uygulamanın doğal bir sınırıdır; uygulamadaki iyileştirmeler hata oranını azaltır ama sıfırlamaz.
 
 **Daha iyi sonuç için:** OCR alanını yalnızca altyazıyı kapsayacak şekilde daraltın, parlaklığı (☀️) biraz düşürün, gerekirse manuel odak kullanın. Oyununuz destekliyorsa **altyazı arka planını (siyah kutu) açmak** doğruluğu en çok artıran ayardır.
 
@@ -108,17 +109,43 @@ Google Play Protect, uygulamayı tanımadığı veya yeterli itibara sahip olmad
 
 ## 🤖 Geliştirme Notu & Teşekkür
 
-Camera Translator, yapay zeka asistanlarıyla birlikte geliştirildi:
+Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonrasında **Claude (Anthropic)** ile geliştirildi.
 
-- **Google Gemini** — Uygulamanın temelleri Gemini ile atıldı: kamera, OCR, çeviri ve seslendirme altyapısı, arayüz ve ilk sürümler.
-- **Claude (Anthropic)** — Uygulamanın bugünkü haline gelmesinde büyük pay sahibi. Claude ile birlikte:
-  - ⚡ **OPUS çeviri motoru** sıfırdan geliştirildi: modelin seçilmesi ve gerçek oyun altyazılarıyla test edilmesi, telefonda çalışacak şekilde ONNX'e dönüştürülüp 355 MB'a sıkıştırılması, cihaz içi çeviri motorunun ve uygulama içi model indirme sisteminin yazılması,
-  - 🔍 **OCR doğruluğu** iyileştirildi: dokulu arka planlar için beyaz altyazı filtresi, çift okuma ve güven tabanlı seçim, daha kararlı altyazı algılama,
-  - 🌐 Google Translate modu hızlandırıldı,
-  - 🔐 API anahtarı güvenliği güçlendirildi,
-  - ✨ güncelleme bildirimi, manuel odak (AUTO), açık tema ve Ayarlar/Hakkında düzenlemeleri gibi sürüm hazırlıkları yapıldı.
+- **Google Gemini** — Kamera, OCR, çeviri ve seslendirme altyapısı, arayüz ve ilk sürümler (v1.0.0 – v1.0.1).
+- **Claude (Anthropic)** — v1.0.2 ile gelen geliştirmelerin büyük bölümü. Fikirler, testler ve kararlar bana ait; Claude ile birlikte yapılanlar:
 
-Her iki asistana da geliştirme sürecindeki katkıları için teşekkür ederim. Fikirler, testler ve tüm kararlar bana ait; hataları ve eksikleri ise [GitHub Issues](https://github.com/crosswindfighter/camera-translator/issues) üzerinden bildirebilirsiniz.
+#### 🔐 Güvenlik
+- Google Cloud API anahtarı URL yerine istek başlığıyla gönderiliyor; anahtar Google Cloud konsolunda yalnızca bu uygulamaya (paket adı + imza) kısıtlanabiliyor.
+- API anahtarları cihaz yedeklerine dahil edilmiyor; APK'ya anahtar gömülmüyor.
+- OPUS modeli uygulamanın özel depolama alanında tutuluyor (başka uygulamalar erişemiyor); güncelleme bildirimi yalnızca bu reponun sayfalarını açıyor.
+
+#### 🔍 Metin okuma (OCR)
+- 1080p ve sıkıştırmasız kamera görüntüsüyle daha net okuma.
+- Arka planı olmayan beyaz altyazılar için **beyaz altyazı filtresi** (altyazının koyu kenar çizgisini kullanır).
+- Her kare hem filtreli hem orijinal haliyle okunuyor; ML Kit'in daha emin olduğu sonuç seçiliyor.
+- Altyazı kararlılaştırıcı yeniden yazıldı: araya giren bozuk karelere rağmen cümleler kaçmıyor, en güvenilir okuma seçiliyor.
+
+#### ⚡ OPUS çeviri motoru
+- Açık kaynak OPUS-MT modeli seçildi ve gerçek oyun altyazılarıyla test edildi.
+- Model telefonda çalışacak şekilde ONNX'e dönüştürülüp 8-bit sıkıştırıldı (900 MB → 355 MB); SentencePiece tokenizer ve çeviri döngüsü Kotlin'de yazıldı.
+- Uygulama içinden indirme: ilerleme çubuğu, kaldığı yerden devam, SHA-256 doğrulama, mobil veri uyarısı.
+- Çok cümleli altyazılar cümle cümle çevriliyor (model bazen ilk cümleyi atlıyordu).
+- OCR'ın eklediği bozuk karakterler temizleniyor; `<unk>` çıktıları giderildi.
+- Yaygın oyun/sokak argosu için küçük bir **argo sözlüğü** (ör. hitap olarak "dog" → "dostum").
+- Türkçe → İngilizce yönünde ve model yokken Google ML Kit'e sessiz geçiş.
+
+#### 🌐 Çeviri modları
+- Google Translate modu hızlandırıldı: daha hızlı uç nokta, yavaş isteklerde yedeğe geçiş, sıcak tutulan bağlantı.
+- Google Cloud isteğe bağlı hale geldi (Ayarlar'dan açılır; kapalıyken API alanı gizli).
+- Yeni kurulumlar OPUS modunda açılıyor; ilk açılışta bir kerelik OPUS indirme önerisi.
+
+#### ✨ Arayüz ve kullanım
+- Güncelleme kontrolü ve her sürüm için yalnızca bir kez gösterilen "yeni sürüm" bildirimi.
+- Manuel odak kaydırıcısında **AUTO** bölgesi/butonu, TV mesafesine göre hassaslaştırılmış odak.
+- Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
+- APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
+
+Her iki asistana da geliştirme sürecindeki katkıları için teşekkür ederim. Hataları ve önerileri [GitHub Issues](https://github.com/crosswindfighter/camera-translator/issues) üzerinden bildirebilirsiniz.
 
 ---
 
