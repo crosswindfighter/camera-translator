@@ -19,7 +19,7 @@ import java.nio.LongBuffer
 import java.text.Normalizer
 
 /**
- * Offline+ çeviri motoru: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), ONNX int8.
+ * OPUS çeviri motoru: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), ONNX int8.
  * Tamamen telefonda çalışır; internet, API anahtarı veya kota gerekmez.
  *
  * Model dosyaları (bilgisayarda hazırlanıp telefona kopyalanır):
@@ -59,7 +59,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             val missing = REQUIRED_FILES.filter { dir == null || !File(dir, it).isFile }
             if (missing.isNotEmpty()) {
                 Log.w(TAG, "Model files missing in $dir: $missing")
-                _status.value = TranslationStatus.Error("Offline+ modeli indirilmedi (Ayarlar)")
+                _status.value = TranslationStatus.Error("OPUS modeli indirilmedi (Ayarlar)")
                 return@withLock
             }
             _status.value = TranslationStatus.DownloadingModel
@@ -79,7 +79,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             } catch (e: Exception) {
                 Log.e(TAG, "Model load failed", e)
                 releaseSessions()
-                _status.value = TranslationStatus.Error("Offline+ modeli yüklenemedi")
+                _status.value = TranslationStatus.Error("OPUS modeli yüklenemedi")
             }
         }
     }

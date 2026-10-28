@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
             translationManager.prepare()
         }
 
-        // Offline+ modeli indirme bitince (Offline modu seçiliyse) hemen kullanılabilir olsun
+        // OPUS modeli indirme bitince (OPUS modu seçiliyse) hemen kullanılabilir olsun
         lifecycleScope.launch {
             var wasInstalled = OfflineModelDownloader.state.value is OfflineModelDownloader.State.Installed
             OfflineModelDownloader.state.collect { state ->
@@ -125,6 +125,7 @@ class MainActivity : ComponentActivity() {
             var currentAppTheme by remember { mutableStateOf(settingsManager.getTheme()) }
             var displayMode by remember { mutableStateOf(settingsManager.getDisplayMode()) }
             var showDisplayModeQuickSwitch by remember { mutableStateOf(settingsManager.getShowDisplayModeQuickSwitch()) }
+            var isCloudModeEnabled by remember { mutableStateOf(settingsManager.getCloudModeEnabled()) }
             var isOcrTextMaskEnabled by remember { mutableStateOf(OcrTuning.textMaskEnabled) }
             var subtitleFontSizeDefault by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeDefault()) }
             var subtitleFontSizeScreen by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeScreen()) }
@@ -152,6 +153,14 @@ class MainActivity : ComponentActivity() {
             var availableUpdate by remember { mutableStateOf<UpdateChecker.ReleaseInfo?>(null) }
             LaunchedEffect(Unit) {
                 availableUpdate = UpdateChecker.checkOnLaunch(settingsManager)
+            }
+
+            // İlk açılışta (model yoksa) bir kereliğine OPUS indirme önerisi
+            var showOpusPrompt by remember {
+                mutableStateOf(
+                    !settingsManager.getOpusPromptShown() &&
+                        OfflineModelDownloader.state.value !is OfflineModelDownloader.State.Installed
+                )
             }
 
             var isSplashVisible by remember { mutableStateOf(!hasShownAppLaunchSplash) }
@@ -191,6 +200,7 @@ class MainActivity : ComponentActivity() {
                                 manualFocusValue = manualFocusValue,
                                 onManualFocusChange = { manualFocusValue = it },
                                 isTrToEn = isTrToEn,
+                                isCloudModeEnabled = isCloudModeEnabled,
                                 isTtsEnabled = isTtsEnabled,
                                 subtitleFontSize = activeSubtitleFontSize,
                                 displayMode = displayMode,
@@ -264,6 +274,16 @@ class MainActivity : ComponentActivity() {
                                     translationManager.updateApiKey(key)
                                     lifecycleScope.launch {
                                         translationManager.prepare()
+                                    }
+                                },
+                                isCloudModeEnabled = isCloudModeEnabled,
+                                onCloudModeEnabledChange = { enabled ->
+                                    isCloudModeEnabled = enabled
+                                    settingsManager.saveCloudModeEnabled(enabled)
+                                    // Cloud kapatıldıysa ve seçili mod Cloud ise OPUS'a geç
+                                    if (!enabled && settingsManager.getTranslationMode() == TranslationMode.OFFLINE) {
+                                        settingsManager.saveTranslationMode(TranslationMode.OFFLINE)
+                                        translationManager.mode = TranslationMode.OFFLINE
                                     }
                                 },
                                 onTtsApiKeySave = { key ->
@@ -389,6 +409,43 @@ class MainActivity : ComponentActivity() {
                             dismissButton = { TextButton(onClick = dismiss) { Text("Daha sonra") } }
                         )
                     }
+
+                    // OPUS önerisi: logodan ve (varsa) güncelleme penceresinden sonra, bir kez
+                    if (showOpusPrompt && !isSplashVisible && availableUpdate == null) {
+                        val closePrompt: () -> Unit = {
+                            settingsManager.saveOpusPromptShown()
+                            showOpusPrompt = false
+                        }
+                        val totalMb = OfflineModelDownloader.totalBytes / 1_000_000
+                        AlertDialog(
+                            onDismissRequest = closePrompt,
+                            title = { Text("⚡ OPUS ile internetsiz çeviri") },
+                            text = {
+                                Text(
+                                    "OPUS, çeviriyi tamamen telefonunuzda yapan yüksek kaliteli çeviri motorudur. " +
+                                        "Bir kez indirin ($totalMb MB), sonra internet, API anahtarı veya ücret olmadan çalışır.\n\n" +
+                                        "İstemezseniz Google Translate ile de kullanabilirsiniz; OPUS'u daha sonra Ayarlar'dan indirebilirsiniz."
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(onClick = {
+                                    closePrompt()
+                                    if (OfflineModelDownloader.isOnMeteredNetwork(this@MainActivity)) {
+                                        // Mobil veride Ayarlar'daki İndir butonu önce onay ister
+                                        currentScreen = Screen.SETTINGS
+                                    } else {
+                                        OfflineModelDownloader.start()
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            "OPUS indiriliyor. İlerlemeyi Ayarlar'dan takip edebilirsiniz.",
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }) { Text("Şimdi indir") }
+                            },
+                            dismissButton = { TextButton(onClick = closePrompt) { Text("Daha sonra") } }
+                        )
+                    }
                 }
             }
         }
@@ -411,7 +468,8 @@ class MainActivity : ComponentActivity() {
         showDisplayModeQuickSwitch: Boolean,
         onToggleDisplayMode: () -> Unit,
         onToggleDirection: () -> Unit,
-        onNavigate: (Screen) -> Unit
+        onNavigate: (Screen) -> Unit,
+        isCloudModeEnabled: Boolean
     ) {
         val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
@@ -573,7 +631,20 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                val statusText = when (val s = translationStatus) {
+                // OPUS modundayken model yoksa (duraklatılmış ekranda) kullanıcıyı yönlendir
+                val offlineModelState by OfflineModelDownloader.state.collectAsStateWithLifecycle()
+                val opusModelHint = if (isPaused && translationMode == TranslationMode.OFFLINE && !isTrToEn) {
+                    when (val m = offlineModelState) {
+                        is OfflineModelDownloader.State.Installed -> ""
+                        is OfflineModelDownloader.State.Downloading ->
+                            "⚡ OPUS modeli indiriliyor… %${(m.progress * 100).toInt()}"
+                        is OfflineModelDownloader.State.Verifying -> "⚡ OPUS modeli doğrulanıyor…"
+                        else -> "⚡ OPUS modeli yüklü değil.\nAyarlar → OPUS Çeviri Motoru'ndan bir kez indirin (355 MB). " +
+                            "O zamana kadar standart offline çeviri kullanılır."
+                    }
+                } else ""
+
+                val statusText = if (opusModelHint.isNotEmpty()) opusModelHint else when (val s = translationStatus) {
                     is TranslationStatus.DownloadingModel -> ""
                     is TranslationStatus.Ready -> if (isPaused) "Çeviriye Hazır" else ""
                     is TranslationStatus.Error -> if (isPaused) s.message else ""
@@ -590,8 +661,7 @@ class MainActivity : ComponentActivity() {
                     else -> "Altyazı bekleniyor..."
                 }
 
-                // Etiket: Offline modunda model yüklü ve yön EN -> TR ise "Offline+" görünür
-                val offlineModelState by OfflineModelDownloader.state.collectAsStateWithLifecycle()
+                // Etiket: OPUS modunda model yüklü ve yön EN -> TR ise OPUS motoru aktif
                 val isOfflinePlusActive = translationMode == TranslationMode.OFFLINE && !isTrToEn &&
                     offlineModelState is OfflineModelDownloader.State.Installed
 
@@ -605,10 +675,11 @@ class MainActivity : ComponentActivity() {
                     isStealthMode = isStealthMode,
                     onToggleStealthMode = { isStealthMode = !isStealthMode },
                     onCycleTranslationMode = {
+                        // OPUS → Google Translate → (Ayarlar'dan açıldıysa) Google Cloud → OPUS
                         translationMode = when (translationMode) {
-                            TranslationMode.FREE -> TranslationMode.CLOUD
-                            TranslationMode.CLOUD -> TranslationMode.OFFLINE
                             TranslationMode.OFFLINE -> TranslationMode.FREE
+                            TranslationMode.FREE -> if (isCloudModeEnabled) TranslationMode.CLOUD else TranslationMode.OFFLINE
+                            TranslationMode.CLOUD -> TranslationMode.OFFLINE
                         }
                         translationManager.mode = translationMode
                     },

@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 /**
  * GitHub Releases üzerinden yeni sürüm kontrolü.
  *
- * "latest" olarak işaretli sürüme bakılır; Offline+ model sürümü (offline-model-v1)
+ * "latest" olarak işaretli sürüme bakılır; OPUS model sürümü (offline-model-v1)
  * latest olarak işaretlenmediği için karışmaz. Etiketler "v1.0.2" biçiminde olmalı.
  */
 object UpdateChecker {

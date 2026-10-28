@@ -50,9 +50,9 @@ interface ITranslationEngine {
     fun updateApiKey(key: String) {}
     /** Ağ bağlantısını önceden ısıtır (çevrimiçi motorlar için). */
     fun warmUp() {}
-    /** Offline+ modeli indirildi/değişti: gerekiyorsa yeniden yükle. */
+    /** OPUS modeli indirildi/değişti: gerekiyorsa yeniden yükle. */
     suspend fun reloadOfflineModel() {}
-    /** Offline+ modelini bellekten çıkar (dosyalar silinmeden önce). */
+    /** OPUS modelini bellekten çıkar (dosyalar silinmeden önce). */
     suspend fun releaseOfflineModel() {}
 }
 
@@ -385,7 +385,7 @@ class CompositeTranslationEngine(
     private val google: GoogleCloudTranslationEngine = GoogleCloudTranslationEngine(apiKey),
     private val free: ITranslationEngine = FreeTranslationEngine(),
     private val offline: ITranslationEngine = MLKitTranslationEngine(),
-    /** Offline+ (OPUS-MT). Context gerektirdiği için dışarıdan verilir; yoksa ML Kit kullanılır. */
+    /** OPUS (OPUS-MT). Context gerektirdiği için dışarıdan verilir; yoksa ML Kit kullanılır. */
     private val offlinePlus: OpusTranslationEngine? = null
 ) : ITranslationEngine {
 
@@ -404,13 +404,13 @@ class CompositeTranslationEngine(
             field = value
             syncStatus()
             if (switchedToFree) free.warmUp()
-            // ~350 MB'lık Offline+ modeli sadece Offline modu seçilince belleğe yüklenir
+            // ~350 MB'lık OPUS modeli sadece Offline modu seçilince belleğe yüklenir
             // (model indirilmemişse prepare sessizce hata durumuna geçer, ML Kit kullanılır)
             if (value == TranslationMode.OFFLINE) scope.launch { offlinePlus?.prepare() }
         }
 
     /**
-     * Offline modunda hangi motor? Model hazırsa ve yön İngilizce -> Türkçe ise Offline+
+     * Offline modunda hangi motor? Model hazırsa ve yön İngilizce -> Türkçe ise OPUS
      * (OPUS-MT), aksi halde ML Kit. Yön değişince otomatik ve sessizce geçiş yapar.
      */
     private fun useOfflinePlus(): Boolean =

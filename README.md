@@ -8,12 +8,26 @@
 
 ---
 
+## ⚡ OPUS: İnternetsiz, Yüksek Kaliteli Çeviri Motoru
+
+Camera Translator'ın kalbi **OPUS** çeviri motorudur. Helsinki Üniversitesi'nin açık kaynaklı [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) modeli, telefonda çalışacak şekilde sıkıştırılarak uygulamaya entegre edildi.
+
+- 📶 **İnternet gerekmez:** Çeviri tamamen telefonunuzun içinde yapılır; uçak modunda bile çalışır.
+- 🔑 **API anahtarı, kota ve ücret yok:** Sınırsız ve tamamen ücretsiz.
+- 🏆 **Yüksek kalite:** Oyun diyaloglarında ve argoda online servislere yakın kalitede Türkçe.
+- ⚡ **Anında çeviri:** Ağ gecikmesi olmadığı için altyazı ekrana geldiği an çevrilir.
+- 📦 **Tek seferlik kurulum:** Uygulamada Ayarlar → **⚡ OPUS Çeviri Motoru** → **İndir** (355 MB). İndirme yarıda kesilirse kaldığı yerden devam eder, dosyalar otomatik doğrulanır.
+
+Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çeviri yapar; Türkçe → İngilizce yönünde ve model indirilmemişken Google ML Kit çevrimdışı motoru devreye girer (bu durumda çeviri kalitesi bir miktar düşer).
+
+---
+
 ## 🌟 Öne Çıkan Özellikler
 
-### 🌐 3 Farklı Çeviri Yöntemi
-- 🌐 **Google Translate:** İnternet üzerinden ücretsiz Google Translate altyazı çevirisi.
-- ☁️ **Google Cloud:** Google Cloud Translation altyapısıyla **yüksek kalite** ve hızlı çeviri. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır. Çevrimiçi bağlantı ve API gerektirir.
-- 📴 **Offline:** Helsinki Üniversitesi'nin [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) modeliyle tamamen telefonda, internetsiz, API anahtarsız ve kotasız **yüksek kaliteli** İngilizce → Türkçe çeviri. Model, uygulamanın Ayarlar ekranından bir kez indirilir (355 MB). Türkçe → İngilizce yönünde ve model indirilmemişken Google ML Kit çevrimdışı motoru kullanılır (bu durumda çeviri kalitesi bir miktar düşer).
+### 🌐 Çeviri Yöntemleri
+- ⚡ **OPUS (önerilen):** İnternetsiz, ücretsiz ve yüksek kaliteli cihaz içi çeviri (yukarıya bakın).
+- 🌐 **Google Translate:** İnternet üzerinden ücretsiz çeviri; model indirmek istemeyenler için hazır seçenek.
+- ☁️ **Google Cloud (isteğe bağlı):** Google Cloud Translation altyapısıyla çevrimiçi çeviri. Varsayılan olarak gizlidir; Ayarlar → **☁️ Google Cloud Çeviri** anahtarıyla açılır ve kendi API anahtarınızı gerektirir. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.
 
 ### 🔊 Sesli Okuma & Altyazı Seslendirme (Dublaj)
 - **Dahili Ses Motoru:** Google Translate tabanlı ücretsiz çevrimiçi seslendirme sunar.
@@ -46,6 +60,8 @@
 - **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır.
 - **Hayalet / Göz Modu (👁️‍🗨️):** Ekrandaki tüm araç çubuklarını ve çerçeveleri gizler.
 - **Zoom Kontrolü (1x - 5x):** Televizyona yaklaşmadan koltuktan rahat kullanım.
+- **Manuel Odak + AUTO:** Uzaktaki TV'de yazı bulanıksa odak kaydırıcısıyla netliği elle ayarlayın; AUTO ile tek dokunuşta otomatik odağa dönün.
+- **Beyaz Altyazı Filtresi:** Arka planı olmayan beyaz altyazılarda dokulu sahnelerin (ör. araba sürerken yol) okumayı bozmasını azaltır.
 - **Bağımsız Mod Hafızası:** Dikey ve yatay ekran pozisyonları ile yazı boyutları her mod için bağımsız olarak saklanır.
 
 ---
@@ -54,13 +70,31 @@
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
 2. Telefonunuza indirdiğiniz `camera-translator.apk` dosyasını kurun.
-3. Uygulamayı açıp kamera iznini verin ve oyundaki altyazı alanını seçerek çevirinin tadını çıkarın!
+3. Uygulamayı açıp kamera iznini verin. İlk açılışta önerilen **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
+4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
 ---
 
-### ⚠️ Önemli Not & Bilgilendirme
+### ⚠️ Önemli Not: Metin Okuma (OCR) Hata Yapabilir
 
-Camera Translator geliştirdiğim ilk Android uygulamasıdır. Kamera mesafesi, çekim açısı, ekran parlaklığı, font tipi veya oyun içi anlık ışık değişimlerine bağlı olarak OCR teknolojisi zaman zaman bazı harfleri yanlış okuyabilir veya çevirilerde küçük sapmalar yaşanabilir. Karşılaştığınız hata veya geliştirme önerilerini GitHub üzerinden paylaşabilirsiniz.
+Camera Translator altyazıyı televizyon ekranından **kamerayla** okur; bu yüzden sonuç hiçbir zaman oyun içi bir çeviri kadar kusursuz olamaz. Dürüst olmak gerekirse:
+
+- Kamera mesafesi, açı, odak, ekran parlaklığı ve yazı tipine bağlı olarak bazı kelimeler **yanlış okunabilir, eksik okunabilir veya hiç algılanmayabilir.**
+- Altyazının arkasındaki **hareketli veya dokulu sahneler** (araba sürerken asfalt, karlı ya da parlak zeminler) okumayı özellikle zorlaştırır.
+- Yanlış okunan metin **hatalı veya anlamsız çeviriye** dönüşebilir; ekranda çok kısa kalan altyazılar kaçabilir.
+
+**Daha iyi sonuç için:** OCR alanını yalnızca altyazıyı kapsayacak şekilde daraltın, parlaklığı (☀️) biraz düşürün, gerekirse manuel odak kullanın. Oyununuz destekliyorsa **altyazı arka planını (siyah kutu) açmak** doğruluğu en çok artıran ayardır.
+
+Camera Translator geliştirdiğim ilk Android uygulamasıdır. Karşılaştığınız hataları veya önerilerinizi [GitHub Issues](https://github.com/crosswindfighter/camera-translator/issues) üzerinden paylaşabilirsiniz (uygulamada: Hakkında → 🐞 Hata bildir).
+
+---
+
+### 🔒 Gizlilik
+
+- **Kamera görüntüsü hiçbir yere gönderilmez.** Metin okuma (OCR) tamamen telefonda yapılır.
+- **⚡ OPUS modunda çeviri de telefonda kalır;** hiçbir veri internete çıkmaz.
+- **Google Translate ve Google Cloud modlarında** yalnızca okunan altyazı metni çeviri için Google'a gönderilir. Sesli okumada Google Cloud Text-to-Speech seçiliyse çevrilen metin seslendirme için Google'a gönderilir.
+- API anahtarlarınız yalnızca telefonunuzda saklanır ve cihaz yedeklerine dahil edilmez.
 
 ---
 
@@ -88,4 +122,4 @@ Lisansın tam metni için [LICENSE.md](LICENSE.md) dosyasına bakabilirsiniz.
 
 Üçüncü taraf kütüphaneler ve hizmetler kendi lisans ve kullanım koşullarına tabidir.
 
-**Offline+ çeviri modeli:** [Helsinki-NLP/opus-mt-tc-big-en-tr](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) (Tiedemann & Thottingal, OPUS-MT / Tatoeba Challenge), [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) lisansıyla. Uygulamanın indirdiği dosyalar bu modelin ONNX formatına çevrilmiş ve 8-bit sıkıştırılmış halidir; dönüştürme betikleri [tools/offline_model](tools/offline_model) klasöründedir. Model, [ONNX Runtime](https://onnxruntime.ai/) (MIT) ile çalıştırılır.
+**OPUS çeviri motoru (model):** [Helsinki-NLP/opus-mt-tc-big-en-tr](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) (Tiedemann & Thottingal, OPUS-MT / Tatoeba Challenge), [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) lisansıyla. Uygulamanın indirdiği dosyalar bu modelin ONNX formatına çevrilmiş ve 8-bit sıkıştırılmış halidir; dönüştürme betikleri [tools/offline_model](tools/offline_model) klasöründedir. Model, [ONNX Runtime](https://onnxruntime.ai/) (MIT) ile çalıştırılır.

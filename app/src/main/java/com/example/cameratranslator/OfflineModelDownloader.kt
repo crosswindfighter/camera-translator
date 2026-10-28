@@ -21,7 +21,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
 
 /**
- * Offline+ modelini GitHub Releases'tan indirir.
+ * OPUS modelini GitHub Releases'tan indirir.
  *
  * - Dosyalar tek tek iner; yarıda kalan indirme ".part" dosyasından kaldığı yerden devam eder.
  * - Her dosya SHA-256 ile doğrulanır; bozuk dosya silinir.

@@ -1,5 +1,9 @@
 package com.example.cameratranslator
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -14,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -26,6 +31,7 @@ import com.example.cameratranslator.ui.theme.SectionCardStyle
 fun AboutScreen(onBack: () -> Unit) {
     BackHandler { onBack() }
     val scrollState = rememberScrollState()
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
@@ -120,37 +126,13 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "1. Google Translate (Ücretsiz Online):",
+                        text = "1. ⚡ OPUS (Önerilen — İnternetsiz, Yüksek Kalite):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Herhangi bir API anahtarı veya ücret ödemeden, internet bağlantınız üzerinden ücretsiz Google Translate altyazısıyla çeviri yapar.",
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
-                    )
-
-                    Text(
-                        text = "2. Google Cloud (En Yüksek Kalite):",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Google Cloud altyapısıyla çevrimiçi çeviri sağlar. Çalışması için kullanıcıların Ayarlar bölümünden kendi Google Cloud Translation API Key anahtarlarını girmeleri gerekir. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.",
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp
-                    )
-
-                    Text(
-                        text = "3. Offline (Yüksek Kaliteli, İnternetsiz):",
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 15.sp
-                    )
-                    Text(
-                        text = "Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT çeviri modeliyle (opus-mt-tc-big-en-tr) tamamen telefonunuzun içinde çalışır. İnternet bağlantısı, API anahtarı veya kullanım kotası gerektirmez; çeviri kalitesi online servislere yakındır ve çeviriler anında gelir.",
+                        text = "Uygulamanın ana çeviri motoru. Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT modeliyle (opus-mt-tc-big-en-tr) çeviri tamamen telefonunuzun içinde yapılır. Bir kez indirilir; sonrasında internet bağlantısı, API anahtarı, kota veya ücret olmadan, online servislere yakın kalitede ve anında çeviri yapar. Uçak modunda bile çalışır.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -160,14 +142,14 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 14.sp
                     )
                     Text(
-                        text = "1. Ayarlar → \"Offline+ Çeviri Modeli\" bölümünden İndir'e dokunun (355 MB, tek seferlik; Wi-Fi önerilir).\n" +
-                            "2. İndirme bitince dosyalar otomatik doğrulanır ve model kullanıma hazır olur. İndirme yarıda kesilirse kaldığı yerden devam eder.\n" +
-                            "3. Kamera ekranındaki çeviri yöntemi butonundan 📴 Offline'ı seçin. Model aktifken etikette yeşil \"📴 Offline+\" yazar.",
+                        text = "1. Ayarlar → \"⚡ OPUS Çeviri Motoru\" bölümünden İndir'e dokunun (355 MB, tek seferlik; Wi-Fi önerilir).\n" +
+                            "2. İndirme bitince dosyalar otomatik doğrulanır ve motor kullanıma hazır olur. İndirme yarıda kesilirse kaldığı yerden devam eder.\n" +
+                            "3. Kamera ekranındaki çeviri yöntemi butonu \"⚡ OPUS\" iken çeviriye başlayın. Uygulama ilk açılışta zaten bu modda gelir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
                     Text(
-                        text = "Not: Bu model yalnızca İngilizce → Türkçe çeviri yapar. Dil yönü Türkçe → İngilizce seçildiğinde uygulama otomatik olarak Google ML Kit çevrimdışı motoruna geçer (etiket sarı \"📴 Offline\" olur) ve bu yönde çeviri kalitesi bir miktar düşer. Yön tekrar İngilizce → Türkçe yapıldığında yüksek kaliteli modele otomatik olarak geri dönülür. Model henüz indirilmemişse de ML Kit kullanılır.",
+                        text = "Not: OPUS yalnızca İngilizce → Türkçe çeviri yapar. Dil yönü Türkçe → İngilizce seçildiğinde (veya model henüz indirilmemişse) uygulama otomatik olarak Google ML Kit çevrimdışı motoruna geçer; etikette \"⚡ OPUS (standart)\" yazar ve bu durumda çeviri kalitesi bir miktar düşer. Yön tekrar İngilizce → Türkçe yapıldığında OPUS'a otomatik olarak geri dönülür.",
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -176,6 +158,30 @@ fun AboutScreen(onBack: () -> Unit) {
                         text = "Model lisansı: CC-BY 4.0 — Helsinki-NLP / OPUS-MT, Tatoeba Challenge.",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Text(
+                        text = "2. 🌐 Google Translate (Ücretsiz Online):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Herhangi bir API anahtarı veya ücret ödemeden, internet bağlantınız üzerinden ücretsiz Google Translate ile çeviri yapar. Model indirmek istemeyenler için hazır seçenektir.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "3. ☁️ Google Cloud (İsteğe Bağlı, Ücretli):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Google Cloud Translation altyapısıyla çevrimiçi çeviri sağlar. Varsayılan olarak gizlidir; Ayarlar → \"☁️ Google Cloud Çeviri\" anahtarı açıldığında çeviri yöntemleri arasına eklenir ve kendi Cloud Translation API anahtarınızı girmeniz gerekir. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
                     )
                 }
             }
@@ -234,7 +240,7 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(modifier = Modifier.height(24.dp))
 
             // Section 3: Display Modes
-            SectionHeader("📺 ARAYÜZ VE ÇEVİRİ MODLARI")
+            SectionHeader("📺 GÖRÜNÜM MODLARI")
             
             Surface(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
@@ -302,19 +308,19 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce seslerine geçer. (Offline modunda bu yönde ML Kit kullanılır.)",
+                        text = "Çeviri yönünü anında değiştirir. 'TR → EN' yönüne geçildiğinde Türkçe altyazılar İngilizceye çevrilir ve sesli okuma aktifse seslendirme de otomatik olarak İngilizce seslerine geçer. (OPUS modunda bu yönde ML Kit kullanılır.)",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
 
                     Text(
-                        text = "• Çeviri Yöntemi (🌐 Google Translate / ☁️ Google Cloud / 📴 Offline):",
+                        text = "• Çeviri Yöntemi (⚡ OPUS / 🌐 Google Translate / ☁️ Google Cloud):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Tek tıkla Google Translate (ücretsiz online), yüksek kalitede Google Cloud Translation ve internetsiz, yüksek kaliteli Offline (OPUS-MT) motorları arasında hızlıca geçiş yapmanızı sağlar.",
+                        text = "Tek tıkla internetsiz ve yüksek kaliteli ⚡ OPUS ile ücretsiz online 🌐 Google Translate arasında geçiş yapmanızı sağlar. ☁️ Google Cloud, Ayarlar'dan açılırsa bu sıraya eklenir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -381,11 +387,88 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
+
+                    Text(
+                        text = "• Manuel Odak (Odak Çerçevesi İkonu):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Uzaktaki televizyonda altyazı bulanık görünüyorsa sağ taraftaki odak ikonuna dokunun ve kaydırıcıyla netliği elle ayarlayın. Kaydırıcının en altındaki yeşil bölge veya altındaki AUTO butonu otomatik odağa döner. Ayarınız uygulama içinde ekran değiştirseniz de korunur; uygulama yeniden açıldığında otomatik odakla başlar.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section 6: Honest limitations of OCR
+            SectionHeader("⚠️ BİLMENİZ GEREKENLER")
+
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Metin okuma (OCR) hata yapabilir",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Camera Translator altyazıyı televizyon ekranından kamerayla okur. Kamera mesafesi, açı, odak, ekran parlaklığı, yazı tipi ve özellikle altyazının arkasındaki hareketli/dokulu sahneler (araba sürerken asfalt, karlı ya da parlak zeminler) nedeniyle bazı kelimeler yanlış okunabilir, eksik okunabilir veya hiç algılanmayabilir. Bu durumda çeviri de hatalı ya da anlamsız olabilir; çok kısa süre ekranda kalan altyazılar kaçabilir.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                    Text(
+                        text = "Daha iyi sonuç için: OCR alanını yalnızca altyazıyı kapsayacak şekilde daraltın, parlaklığı (☀️) biraz düşürün, gerekirse manuel odak kullanın ve arka planı olmayan beyaz altyazılarda Ayarlar'daki \"Beyaz altyazı filtresi\"ni açık tutun. Oyununuz destekliyorsa altyazı arka planını (siyah kutu) açmak doğruluğu en çok artıran ayardır.",
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section 7: Links
+            SectionHeader("🔗 BAĞLANTILAR")
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = { openLink(context, "https://github.com/crosswindfighter/camera-translator/issues") },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("🐞 Hata bildir / öneri gönder", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = { openLink(context, "https://github.com/crosswindfighter/camera-translator") },
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("📄 Kaynak kodu (GitHub)", fontSize = 14.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
             Spacer(modifier = Modifier.height(36.dp))
         }
+    }
+}
+
+private fun openLink(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    } catch (e: Exception) {
+        Log.e("AboutScreen", "Cannot open link: $url", e)
     }
 }
 

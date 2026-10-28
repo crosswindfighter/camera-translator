@@ -77,9 +77,9 @@ private fun OfflineModelSection(
         }
     }
 
-    Text("📴 Offline+ Çeviri Modeli", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+    Text("⚡ OPUS Çeviri Motoru", fontSize = 18.sp, fontWeight = FontWeight.Bold)
     Text(
-        "İnternetsiz, yüksek kaliteli İngilizce → Türkçe çeviri. Bir kere indirilir ($totalMb MB). Yüklüyse Offline modu bunu kullanır; Türkçe → İngilizce yönünde standart Offline motoru devreye girer.",
+        "Bir kez indirin ($totalMb MB), sonra internet olmadan bile yüksek kaliteli İngilizce → Türkçe çeviri yapın. API anahtarı, kota veya ücret yok. Türkçe → İngilizce yönünde standart çevrimdışı motor kullanılır.",
         fontSize = 12.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
@@ -114,7 +114,7 @@ private fun OfflineModelSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("✅ Yüklü — Offline modunda otomatik kullanılır", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("✅ Yüklü — ⚡ OPUS modunda kullanılıyor", fontSize = 13.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showDeleteDialog = true }) { Text("Sil") }
             }
         }
@@ -151,7 +151,7 @@ private fun OfflineModelSection(
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("Modeli sil") },
-            text = { Text("Offline+ modeli silinsin mi? Tekrar kullanmak için yeniden indirmeniz gerekir ($totalMb MB).") },
+            text = { Text("OPUS modeli silinsin mi? Tekrar kullanmak için yeniden indirmeniz gerekir ($totalMb MB).") },
             confirmButton = {
                 TextButton(onClick = {
                     showDeleteDialog = false
@@ -286,6 +286,8 @@ fun SettingsScreen(
     onShowDisplayModeQuickSwitchChange: (Boolean) -> Unit = {},
     onOcrTextMaskEnabledChange: (Boolean) -> Unit = {},
     onApiKeySave: (String) -> Unit,
+    isCloudModeEnabled: Boolean = false,
+    onCloudModeEnabledChange: (Boolean) -> Unit = {},
     onTtsApiKeySave: (String) -> Unit = {},
     onTtsEnabledChange: (Boolean) -> Unit = {},
     onTtsEngineTypeChange: (TtsEngineType) -> Unit = {},
@@ -356,70 +358,19 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // BLOCK 1: Tema (Theme)
+            // BLOCK: OPUS Çeviri Modeli
             SettingsBlockCard {
-                Text("Tema", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    AppTheme.entries.forEach { theme ->
-                        val isSelected = theme == currentTheme
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clickable { onThemeChange(theme) },
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = when (theme) {
-                                        AppTheme.LIGHT -> "Açık"
-                                        AppTheme.DARK -> "Koyu"
-                                        AppTheme.SYSTEM -> "Sistem"
-                                    },
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            // BLOCK 2: Çeviri Yazı Boyutu (Subtitle Font Size)
-            SettingsBlockCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Çeviri yazı boyutu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "${subtitleFontSize.toInt()} sp",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Slider(
-                    value = subtitleFontSize,
-                    onValueChange = { onSubtitleFontSizeChange(it) },
-                    valueRange = 24f..80f,
-                    steps = 27,
-                    modifier = Modifier.fillMaxWidth()
+                OfflineModelSection(
+                    state = offlineModelState,
+                    onDownload = onDownloadOfflineModel,
+                    onCancel = onCancelOfflineModelDownload,
+                    onDelete = onDeleteOfflineModel
                 )
             }
 
-            // BLOCK 3: Çeviri Modu (Display Mode)
+            // BLOCK 3: Görünüm Modu (Display Mode)
             SettingsBlockCard {
-                Text("Çeviri Modu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Görünüm Modu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -460,7 +411,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Çeviri Modunu ana ekranda göster", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    Text("Görünüm modu butonunu ana ekranda göster", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                     Switch(
                         checked = showDisplayModeQuickSwitch,
                         onCheckedChange = { onShowDisplayModeQuickSwitchChange(it) }
@@ -468,38 +419,28 @@ fun SettingsScreen(
                 }
             }
 
-            // BLOCK: Offline+ Çeviri Modeli
+            // BLOCK 2: Çeviri Yazı Boyutu (Subtitle Font Size)
             SettingsBlockCard {
-                OfflineModelSection(
-                    state = offlineModelState,
-                    onDownload = onDownloadOfflineModel,
-                    onCancel = onCancelOfflineModelDownload,
-                    onDelete = onDeleteOfflineModel
-                )
-            }
-
-            // BLOCK: Metin Okuma (OCR)
-            SettingsBlockCard {
-                Text("Metin Okuma (OCR)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Text(
-                            "Arka planı (siyah kutusu) olmayan beyaz altyazılarda kelimeler bozuk veya hatalı okunuyorsa açmanız önerilir. Yalnızca beyaz altyazılarda etkilidir.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Switch(
-                        checked = isOcrTextMaskEnabled,
-                        onCheckedChange = { onOcrTextMaskEnabledChange(it) }
+                    Text("Çeviri yazı boyutu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(
+                        text = "${subtitleFontSize.toInt()} sp",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
+                Slider(
+                    value = subtitleFontSize,
+                    onValueChange = { onSubtitleFontSizeChange(it) },
+                    valueRange = 24f..80f,
+                    steps = 27,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
 
             // BLOCK 4: Sesli Okuma (Speech Reading)
@@ -965,10 +906,54 @@ fun SettingsScreen(
                 }
             }
 
-            // BLOCK 5: Translation API Key Section
+            // BLOCK: Metin Okuma (OCR)
             SettingsBlockCard {
-                Text("Cloud Translation API", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                
+                Text("Metin Okuma (OCR)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(
+                            "Arka planı (siyah kutusu) olmayan beyaz altyazılarda kelimeler bozuk veya hatalı okunuyorsa açmanız önerilir. Yalnızca beyaz altyazılarda etkilidir.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isOcrTextMaskEnabled,
+                        onCheckedChange = { onOcrTextMaskEnabledChange(it) }
+                    )
+                }
+            }
+
+            // BLOCK 5: Google Cloud Translation (isteğe bağlı, ücretli; açılınca API alanı görünür)
+            SettingsBlockCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("☁️ Google Cloud Çeviri", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Ücretli Google servisi; kendi Cloud Translation API anahtarınızı gerektirir. Açtığınızda çeviri yöntemleri arasına eklenir.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = isCloudModeEnabled,
+                        onCheckedChange = { onCloudModeEnabledChange(it) }
+                    )
+                }
+
+                if (isCloudModeEnabled) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
                 OutlinedTextField(
                     value = apiKey,
                     onValueChange = { apiKey = it },
@@ -1104,6 +1089,44 @@ fun SettingsScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                }
+            }
+
+            // BLOCK 1: Tema (Theme)
+            SettingsBlockCard {
+                Text("Tema", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    AppTheme.entries.forEach { theme ->
+                        val isSelected = theme == currentTheme
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clickable { onThemeChange(theme) },
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = when (theme) {
+                                        AppTheme.LIGHT -> "Açık"
+                                        AppTheme.DARK -> "Koyu"
+                                        AppTheme.SYSTEM -> "Sistem"
+                                    },
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             // BLOCK 6: Güncellemeler (Updates)

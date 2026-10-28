@@ -1,4 +1,4 @@
-# Offline+ modelini üretme
+# OPUS modelini üretme
 
 Uygulamanın indirdiği 4 dosya (`encoder_model.onnx`, `decoder_model_merged.onnx`,
 `source_pieces.tsv`, `vocab.json`) bu adımlarla üretildi. Model:

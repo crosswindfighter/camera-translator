@@ -22,6 +22,12 @@ android {
 
         // API anahtarı APK'ya gömülmez; kullanıcı Ayarlar ekranından girer.
         // (APK'ya gömülen anahtar, APK açılarak herkes tarafından okunabilir.)
+
+        // Sadece telefon işlemcileri: ONNX Runtime ve ML Kit'in emülatör (x86) kütüphaneleri
+        // APK'yı gereksiz büyütüyordu. Neredeyse tüm Android telefonlar ARM.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+        }
     }
 
     buildTypes {

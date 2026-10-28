@@ -82,6 +82,27 @@ class SettingsManager(context: Context) {
         return prefs.getBoolean("ocr_text_mask_enabled", true)
     }
 
+    fun saveCloudModeEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("cloud_mode_enabled", enabled).apply()
+    }
+
+    /**
+     * Google Cloud modu ana ekranda görünsün mü? Varsayılan kapalı (ücretli servis);
+     * daha önce API anahtarı girmiş kullanıcılarda açık başlar.
+     */
+    fun getCloudModeEnabled(): Boolean {
+        return prefs.getBoolean("cloud_mode_enabled", getApiKey().isNotBlank())
+    }
+
+    /** İlk açılıştaki "OPUS modelini indir" önerisi gösterildi mi (bir kez gösterilir). */
+    fun saveOpusPromptShown() {
+        prefs.edit().putBoolean("opus_prompt_shown", true).apply()
+    }
+
+    fun getOpusPromptShown(): Boolean {
+        return prefs.getBoolean("opus_prompt_shown", false)
+    }
+
     fun saveLastUpdateCheckAt(timeMillis: Long) {
         prefs.edit().putLong("last_update_check_at", timeMillis).apply()
     }
@@ -121,14 +142,17 @@ class SettingsManager(context: Context) {
     }
 
     fun getTranslationMode(): TranslationMode {
-        val modeName = prefs.getString("translation_mode", TranslationMode.FREE.name) ?: TranslationMode.FREE.name
-        // Eski ayrı "Offline+" modu artık Offline modunun içinde
+        // Yeni kurulumlar OPUS (OFFLINE) ile açılır
+        val modeName = prefs.getString("translation_mode", TranslationMode.OFFLINE.name) ?: TranslationMode.OFFLINE.name
+        // Eski ayrı "Offline+" modu artık OPUS modunun içinde
         if (modeName == "OFFLINE_PLUS") return TranslationMode.OFFLINE
-        return try {
+        val mode = try {
             TranslationMode.valueOf(modeName)
         } catch (e: Exception) {
-            TranslationMode.FREE
+            TranslationMode.OFFLINE
         }
+        // Google Cloud ayarlardan kapatıldıysa OPUS'a dön
+        return if (mode == TranslationMode.CLOUD && !getCloudModeEnabled()) TranslationMode.OFFLINE else mode
     }
 
     fun saveTranslationDirection(isTrToEn: Boolean) {

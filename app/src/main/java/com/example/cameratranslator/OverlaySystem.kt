@@ -625,7 +625,8 @@ fun MainOverlay(
                         TranslationMode.FREE -> "🌐 Google Translate" to Color.White
                         TranslationMode.CLOUD -> "☁️ Google Cloud" to Color.Cyan
                         TranslationMode.OFFLINE ->
-                            if (isOfflinePlusActive) "📴 Offline+" to Color(0xFF7CFC00) else "📴 Offline" to Color.Yellow
+                            // Model yüklü ve EN -> TR ise OPUS motoru; değilse ML Kit yedeği ("standart")
+                            if (isOfflinePlusActive) "⚡ OPUS" to Color(0xFF7CFC00) else "⚡ OPUS (standart)" to Color.Yellow
                     }
                     Text(
                         text = text,
