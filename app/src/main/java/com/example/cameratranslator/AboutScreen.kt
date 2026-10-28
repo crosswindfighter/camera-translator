@@ -437,7 +437,56 @@ fun AboutScreen(onBack: () -> Unit) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Section 7: Links
+            // Section 7: Development note
+            SectionHeader("🤖 GELİŞTİRME NOTU")
+
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                color = SectionCardStyle.cardColor(darkAlpha = 0.25f),
+                border = SectionCardStyle.cardBorder(showInDark = false),
+                shadowElevation = SectionCardStyle.cardShadow()
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Camera Translator, yapay zeka asistanlarıyla birlikte geliştirildi.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                    Text(
+                        text = "• Google Gemini:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Uygulamanın temelleri Gemini ile atıldı: kamera, OCR, çeviri ve seslendirme altyapısı ile ilk sürümler.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                    Text(
+                        text = "• Claude (Anthropic):",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Uygulamanın bugünkü haline gelmesinde büyük pay sahibi: ⚡ OPUS çeviri motorunun geliştirilmesi ve telefona entegrasyonu, OCR doğruluğundaki iyileştirmeler, Google Translate hızlandırması, API anahtarı güvenliği ve sürüm hazırlıkları Claude ile birlikte yapıldı.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+                    Text(
+                        text = "Her iki asistana da katkıları için teşekkürler. Fikirler, testler ve kararlar geliştiriciye aittir.",
+                        fontSize = 13.sp,
+                        lineHeight = 20.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Section 8: Links
             SectionHeader("🔗 BAĞLANTILAR")
             Column(
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),

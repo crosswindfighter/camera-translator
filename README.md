@@ -108,7 +108,17 @@ Google Play Protect, uygulamayı tanımadığı veya yeterli itibara sahip olmad
 
 ## 🤖 Geliştirme Notu & Teşekkür
 
-Bu proje, Google Gemini yapay zekasının yardımıyla geliştirilmiştir. Geliştirme sürecindeki katkıları için teşekkür ederim.
+Camera Translator, yapay zeka asistanlarıyla birlikte geliştirildi:
+
+- **Google Gemini** — Uygulamanın temelleri Gemini ile atıldı: kamera, OCR, çeviri ve seslendirme altyapısı, arayüz ve ilk sürümler.
+- **Claude (Anthropic)** — Uygulamanın bugünkü haline gelmesinde büyük pay sahibi. Claude ile birlikte:
+  - ⚡ **OPUS çeviri motoru** sıfırdan geliştirildi: modelin seçilmesi ve gerçek oyun altyazılarıyla test edilmesi, telefonda çalışacak şekilde ONNX'e dönüştürülüp 355 MB'a sıkıştırılması, cihaz içi çeviri motorunun ve uygulama içi model indirme sisteminin yazılması,
+  - 🔍 **OCR doğruluğu** iyileştirildi: dokulu arka planlar için beyaz altyazı filtresi, çift okuma ve güven tabanlı seçim, daha kararlı altyazı algılama,
+  - 🌐 Google Translate modu hızlandırıldı,
+  - 🔐 API anahtarı güvenliği güçlendirildi,
+  - ✨ güncelleme bildirimi, manuel odak (AUTO), açık tema ve Ayarlar/Hakkında düzenlemeleri gibi sürüm hazırlıkları yapıldı.
+
+Her iki asistana da geliştirme sürecindeki katkıları için teşekkür ederim. Fikirler, testler ve tüm kararlar bana ait; hataları ve eksikleri ise [GitHub Issues](https://github.com/crosswindfighter/camera-translator/issues) üzerinden bildirebilirsiniz.
 
 ---
 
