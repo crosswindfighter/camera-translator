@@ -135,6 +135,7 @@ object GemmaModelDownloader {
         for (source in SOURCES) {
             try {
                 downloadFrom(source, part)
+                Log.i(TAG, "Download complete via ${source.name}")
                 lastError = null
                 break
             } catch (e: CancellationException) {
@@ -155,10 +156,11 @@ object GemmaModelDownloader {
     }
 
     private suspend fun downloadFrom(source: Source, part: File) {
-        for (segment in source.segments) {
+        for ((index, segment) in source.segments.withIndex()) {
             val existing = if (part.isFile) part.length() else 0L
             val segmentEnd = segment.start + segment.size
             if (existing >= segmentEnd) continue
+            Log.i(TAG, "${source.name}: part ${index + 1}/${source.segments.size} from byte $existing")
             downloadSegment(segment, part, existing - segment.start)
             if (part.length() != segmentEnd) {
                 throw IllegalStateException("Model eksik indi (${source.name}), tekrar deneyin")
