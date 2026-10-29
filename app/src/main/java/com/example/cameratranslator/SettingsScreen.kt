@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +61,47 @@ private fun SettingsBlockCard(
     }
 }
 
+/**
+ * Açılır kapanır ayar bölümü başlığı: başlık, sağda ok ve (isteğe bağlı) altında kısa açıklama.
+ * Ayarlar ekranı kalabalık görünmesin diye bazı bölümler kapalı başlar.
+ */
+@Composable
+private fun CollapsibleHeader(
+    title: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    subtitle: String? = null,
+    badge: String? = null
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(onClick = onToggle),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            if (subtitle != null) {
+                Text(subtitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        if (badge != null) {
+            Text(
+                badge,
+                fontSize = 12.sp,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(end = 4.dp)
+            )
+        }
+        Icon(
+            imageVector = if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            contentDescription = if (expanded) "Gizle" else "Göster",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
 @Composable
 private fun OfflineModelSection(
     state: OfflineModelDownloader.State,
@@ -81,21 +123,14 @@ private fun OfflineModelSection(
     }
 
     // Model yüklüyse açıklama gizli başlar (ayarlar ekranında yer kaplamasın), oka basınca açılır
-    var isInfoExpanded by remember { mutableStateOf(state !is OfflineModelDownloader.State.Installed) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .clickable { isInfoExpanded = !isInfoExpanded },
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("⚡ OPUS Çeviri Motoru", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-        Icon(
-            imageVector = if (isInfoExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-            contentDescription = if (isInfoExpanded) "Açıklamayı gizle" else "Açıklamayı göster",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
+    val isInstalled = state is OfflineModelDownloader.State.Installed
+    var isInfoExpanded by remember { mutableStateOf(!isInstalled) }
+    CollapsibleHeader(
+        title = "⚡ OPUS Çeviri Motoru",
+        expanded = isInfoExpanded,
+        onToggle = { isInfoExpanded = !isInfoExpanded },
+        badge = if (isInstalled) "İndirildi" else null
+    )
     if (isInfoExpanded) {
         Text(
             "Bir kez indirin ($totalMb MB), sonra internet olmadan ücretsiz İngilizce → Türkçe çeviri yapın. API anahtarı, kota veya ücret yok. Argo ve deyimlerde Google Translate kadar doğru olmayabilir. Türkçe → İngilizce yönünde standart çevrimdışı motor kullanılır.",
@@ -128,16 +163,7 @@ private fun OfflineModelSection(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Text("Dosyalar doğrulanıyor...", fontSize = 13.sp)
         }
-        is OfflineModelDownloader.State.Installed -> {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("✅ Yüklü", fontSize = 13.sp, modifier = Modifier.weight(1f))
-                TextButton(onClick = { showDeleteDialog = true }) { Text("Sil") }
-            }
-        }
+        is OfflineModelDownloader.State.Installed -> Unit // durum başlıkta ("İndirildi"); Sil açılınca
         is OfflineModelDownloader.State.Failed -> {
             Text("⚠️ ${state.message}", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
             Button(onClick = startDownload, modifier = Modifier.fillMaxWidth()) {
@@ -147,11 +173,20 @@ private fun OfflineModelSection(
     }
 
     if (isInfoExpanded) {
-        Text(
-            "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), CC-BY 4.0",
-            fontSize = 11.sp,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), CC-BY 4.0",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
+            if (isInstalled) {
+                TextButton(onClick = { showDeleteDialog = true }) { Text("Modeli sil") }
+            }
+        }
     }
 
     if (showMeteredDialog) {
@@ -342,6 +377,8 @@ fun SettingsScreen(
 
     var customTestText by remember { mutableStateOf("") }
     val zoomSettings = remember { SettingsManager(context) }
+    var isDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isOcrSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var useZoomSlider by remember { mutableStateOf(zoomSettings.getZoomSliderEnabled()) }
 
     val isTtsKeySaved = ttsApiKey.isNotBlank() && ttsApiKey == savedTtsApiKey
@@ -396,7 +433,13 @@ fun SettingsScreen(
 
             // BLOCK 3: Görünüm Modu (Display Mode)
             SettingsBlockCard {
-                Text("Görünüm Modu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                CollapsibleHeader(
+                    title = "Görünüm Modu",
+                    subtitle = "Altyazının ekranda nasıl gösterileceği ve yakınlaştırma kontrolü",
+                    expanded = isDisplaySectionExpanded,
+                    onToggle = { isDisplaySectionExpanded = !isDisplaySectionExpanded }
+                )
+                if (isDisplaySectionExpanded) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -428,8 +471,6 @@ fun SettingsScreen(
                         }
                     }
                 }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
                 // Show Quick Switcher on Main Screen Toggle
                 Row(
@@ -488,6 +529,7 @@ fun SettingsScreen(
                     fontSize = 12.sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                }
             }
 
             // BLOCK 2: Çeviri Yazı Boyutu (Subtitle Font Size)
@@ -521,7 +563,7 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Sesli okuma", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text("Sesli Okuma", fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Switch(
                         checked = isTtsEnabled,
                         onCheckedChange = { onTtsEnabledChange(it) }
@@ -979,7 +1021,12 @@ fun SettingsScreen(
 
             // BLOCK: Metin Okuma (OCR)
             SettingsBlockCard {
-                Text("Metin Okuma (OCR)", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                CollapsibleHeader(
+                    title = "Metin Okuma (OCR)",
+                    expanded = isOcrSectionExpanded,
+                    onToggle = { isOcrSectionExpanded = !isOcrSectionExpanded }
+                )
+                if (isOcrSectionExpanded) {
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1019,6 +1066,7 @@ fun SettingsScreen(
                         checked = isOcrCenterOnlyEnabled,
                         onCheckedChange = { onOcrCenterOnlyEnabledChange(it) }
                     )
+                }
                 }
             }
 

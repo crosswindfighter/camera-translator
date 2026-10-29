@@ -99,6 +99,16 @@ class SettingsManager(context: Context) {
         return prefs.getBoolean("zoom_slider_enabled", true)
     }
 
+    /** Kameranın son bilinen zoom aralığı (kaydırıcı açılışta doğru yerde çizilsin diye). */
+    fun saveZoomRange(min: Float, max: Float) {
+        prefs.edit().putFloat("zoom_range_min", min).putFloat("zoom_range_max", max).apply()
+    }
+
+    fun getZoomRange(): ClosedFloatingPointRange<Float>? {
+        if (!prefs.contains("zoom_range_min")) return null
+        return prefs.getFloat("zoom_range_min", 1f)..prefs.getFloat("zoom_range_max", 1f)
+    }
+
     fun saveCloudModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("cloud_mode_enabled", enabled).apply()
     }

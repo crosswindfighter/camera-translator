@@ -613,7 +613,9 @@ class MainActivity : ComponentActivity() {
         var isFocusControlsVisible by rememberSaveable { mutableStateOf(false) }
         var exposureRange by remember { mutableStateOf(-4..4) }
         // Kameranın desteklediği yakınlaştırma aralığı (S23 Ultra: 0.6x geniş açı – 100x)
-        var zoomRange by remember { mutableStateOf(1f..ZOOM_SLIDER_MAX) }
+        // Son bilinen aralıkla başla: döndürünce ekran yeniden kurulurken kaydırıcı varsayılan
+        // aralıkla (1x en altta) çizilip sonra 1x'e zıplıyordu. Aralık bilinmiyorsa kaydırıcı gizli.
+        var zoomRange by remember { mutableStateOf(settingsManager.getZoomRange()) }
         // Ayarlar'dan dönünce bu ekran yeniden kurulduğu için kayıtlı seçim okunur
         val useZoomSlider = remember { settingsManager.getZoomSliderEnabled() }
         var isStealthMode by rememberSaveable { mutableStateOf(false) }
@@ -650,7 +652,11 @@ class MainActivity : ComponentActivity() {
                             // Aralık kamera bağlanınca hemen gelmeyebilir: değişince güncelle
                             camera.cameraInfo.zoomState.removeObservers(this@MainActivity)
                             camera.cameraInfo.zoomState.observe(this@MainActivity) { zoom ->
-                                zoomRange = zoom.minZoomRatio..zoom.maxZoomRatio.coerceAtMost(ZOOM_SLIDER_MAX)
+                                val range = zoom.minZoomRatio..zoom.maxZoomRatio.coerceAtMost(ZOOM_SLIDER_MAX)
+                                if (range != zoomRange) {
+                                    zoomRange = range
+                                    settingsManager.saveZoomRange(range.start, range.endInclusive)
+                                }
                             }
                             val state = camera.cameraInfo.exposureState
                             exposureRange = IntRange(
@@ -780,8 +786,9 @@ class MainActivity : ComponentActivity() {
                     showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
                     onToggleDisplayMode = onToggleDisplayMode,
                     useZoomSlider = useZoomSlider,
-                    minZoom = zoomRange.start,
-                    maxZoom = zoomRange.endInclusive,
+                    isZoomRangeKnown = zoomRange != null,
+                    minZoom = zoomRange?.start ?: 1f,
+                    maxZoom = zoomRange?.endInclusive ?: ZOOM_SLIDER_MAX,
                     initialOcrRectDefaultPortrait = remember { settingsManager.getOcrRectDefaultPortrait() },
                     initialOcrRectDefaultLandscape = remember { settingsManager.getOcrRectDefaultLandscape() },
                     initialOcrRectScreenPortrait = remember { settingsManager.getOcrRectScreenPortrait() },

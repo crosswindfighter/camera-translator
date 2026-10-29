@@ -57,6 +57,8 @@ fun MainOverlay(
     onZoomChange: (Float) -> Unit,
     /** true: dikey kaydırıcı (geniş açı–20x), false: 1x–5x düğmeleri */
     useZoomSlider: Boolean = true,
+    /** Kameranın zoom aralığı biliniyor mu? Bilinmiyorsa kaydırıcı yanlış yerde çizilmesin diye gizli. */
+    isZoomRangeKnown: Boolean = true,
     minZoom: Float = 1f,
     maxZoom: Float = ZOOM_SLIDER_MAX,
     onOcrAreaChange: (RectF, Float, Float) -> Unit,
@@ -428,7 +430,7 @@ fun MainOverlay(
 
         // Left Zoom Controls: kaydırıcı ya da 1x–5x düğmeleri (Hidden in Stealth Mode)
         // Automatically shifts away from camera punch-hole/notch on left edge in landscape mode!
-        if (!isStealthMode && useZoomSlider) {
+        if (!isStealthMode && useZoomSlider && isZoomRangeKnown) {
             val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
             val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
 
@@ -441,7 +443,7 @@ fun MainOverlay(
                     .align(Alignment.CenterStart)
                     .padding(start = dynamicStartPadding)
             )
-        } else if (!isStealthMode) {
+        } else if (!isStealthMode && !useZoomSlider) {
             val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
             val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
 
