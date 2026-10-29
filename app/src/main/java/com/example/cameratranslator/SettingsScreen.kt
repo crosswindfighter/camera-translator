@@ -1030,6 +1030,7 @@ fun SettingsScreen(
             SettingsBlockCard {
                 CollapsibleHeader(
                     title = "Metin Okuma (OCR)",
+                    subtitle = "Kameranın ekrandaki altyazıyı nasıl okuyacağı: arka plan filtresi ve oyun arayüzü yazılarını eleme",
                     expanded = isOcrSectionExpanded,
                     onToggle = { isOcrSectionExpanded = !isOcrSectionExpanded }
                 )
