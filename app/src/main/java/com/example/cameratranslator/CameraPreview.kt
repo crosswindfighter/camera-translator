@@ -20,6 +20,7 @@ import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.lifecycle.awaitInstance
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
@@ -52,7 +53,6 @@ fun CameraPreview(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val cameraProviderFuture = remember { ProcessCameraProvider.getInstance(context) }
     val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
     // OCR analyzer'ına dokunmadan: her kamera karesini iletmek PreviewView.getBitmap()
     // çağrılarını main thread'de kuyruklar ve TextureView preview'sini kilitler.
@@ -99,7 +99,8 @@ fun CameraPreview(
 
     // Kamera kurulumu ve UseCase bağlama (Başlangıçta ve her 90/180 derece dönüşte çalışır)
     LaunchedEffect(displayRotation) {
-        val cameraProvider = cameraProviderFuture.get()
+        // Bloklamadan bekle: kamera servisi yavaş açılırsa (ör. bellek sıkışıkken) ana iş parçacığı donup ANR veriyordu
+        val cameraProvider = ProcessCameraProvider.awaitInstance(context)
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
         val rotation = displayRotation
 

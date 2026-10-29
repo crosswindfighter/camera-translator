@@ -90,6 +90,9 @@ class OcrStabilizer(
     }
 
     /**
+     * Denendi ve geri alındı: temiz ilk okumayı hemen onaylamak ve 2 okumayla
+     * yetinmek. Yarım okumalar (".Yeah, I saw her on") ve daha bozuk metinler onaylandı.
+     *
      * İki okuma birebir aynıysa hemen onaylanır (gecikme yok). Farklıysa kelime
      * oylaması için bir okuma daha beklenir; o da gelmezse [MAX_WAIT_MS] sonra
      * eldekiyle devam edilir. Ekrana tek seferde, oylanmış sonuç gider.

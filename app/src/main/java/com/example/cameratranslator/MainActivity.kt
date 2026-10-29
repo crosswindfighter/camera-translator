@@ -90,8 +90,6 @@ class MainActivity : ComponentActivity() {
         settingsManager = SettingsManager(this)
         OcrDebugDumper.init(this)
         OfflineModelDownloader.init(this)
-        GemmaModelDownloader.init(this)
-        GemmaOcrFixer.setEnabled(this, settingsManager.getGemmaFixEnabled())
         OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
         OcrTuning.centerOnlyEnabled = settingsManager.getOcrCenterOnlyEnabled()
         speechManager = SpeechManager(this)
@@ -119,13 +117,6 @@ class MainActivity : ComponentActivity() {
                 val installed = state is OfflineModelDownloader.State.Installed
                 if (installed && !wasInstalled) translationManager.reloadOfflineModel()
                 wasInstalled = installed
-            }
-        }
-
-        // Gemma modeli inince (Gelişmiş OCR düzeltme açıksa) motoru hazırla
-        lifecycleScope.launch {
-            GemmaModelDownloader.state.collect { state ->
-                if (state is OfflineModelDownloader.State.Installed) GemmaOcrFixer.load(this@MainActivity)
             }
         }
 
@@ -544,16 +535,13 @@ class MainActivity : ComponentActivity() {
                     try {
                         if (timestamp < lastTranslationTimestamp.get()) return@launch
 
-                        // Gelişmiş OCR düzeltme (açıksa): bozuk okunan İngilizceyi çeviriden önce düzelt
-                        val source = if (isTrToEnRef.value) confirmedText else GemmaOcrFixer.fix(confirmedText)
-
                         val translated = withContext(Dispatchers.IO) {
-                            translationManager.translate(source)
+                            translationManager.translate(confirmedText)
                         }
 
                         if (timestamp < lastTranslationTimestamp.get()) return@launch
 
-                        if (translated.isNotBlank() && !translated.equals(source, ignoreCase = true)) {
+                        if (translated.isNotBlank() && !translated.equals(confirmedText, ignoreCase = true)) {
                             val currentNorm = normalizeForDeduplication(translated)
                             val prevNorm = normalizeForDeduplication(currentTranslationRef.value)
                             val lastHistoryNorm = historyListRef.value.lastOrNull()?.let { normalizeForDeduplication(it) }
@@ -896,8 +884,6 @@ class MainActivity : ComponentActivity() {
         speechManager.stop()
         speechManager.shutdown()
         translationManager.close()
-        // Döndürmede motor yeniden yüklenmesin (birkaç saniye sürer); yalnızca uygulama kapanınca bırak
-        if (isFinishing) GemmaOcrFixer.release()
     }
 
     companion object {

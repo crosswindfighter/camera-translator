@@ -288,16 +288,17 @@ class TextRecognitionAnalyzer(
     private fun filterOcrNoise(text: String): String {
         val words = text.replace(SPACES_REGEX, " ").trim().split(SPACES_REGEX)
         val filteredWords = words.filter { word ->
-            // 1. Filter out words containing 2 OR MORE CONSECUTIVE UPPERCASE letters (e.g. PA, LA, OK, MENU, SETTINGS, PAUSE, ANKARA)
-            val has2PlusCaps = TWO_PLUS_CAPS_REGEX.containsMatchIn(word)
+            // Not: büyük harfli kelimeleri (MENU, PAUSE) atan filtre kaldırıldı. HUD yazılarını artık
+            // "Sadece ortadaki altyazıyı oku" eliyor; o filtre bağırarak yazılmış altyazıları
+            // ("NO!", "GET DOWN!") ve kısaltmaları (FIB, LSPD, MC) da siliyordu.
 
-            // 2. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
+            // 1. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
             val hasAlphanumericNoise = ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
 
-            // 3. Filter out unpronounceable OCR artifacts and gibberish noise words
+            // 2. Filter out unpronounceable OCR artifacts and gibberish noise words
             val isGibberish = isGibberishWord(word)
 
-            !has2PlusCaps && !hasAlphanumericNoise && !isGibberish
+            !hasAlphanumericNoise && !isGibberish
         }
         return filteredWords.joinToString(" ").trim()
     }
@@ -366,8 +367,6 @@ class TextRecognitionAnalyzer(
         private val REJECT_PATTERN = Regex("[<>]+|_{2,}|={2,}")
         private val CAMEL_CASE_PATTERN = Regex("[a-z][A-Z]{2,}[a-z]")
 
-        // Regex matching words with 2 or more consecutive uppercase letters (e.g. LA, OK, PA, MENU, SETTINGS, PAUSE, ANKARA)
-        private val TWO_PLUS_CAPS_REGEX = Regex("[A-ZÇĞİÖŞÜ]{2,}")
 
         // Regex matching alphanumeric noise tokens where letters and digits are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
         private val ALPHANUMERIC_NOISE_REGEX = Regex("(?=[A-Za-zÇĞİÖŞÜçğıöşü]*\\d)(?=\\d*[A-Za-zÇĞİÖŞÜçğıöşü])[A-Za-zÇĞİÖŞÜçğıöşü0-9-]+")
