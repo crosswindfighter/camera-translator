@@ -82,6 +82,9 @@ dependencies {
     // Offline+ çeviri motoru (OPUS-MT modeli için)
     implementation(libs.onnxruntime.android)
 
+    // Gelişmiş OCR düzeltme (isteğe bağlı Gemma 4 E2B modeli için)
+    implementation(libs.litertlm.android)
+
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)

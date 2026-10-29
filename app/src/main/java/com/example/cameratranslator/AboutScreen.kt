@@ -3,9 +3,12 @@ package com.example.cameratranslator
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.SystemClock
 import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,8 +17,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -26,12 +36,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cameratranslator.ui.theme.SectionCardStyle
 
+private const val DEV_TAP_COUNT = 7
+private const val DEV_TAP_RESET_MS = 1500L
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     BackHandler { onBack() }
     val scrollState = rememberScrollState()
     val context = LocalContext.current
+    var versionTapCount by remember { mutableIntStateOf(0) }
+    var lastVersionTapAt by remember { mutableLongStateOf(0L) }
+    var isDevModeEnabled by remember { mutableStateOf(OcrTuning.debugDumpEnabled) }
+    var devToast by remember { mutableStateOf<Toast?>(null) }
 
     Scaffold(
         topBar = {
@@ -80,16 +97,55 @@ fun AboutScreen(onBack: () -> Unit) {
                 letterSpacing = (-0.5).sp
             )
             
+            // Gizli geliştirici modu: sürüm yazısına 7 kez dokununca OCR teşhis kaydı açılır/kapanır
             Surface(
                 color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
                 shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.padding(top = 6.dp)
+                modifier = Modifier
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .clickable {
+                        val now = SystemClock.elapsedRealtime()
+                        versionTapCount = if (now - lastVersionTapAt > DEV_TAP_RESET_MS) 1 else versionTapCount + 1
+                        lastVersionTapAt = now
+                        val remaining = DEV_TAP_COUNT - versionTapCount
+                        if (remaining <= 0) {
+                            versionTapCount = 0
+                            val enabled = !OcrTuning.debugDumpEnabled
+                            if (enabled) OcrDebugDumper.clear()
+                            OcrTuning.debugDumpEnabled = enabled
+                            isDevModeEnabled = enabled
+                            devToast?.cancel()
+                            devToast = Toast.makeText(
+                                context,
+                                if (enabled) "Geliştirici modu açıldı: OCR kaydı başladı" else "Geliştirici modu kapatıldı",
+                                Toast.LENGTH_SHORT
+                            ).also { it.show() }
+                        } else if (remaining <= 3) {
+                            devToast?.cancel()
+                            devToast = Toast.makeText(
+                                context,
+                                if (OcrTuning.debugDumpEnabled) "Kapatmak için $remaining dokunuş kaldı" else "Geliştirici modu için $remaining dokunuş kaldı",
+                                Toast.LENGTH_SHORT
+                            ).also { it.show() }
+                        }
+                    }
             ) {
                 Text(
                     text = "v${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+            }
+
+            if (isDevModeEnabled) {
+                Text(
+                    text = "🛠 Geliştirici modu açık: OCR görüntüleri ve okunan metin kaydediliyor (son 40 kare).\nKonum: Android/data/com.example.cameratranslator/files/ocr_debug\nUygulama kapanınca kendiliğinden kapanır.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.tertiary,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp)
                 )
             }
 

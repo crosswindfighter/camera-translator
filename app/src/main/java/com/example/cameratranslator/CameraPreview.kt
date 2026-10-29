@@ -118,6 +118,7 @@ fun CameraPreview(
                 ResolutionSelector.Builder()
                     .setResolutionStrategy(
                         // 1080p: zoom yapılmış TV altyazısında harf kenarları 720p'ye göre belirgin şekilde daha net.
+                        // 4K denendi: S23 Ultra önizlemeyle birlikte en fazla 1920x1440 veriyor (genişlik aynı), fayda yok.
                         ResolutionStrategy(
                             Size(1920, 1080),
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
@@ -141,7 +142,8 @@ fun CameraPreview(
                 .build()
             
             val camera = cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, useCaseGroup)
-            
+            Log.d(TAG, "Analysis resolution: ${imageAnalysis.resolutionInfo?.resolution}")
+
             // İlk değerleri uygula
             camera.cameraControl.setZoomRatio(zoomLevel)
             camera.cameraControl.setExposureCompensationIndex(exposureIndex)

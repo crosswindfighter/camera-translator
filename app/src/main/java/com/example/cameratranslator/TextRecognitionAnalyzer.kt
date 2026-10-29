@@ -107,6 +107,7 @@ class TextRecognitionAnalyzer(
     private suspend fun runOcr(previewBitmap: Bitmap, area: RectF, frameId: Long) {
         var upscaled: Bitmap? = null
         var masked: Bitmap? = null
+        val frameSize = "${previewBitmap.width}x${previewBitmap.height}"
         try {
             val cropRect = PreviewCoordinateMapper.mapNormalizedToBitmapRect(
                 area,
@@ -151,6 +152,8 @@ class TextRecognitionAnalyzer(
                 }
                 append("orijinal ").append(formatConfidence(originalResult?.first?.confidence ?: 0f))
                 append(if (useFiltered) " → filtre" else " → orijinal")
+                append(if (OcrTuning.centerOnlyEnabled) " | orta: açık" else " | orta: kapalı")
+                append(" | ").append(frameSize)
             }
 
             withContext(Dispatchers.Main) {
@@ -177,7 +180,7 @@ class TextRecognitionAnalyzer(
     private suspend fun recognize(bitmap: Bitmap, frameId: Long): Pair<OcrReading, String>? {
         return try {
             val visionText = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
-            extractSubtitleText(visionText) to visionText.text
+            extractSubtitleText(visionText, bitmap.width) to visionText.text
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -222,23 +225,39 @@ class TextRecognitionAnalyzer(
      * güvenini hesaplar. Güven satırları atmak için değil, aynı altyazının
      * birkaç okuması arasından en temizini seçmek için kullanılır
      * (satır atmak cümleleri yarım bırakıyordu).
+     *
+     * "Sadece ortadaki altyazı" açıksa kenardaki HUD yazıları (harita, telefon)
+     * [SubtitleRegionFilter] ile atılır.
      */
-    private fun extractSubtitleText(visionText: Text): OcrReading {
+    private fun extractSubtitleText(visionText: Text, imageWidth: Int): OcrReading {
+        val centerOnly = OcrTuning.centerOnlyEnabled
         val lines = visionText.textBlocks
             .flatMap { it.lines }
-            .filter { line -> line.text.count { it.isLetter() } >= MIN_LINE_LETTERS }
+            .mapNotNull { line ->
+                val text = if (centerOnly) centeredText(line, imageWidth) else line.text.trim()
+                text?.takeIf { t -> t.count { it.isLetter() } >= MIN_LINE_LETTERS }?.let { line to it }
+            }
         if (lines.isEmpty()) return OcrReading("", 0f)
 
         var weightedConfidence = 0f
         var totalLength = 0
-        for (line in lines) {
-            val length = line.text.length
-            weightedConfidence += line.confidence.coerceIn(0f, 1f) * length
-            totalLength += length
+        for ((line, text) in lines) {
+            weightedConfidence += line.confidence.coerceIn(0f, 1f) * text.length
+            totalLength += text.length
         }
         val confidence = if (totalLength > 0) weightedConfidence / totalLength else 0f
-        val text = lines.joinToString("\n") { it.text.trim() }.trim()
+        val text = lines.joinToString("\n") { it.second }.trim()
         return OcrReading(text, confidence)
+    }
+
+    /** Satırın yalnızca ortadaki kelime gruplarını döndürür; konum bilgisi yoksa satırı aynen bırakır. */
+    private fun centeredText(line: Text.Line, imageWidth: Int): String? {
+        val words = line.elements.mapNotNull { element ->
+            val box = element.boundingBox ?: return@mapNotNull null
+            SubtitleRegionFilter.Word(element.text, box.left, box.right, box.height())
+        }
+        if (words.size != line.elements.size) return line.text.trim()
+        return SubtitleRegionFilter.keepCentered(words, imageWidth)
     }
 
     private fun handleEmptyResult(frameId: Long) {

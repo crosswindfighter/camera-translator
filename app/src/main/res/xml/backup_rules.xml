@@ -3,8 +3,10 @@
    Android 11 ve öncesi için yedekleme kuralları.
    app_settings.xml API anahtarlarını içerir; Google yedeğine gönderilmez.
    opus_en_tr/ 355 MB'lık OPUS modeli: yedek kotasını aşar, uygulamadan tekrar indirilebilir.
+   gemma_fixer/ ~2,6 GB'lık isteğe bağlı Gemma modeli: aynı sebeple yedeklenmez.
 -->
 <full-backup-content>
     <exclude domain="sharedpref" path="app_settings.xml" />
     <exclude domain="file" path="opus_en_tr/" />
+    <exclude domain="file" path="gemma_fixer/" />
 </full-backup-content>

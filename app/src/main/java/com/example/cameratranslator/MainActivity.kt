@@ -90,7 +90,10 @@ class MainActivity : ComponentActivity() {
         settingsManager = SettingsManager(this)
         OcrDebugDumper.init(this)
         OfflineModelDownloader.init(this)
+        GemmaModelDownloader.init(this)
+        GemmaOcrFixer.setEnabled(this, settingsManager.getGemmaFixEnabled())
         OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
+        OcrTuning.centerOnlyEnabled = settingsManager.getOcrCenterOnlyEnabled()
         speechManager = SpeechManager(this)
         speechManager.setEnabled(settingsManager.getTtsEnabled())
         speechManager.setSpeechRate(settingsManager.getSpeechRate())
@@ -119,6 +122,13 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Gemma modeli inince (Gelişmiş OCR düzeltme açıksa) motoru hazırla
+        lifecycleScope.launch {
+            GemmaModelDownloader.state.collect { state ->
+                if (state is OfflineModelDownloader.State.Installed) GemmaOcrFixer.load(this@MainActivity)
+            }
+        }
+
         setContent {
             var currentScreen by rememberSaveable { mutableStateOf(Screen.CAMERA) }
             val offlineModelState by OfflineModelDownloader.state.collectAsStateWithLifecycle()
@@ -127,6 +137,7 @@ class MainActivity : ComponentActivity() {
             var showDisplayModeQuickSwitch by remember { mutableStateOf(settingsManager.getShowDisplayModeQuickSwitch()) }
             var isCloudModeEnabled by remember { mutableStateOf(settingsManager.getCloudModeEnabled()) }
             var isOcrTextMaskEnabled by remember { mutableStateOf(OcrTuning.textMaskEnabled) }
+            var isOcrCenterOnlyEnabled by remember { mutableStateOf(OcrTuning.centerOnlyEnabled) }
             var subtitleFontSizeDefault by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeDefault()) }
             var subtitleFontSizeScreen by remember { mutableFloatStateOf(settingsManager.getSubtitleFontSizeScreen()) }
 
@@ -270,6 +281,12 @@ class MainActivity : ComponentActivity() {
                                     isOcrTextMaskEnabled = enabled
                                     OcrTuning.textMaskEnabled = enabled
                                     settingsManager.saveOcrTextMaskEnabled(enabled)
+                                },
+                                isOcrCenterOnlyEnabled = isOcrCenterOnlyEnabled,
+                                onOcrCenterOnlyEnabledChange = { enabled ->
+                                    isOcrCenterOnlyEnabled = enabled
+                                    OcrTuning.centerOnlyEnabled = enabled
+                                    settingsManager.saveOcrCenterOnlyEnabled(enabled)
                                 },
                                 onApiKeySave = { key ->
                                     settingsManager.saveApiKey(key)
@@ -527,13 +544,16 @@ class MainActivity : ComponentActivity() {
                     try {
                         if (timestamp < lastTranslationTimestamp.get()) return@launch
 
+                        // Gelişmiş OCR düzeltme (açıksa): bozuk okunan İngilizceyi çeviriden önce düzelt
+                        val source = if (isTrToEnRef.value) confirmedText else GemmaOcrFixer.fix(confirmedText)
+
                         val translated = withContext(Dispatchers.IO) {
-                            translationManager.translate(confirmedText)
+                            translationManager.translate(source)
                         }
 
                         if (timestamp < lastTranslationTimestamp.get()) return@launch
 
-                        if (translated.isNotBlank() && !translated.equals(confirmedText, ignoreCase = true)) {
+                        if (translated.isNotBlank() && !translated.equals(source, ignoreCase = true)) {
                             val currentNorm = normalizeForDeduplication(translated)
                             val prevNorm = normalizeForDeduplication(currentTranslationRef.value)
                             val lastHistoryNorm = historyListRef.value.lastOrNull()?.let { normalizeForDeduplication(it) }
@@ -876,6 +896,8 @@ class MainActivity : ComponentActivity() {
         speechManager.stop()
         speechManager.shutdown()
         translationManager.close()
+        // Döndürmede motor yeniden yüklenmesin (birkaç saniye sürer); yalnızca uygulama kapanınca bırak
+        if (isFinishing) GemmaOcrFixer.release()
     }
 
     companion object {

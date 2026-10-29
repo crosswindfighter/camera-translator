@@ -82,6 +82,23 @@ class SettingsManager(context: Context) {
         return prefs.getBoolean("ocr_text_mask_enabled", false)
     }
 
+    fun saveOcrCenterOnlyEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("ocr_center_only_enabled", enabled).apply()
+    }
+
+    fun getOcrCenterOnlyEnabled(): Boolean {
+        return prefs.getBoolean("ocr_center_only_enabled", true)
+    }
+
+    /** Gelişmiş OCR düzeltme (isteğe bağlı Gemma modeli). Model indirilmeden açılamaz. */
+    fun saveGemmaFixEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("gemma_fix_enabled", enabled).apply()
+    }
+
+    fun getGemmaFixEnabled(): Boolean {
+        return prefs.getBoolean("gemma_fix_enabled", false)
+    }
+
     fun saveCloudModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("cloud_mode_enabled", enabled).apply()
     }
