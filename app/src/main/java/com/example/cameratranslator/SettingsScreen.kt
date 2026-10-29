@@ -17,12 +17,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerEventType
@@ -77,12 +80,29 @@ private fun OfflineModelSection(
         }
     }
 
-    Text("⚡ OPUS Çeviri Motoru", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-    Text(
-        "Bir kez indirin ($totalMb MB), sonra internet olmadan ücretsiz İngilizce → Türkçe çeviri yapın. API anahtarı, kota veya ücret yok. Argo ve deyimlerde Google Translate kadar doğru olmayabilir. Türkçe → İngilizce yönünde standart çevrimdışı motor kullanılır.",
-        fontSize = 12.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    // Model yüklüyse açıklama gizli başlar (ayarlar ekranında yer kaplamasın), oka basınca açılır
+    var isInfoExpanded by remember { mutableStateOf(state !is OfflineModelDownloader.State.Installed) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .clickable { isInfoExpanded = !isInfoExpanded },
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("⚡ OPUS Çeviri Motoru", fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+        Icon(
+            imageVector = if (isInfoExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+            contentDescription = if (isInfoExpanded) "Açıklamayı gizle" else "Açıklamayı göster",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (isInfoExpanded) {
+        Text(
+            "Bir kez indirin ($totalMb MB), sonra internet olmadan ücretsiz İngilizce → Türkçe çeviri yapın. API anahtarı, kota veya ücret yok. Argo ve deyimlerde Google Translate kadar doğru olmayabilir. Türkçe → İngilizce yönünde standart çevrimdışı motor kullanılır.",
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     when (state) {
         is OfflineModelDownloader.State.NotInstalled -> {
@@ -126,11 +146,13 @@ private fun OfflineModelSection(
         }
     }
 
-    Text(
-        "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), CC-BY 4.0",
-        fontSize = 11.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
-    )
+    if (isInfoExpanded) {
+        Text(
+            "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), CC-BY 4.0",
+            fontSize = 11.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
 
     if (showMeteredDialog) {
         AlertDialog(
@@ -459,7 +481,7 @@ fun SettingsScreen(
                 }
                 Text(
                     if (useZoomSlider) {
-                        "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üst 20x. 1x, 3x ve 10x telefonun gerçek lensleridir; kaydırıcı bu noktalara hafifçe yapışır, görüntü en net bu değerlerdedir."
+                        "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üst 20x. Kaydırıcı telefonun gerçek lenslerine (1x, 3x, 10x) hafifçe yapışır; görüntü en net bu değerlerdedir."
                     } else {
                         "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
                     },

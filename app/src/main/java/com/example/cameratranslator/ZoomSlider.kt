@@ -3,6 +3,7 @@ package com.example.cameratranslator
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -41,7 +43,7 @@ import kotlin.math.ln
 /** Kaydırıcının en yüksek yakınlaştırması (kamera daha azını destekliyorsa onunki). */
 const val ZOOM_SLIDER_MAX = 20f
 
-/** S23 Ultra'nın gerçek lensleri: bu değerlerde görüntü en net, kaydırıcı hafifçe yapışır. */
+/** S23 Ultra'nın gerçek lensleri: bu değerlerde görüntü en net, kaydırıcı görünmeden hafifçe yapışır. */
 private val SNAP_POINTS = listOf(1f, 3f, 10f)
 private const val SNAP_DISTANCE = 0.035f
 private const val LABEL_VISIBLE_MS = 2000L
@@ -109,7 +111,8 @@ fun ZoomSlider(
             modifier = Modifier
                 .width(40.dp)
                 .height(176.dp)
-                .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
+                .background(Color.Black.copy(alpha = 0.35f), RoundedCornerShape(20.dp))
+                .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
                 .padding(vertical = 14.dp)
                 .pointerInput(min, max) {
                     detectTapGestures(onPress = { offset -> update(offset.y, size.height) })
@@ -123,32 +126,32 @@ fun ZoomSlider(
         ) {
             Canvas(modifier = Modifier.fillMaxWidth().height(148.dp)) {
                 val centerX = size.width / 2
-                val trackWidth = 4.dp.toPx()
+                val trackWidth = 3.dp.toPx()
                 val position = toPosition(zoomLevel)
                 val thumbY = size.height * (1f - position)
+                val thumbCenter = Offset(centerX, thumbY)
 
-                // Ray: dolu kısım (seçili yakınlaştırmaya kadar) sarı, kalanı soluk beyaz
+                // Ray: kalan kısım soluk beyaz, seçili yakınlaştırmaya kadar sarıdan turuncuya
                 drawRoundRect(
-                    color = Color.White.copy(alpha = 0.35f),
+                    color = Color.White.copy(alpha = 0.22f),
                     topLeft = Offset(centerX - trackWidth / 2, 0f),
                     size = Size(trackWidth, size.height),
                     cornerRadius = CornerRadius(trackWidth / 2)
                 )
-                drawRoundRect(
-                    color = Color.Yellow.copy(alpha = 0.85f),
+                if (size.height - thumbY > 1f) drawRoundRect(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(Color(0xFFFFD54F), Color(0xFFFF9800)),
+                        startY = thumbY,
+                        endY = size.height
+                    ),
                     topLeft = Offset(centerX - trackWidth / 2, thumbY),
                     size = Size(trackWidth, size.height - thumbY),
                     cornerRadius = CornerRadius(trackWidth / 2)
                 )
-                // Lens noktaları (1x, 3x, 10x)
-                for (snap in SNAP_POINTS) {
-                    if (snap !in min..max) continue
-                    val y = size.height * (1f - toPosition(snap))
-                    drawCircle(color = Color.White.copy(alpha = 0.9f), radius = 2.5.dp.toPx(), center = Offset(centerX + 10.dp.toPx(), y))
-                }
-                // Tutamaç
-                drawCircle(color = Color.White, radius = 9.dp.toPx(), center = Offset(centerX, thumbY))
-                drawCircle(color = Color.Yellow, radius = 6.dp.toPx(), center = Offset(centerX, thumbY))
+                // Tutamaç: yumuşak gölge + beyaz daire + sarı merkez
+                drawCircle(color = Color.Black.copy(alpha = 0.25f), radius = 12.dp.toPx(), center = thumbCenter + Offset(0f, 1.dp.toPx()))
+                drawCircle(color = Color.White, radius = 10.dp.toPx(), center = thumbCenter)
+                drawCircle(color = Color(0xFFFFC107), radius = 3.5.dp.toPx(), center = thumbCenter)
             }
         }
     }
