@@ -99,16 +99,6 @@ Camera Translator geliştirdiğim ilk Android uygulamasıdır. Karşılaştığ�
 
 ---
 
-### 🛡️ Güvenlik Bilgilendirmesi
-
-- Google Play Protect, uygulamayı tanımadığı veya yeterli itibara sahip olmadığı durumlarda kurulum sırasında uyarı gösterebilir. Uygulamanın en güncel v1.0.2 APK dosyası Kaspersky OpenTIP ile taranmış ve Clean (Temiz) sonucu alınmıştır. Bu sonuç tek başına mutlak güvenlik garantisi değildir.
-
-- 🔗 [Kaspersky OpenTIP v1.0.2 tarama raporunu görüntüle](https://opentip.kaspersky.com/3883484B38090DD9657FE45F04B5515416D4FF32233AFD76011B266A9CA69482/results?tab=upload)
-
-- 🔑 v1.0.2 APK SHA-256: `3883484b38090dd9657fe45f04b5515416d4ff32233afd76011b266a9ca69482` — indirdiğiniz dosyayı nasıl doğrulayacağınız [SECURITY-REPORT.md](SECURITY-REPORT.md) dosyasında anlatılmıştır.
-
----
-
 ## 🤖 Geliştirme Notu & Teşekkür
 
 Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonrasında **Claude (Anthropic)** ile geliştirildi.
