@@ -1,8 +1,6 @@
 package com.example.cameratranslator
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -25,6 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -91,18 +90,19 @@ fun ZoomSlider(
     }
 
     Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        // Not: Column içindeki AnimatedVisibility ColumnScope sürümüyle çakışıyordu; saydamlık animasyonu yeterli
+        val labelAlpha by animateFloatAsState(targetValue = if (showLabel) 1f else 0f, label = "zoomLabel")
         Box(modifier = Modifier.height(22.dp), contentAlignment = Alignment.Center) {
-            AnimatedVisibility(visible = showLabel, enter = fadeIn(), exit = fadeOut()) {
-                Text(
-                    text = formatZoom(zoomLevel),
-                    color = Color.Yellow,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                )
-            }
+            Text(
+                text = formatZoom(zoomLevel),
+                color = Color.Yellow,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .alpha(labelAlpha)
+                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(10.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp)
+            )
         }
 
         Box(
