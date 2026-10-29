@@ -435,7 +435,7 @@ fun SettingsScreen(
             SettingsBlockCard {
                 CollapsibleHeader(
                     title = "Görünüm Modu",
-                    subtitle = "Altyazının ekranda nasıl gösterileceği ve yakınlaştırma kontrolü",
+                    subtitle = "Altyazının ekranda nasıl gösterileceği, çeviri yazı boyutu ve yakınlaştırma kontrolü",
                     expanded = isDisplaySectionExpanded,
                     onToggle = { isDisplaySectionExpanded = !isDisplaySectionExpanded }
                 )
@@ -487,6 +487,30 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
+                // Çeviri yazı boyutu (seçili görünüm moduna ayrı kaydedilir)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Çeviri yazı boyutu", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    Text(
+                        text = "${subtitleFontSize.toInt()} sp",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                Slider(
+                    value = subtitleFontSize,
+                    onValueChange = { onSubtitleFontSizeChange(it) },
+                    valueRange = 24f..80f,
+                    steps = 27,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
                 // Yakınlaştırma kontrolü: kaydırıcı ya da sabit düğmeler
                 Text("Yakınlaştırma kontrolü", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                 Row(
@@ -532,30 +556,6 @@ fun SettingsScreen(
                 }
             }
 
-            // BLOCK 2: Çeviri Yazı Boyutu (Subtitle Font Size)
-            SettingsBlockCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Çeviri yazı boyutu", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text(
-                        text = "${subtitleFontSize.toInt()} sp",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-                Slider(
-                    value = subtitleFontSize,
-                    onValueChange = { onSubtitleFontSizeChange(it) },
-                    valueRange = 24f..80f,
-                    steps = 27,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
             // BLOCK 4: Sesli Okuma (Speech Reading)
             SettingsBlockCard {
                 Row(
@@ -563,7 +563,14 @@ fun SettingsScreen(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Sesli Okuma", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                        Text("Sesli Okuma", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "Çevrilen altyazıları sesli okur; ekrana bakmadan oyunu takip edebilirsiniz.",
+                            fontSize = 12.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     Switch(
                         checked = isTtsEnabled,
                         onCheckedChange = { onTtsEnabledChange(it) }
