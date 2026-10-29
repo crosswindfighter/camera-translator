@@ -30,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Modifier
@@ -156,19 +157,25 @@ fun CameraPreview(
         }
     }
 
-    // Kamera Ayarlarını (Zoom, Pozlama ve Manuel Odak) Senkronize Et
-    LaunchedEffect(cameraInstance, zoomLevel, exposureIndex, manualFocusValue) {
+    // Zoom ayrı uygulanır: kaydırıcı sürüklenirken pozlama/odak her seferinde yeniden
+    // gönderilince (ve odak 200 ms sonra zorla tekrar uygulanınca) görüntü takılıyordu
+    val currentZoomLevel by rememberUpdatedState(zoomLevel)
+    LaunchedEffect(cameraInstance, zoomLevel) {
+        cameraInstance?.cameraControl?.setZoomRatio(zoomLevel)
+    }
+
+    // Kamera Ayarlarını (Pozlama ve Manuel Odak) Senkronize Et
+    LaunchedEffect(cameraInstance, exposureIndex, manualFocusValue) {
         val camera = cameraInstance ?: return@LaunchedEffect
-        
+
         // 1. Değerler her değiştiğinde anında uygula
-        camera.cameraControl.setZoomRatio(zoomLevel)
         camera.cameraControl.setExposureCompensationIndex(exposureIndex)
         applyManualFocus(camera, manualFocusValue)
 
         // 2. Uygulama her foreground olduğunda (Resume) ayarları tazelemek için
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(200)
-            camera.cameraControl.setZoomRatio(zoomLevel)
+            camera.cameraControl.setZoomRatio(currentZoomLevel)
             camera.cameraControl.setExposureCompensationIndex(exposureIndex)
             applyManualFocus(camera, manualFocusValue, force = true)
         }

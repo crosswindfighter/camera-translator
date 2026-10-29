@@ -4,8 +4,8 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -34,6 +34,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.os.SystemClock
 import kotlinx.coroutines.delay
 import java.util.Locale
 import kotlin.math.abs
@@ -47,9 +48,11 @@ const val ZOOM_SLIDER_MAX = 20f
 private val SNAP_POINTS = listOf(1f, 3f, 10f)
 private const val SNAP_DISTANCE = 0.035f
 private const val LABEL_VISIBLE_MS = 2000L
+/** Sürüklerken kameraya en fazla ~25 kez/sn zoom gönder (her dokunma olayında değil). */
+private const val SEND_INTERVAL_MS = 40L
 
 /**
- * Dikey yakınlaştırma kaydırıcısı (0.6x geniş açı – 20x). Ölçek logaritmik: 1x→2x ile
+ * Dikey yakınlaştırma kaydırıcısı (geniş açı – kameranın desteklediği en yüksek değer, en fazla 20x). Ölçek logaritmik: 1x→2x ile
  * 10x→20x aynı mesafede, böylece yakın değerlerde hassas ayar yapılabilir. Üstteki değer
  * etiketi dokunurken görünür, bırakıldıktan sonra kaybolur.
  */
@@ -72,8 +75,7 @@ fun ZoomSlider(
     fun toZoom(position: Float): Float {
         val p = position.coerceIn(0f, 1f)
         SNAP_POINTS.firstOrNull { it in min..max && abs(toPosition(it) - p) < SNAP_DISTANCE }?.let { return it }
-        // 0.1 adımlarla: kamera her küçük değişimde yeniden ayarlanmasın
-        return (Math.round(exp(ln(min) + p * (ln(max) - ln(min))) * 10f) / 10f).coerceIn(min, max)
+        return (Math.round(exp(ln(min) + p * (ln(max) - ln(min))) * 100f) / 100f).coerceIn(min, max)
     }
 
     // Etiket: her dokunuşta/değişimde görünür, son değişimden LABEL_VISIBLE_MS sonra kaybolur
@@ -85,9 +87,23 @@ fun ZoomSlider(
         delay(LABEL_VISIBLE_MS)
         showLabel = false
     }
-    fun update(y: Float, trackHeight: Int) {
-        val zoom = toZoom(1f - y / trackHeight.coerceAtLeast(1))
-        if (zoom != currentZoom) onChange(zoom)
+    // Dokunurken tutamaç ve etiket parmağı anında takip eder (ana ekranın yeniden çizilmesini beklemez);
+    // kameraya giden değer ise SEND_INTERVAL_MS'de bir gönderilir, bırakınca son değer kesin gönderilir
+    var dragPosition by remember { mutableStateOf<Float?>(null) }
+    var dragZoom by remember { mutableStateOf<Float?>(null) }
+    val lastSentAt = remember { longArrayOf(0L) }
+
+    fun update(y: Float, trackHeight: Int, final: Boolean) {
+        val raw = (1f - y / trackHeight.coerceAtLeast(1)).coerceIn(0f, 1f)
+        val zoom = toZoom(raw)
+        // Lens noktasına yapışınca tutamaç da oraya otursun
+        dragPosition = if (zoom in SNAP_POINTS) toPosition(zoom) else raw
+        dragZoom = zoom
+        val now = SystemClock.uptimeMillis()
+        if ((final || now - lastSentAt[0] >= SEND_INTERVAL_MS) && zoom != currentZoom) {
+            lastSentAt[0] = now
+            onChange(zoom)
+        }
         interaction++
     }
 
@@ -96,7 +112,7 @@ fun ZoomSlider(
         val labelAlpha by animateFloatAsState(targetValue = if (showLabel) 1f else 0f, label = "zoomLabel")
         Box(modifier = Modifier.height(22.dp), contentAlignment = Alignment.Center) {
             Text(
-                text = formatZoom(zoomLevel),
+                text = formatZoom(dragZoom ?: zoomLevel),
                 color = Color.Yellow,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
@@ -115,19 +131,28 @@ fun ZoomSlider(
                 .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(20.dp))
                 .padding(vertical = 14.dp)
                 .pointerInput(min, max) {
-                    detectTapGestures(onPress = { offset -> update(offset.y, size.height) })
-                }
-                .pointerInput(min, max) {
-                    detectVerticalDragGestures { change, _ ->
-                        change.consume()
-                        update(change.position.y, size.height)
+                    awaitEachGesture {
+                        val down = awaitFirstDown()
+                        down.consume()
+                        var lastY = down.position.y
+                        update(lastY, size.height, final = true)
+                        while (true) {
+                            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                            if (!change.pressed) break
+                            change.consume()
+                            lastY = change.position.y
+                            update(lastY, size.height, final = false)
+                        }
+                        update(lastY, size.height, final = true)
+                        dragPosition = null
+                        dragZoom = null
                     }
                 }
         ) {
             Canvas(modifier = Modifier.fillMaxWidth().height(148.dp)) {
                 val centerX = size.width / 2
                 val trackWidth = 3.dp.toPx()
-                val position = toPosition(zoomLevel)
+                val position = dragPosition ?: toPosition(zoomLevel)
                 val thumbY = size.height * (1f - position)
                 val thumbCenter = Offset(centerX, thumbY)
 

@@ -134,7 +134,7 @@ private fun OfflineModelSection(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("✅ Yüklü — ⚡ OPUS modunda kullanılıyor", fontSize = 13.sp, modifier = Modifier.weight(1f))
+                Text("✅ Yüklü", fontSize = 13.sp, modifier = Modifier.weight(1f))
                 TextButton(onClick = { showDeleteDialog = true }) { Text("Sil") }
             }
         }
@@ -481,7 +481,7 @@ fun SettingsScreen(
                 }
                 Text(
                     if (useZoomSlider) {
-                        "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üst 20x. Kaydırıcı telefonun gerçek lenslerine (1x, 3x, 10x) hafifçe yapışır; görüntü en net bu değerlerdedir."
+                        "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üstü telefonun kamerasının izin verdiği en yüksek yakınlaştırma. Kaydırıcı gerçek lenslere (1x, 3x, 10x) hafifçe yapışır; görüntü en net bu değerlerdedir."
                     } else {
                         "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
                     },
