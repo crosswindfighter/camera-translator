@@ -54,6 +54,10 @@ interface ITranslationEngine {
     suspend fun reloadOfflineModel() {}
     /** OPUS modelini bellekten çıkar (dosyalar silinmeden önce). */
     suspend fun releaseOfflineModel() {}
+    /** Kelime OPUS sözlüğünde tam kelime olarak var mı? (OCR okumasının temiz olup olmadığını anlamak için) */
+    fun isKnownWord(word: String): Boolean = false
+    /** Aktif motor yerel ve hızlı mı (OPUS)? Öyleyse olası okuma onaydan önce arka planda çevrilebilir. */
+    val canPretranslate: Boolean get() = false
 }
 
 // Shared high-speed OkHttpClient with HTTP/2 connection pooling & keep-alive
@@ -530,6 +534,11 @@ class CompositeTranslationEngine(
 
         return ""
     }
+
+    override fun isKnownWord(word: String): Boolean = offlinePlus?.isKnownWord(word) == true
+
+    // Yalnızca OPUS: internetli motorlarda önden çeviri gereksiz istek/kota harcar
+    override val canPretranslate: Boolean get() = useOfflinePlus()
 
     override fun close() {
         google.close()

@@ -17,6 +17,10 @@ import kotlin.math.min
  * or a different reading repeats enough to be a new subtitle.
  */
 class OcrStabilizer(
+    /** Okuma temiz mi (bütün kelimeler gerçek kelime)? İki temiz ve neredeyse aynı okuma hemen onaylanır. */
+    private val isCleanReading: (String) -> Boolean = { false },
+    /** Onay için bir okuma daha bekleniyorken en olası metin (önden çeviri için). */
+    private val onLikelyCandidate: (String) -> Unit = {},
     private val onConfirmed: (String) -> Unit
 ) {
     private data class Reading(val text: String, val confidence: Float, val at: Long)
@@ -60,6 +64,7 @@ class OcrStabilizer(
         if (text.length < 2) return
 
         var approved: String? = null
+        var candidate: String? = null
         synchronized(lock) {
             val currentConfirmed = confirmed
             if (currentConfirmed != null && similar(text, currentConfirmed)) {
@@ -82,10 +87,13 @@ class OcrStabilizer(
                 confirmed = voted
                 recent.clear()
                 approved = voted
-                Log.d(TAG, "Confirmed (${group.size} hits): \"$voted\"")
+                Log.d(TAG, "Confirmed (${group.size} hits, ${now - group.first().at} ms after first reading): \"$voted\"")
+            } else if (group.size == REQUIRED_HITS) {
+                candidate = vote(group)
             }
         }
 
+        candidate?.let { onLikelyCandidate(it) }
         approved?.let { onConfirmed(it) }
     }
 
@@ -102,7 +110,21 @@ class OcrStabilizer(
         if (group.size < REQUIRED_HITS) return false
         val keys = group.map { compareKey(it.text) }
         if (keys.distinct().size < keys.size) return true
+        if (hasTwoCleanNearIdentical(group, keys)) return true
         return now - group.first().at >= MAX_WAIT_MS
+    }
+
+    /**
+     * İki okuma neredeyse aynıysa ("brothers," / "brothers.", "Let's" / "Lets") ve ikisinde de
+     * bütün kelimeler gerçek kelimeyse, üçüncü okumayı beklemeye gerek yok. Tek okumaya
+     * güvenilmez (yarım okuma riski); iki ayrı karenin aynı temiz metni vermesi gerekir.
+     */
+    private fun hasTwoCleanNearIdentical(group: List<Reading>, keys: List<String>): Boolean {
+        for (i in group.indices) for (j in i + 1 until group.size) {
+            if (textSimilarity(keys[i], keys[j]) < NEAR_IDENTICAL) continue
+            if (isCleanReading(group[i].text) && isCleanReading(group[j].text)) return true
+        }
+        return false
     }
 
     /**
@@ -254,6 +276,8 @@ class OcrStabilizer(
         // 3. benzer okuma bu sürede gelmezse 2 okumayla devam edilir
         private const val MAX_WAIT_MS = 500L
         private const val GAP_COST = 0.8f
+        // "brothers," / "brothers." gibi 1-2 karakterlik OCR farkları
+        private const val NEAR_IDENTICAL = 0.9f
         // ~6 OCR/sn ile 1.5 sn ≈ 9 okuma; araya giren bozuk kareleri tolere eder
         private const val WINDOW_MS = 1500L
         private const val WINDOW_SIZE = 8

@@ -45,6 +45,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
     private var encoder: OrtSession? = null
     private var decoder: OrtSession? = null
     private var tokenizer: MarianTokenizer? = null
+    private var corrector: OcrWordCorrector? = null
 
     val isReady: Boolean get() = _status.value == TranslationStatus.Ready
 
@@ -71,6 +72,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
                     setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
                 }
                 tokenizer = MarianTokenizer.load(File(dir, "source_pieces.tsv"), File(dir, "vocab.json"))
+                corrector = tokenizer?.createWordCorrector()
                 encoder = environment.createSession(File(dir, "encoder_model.onnx").path, options)
                 decoder = environment.createSession(File(dir, "decoder_model_merged.onnx").path, options)
                 env = environment
@@ -84,6 +86,8 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
         }
     }
 
+    override fun isKnownWord(word: String): Boolean = tokenizer?.isWholeWord(word) == true
+
     override suspend fun translate(text: String): String = withContext(Dispatchers.Default) {
         if (text.isBlank() || isTrToEn || !isReady) return@withContext ""
         runMutex.withLock {
@@ -92,7 +96,11 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             try {
                 // OCR'ın eklediği şapkalı harfler (fúcker, Vēspucci) modelde <unk> oluyordu;
                 // ardından OPUS'un bilmediği argo sade İngilizceye çevrilir (dog -> dude vb.)
-                val source = SlangNormalizer.normalize(tokenizer?.cleanSource(text).orEmpty())
+                val cleaned = tokenizer?.cleanSource(text).orEmpty()
+                // OCR'ın bozduğu kelimeleri düzelt (Alriaht -> Alright, ofyou -> of you)
+                val corrected = corrector?.correct(cleaned) ?: cleaned
+                if (corrected != cleaned) Log.d(TAG, "OCR fix: \"$cleaned\" -> \"$corrected\"")
+                val source = SlangNormalizer.normalize(corrected)
                 // Cümle cümle çevirmek, modelin çok cümleli altyazılarda ilk cümleyi
                 // atlamasını önlüyor (testte "Siktir, kanka." kayboluyordu).
                 val result = SENTENCE_SPLIT.split(source)
@@ -212,6 +220,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
         encoder = null
         decoder = null
         tokenizer = null
+        corrector = null
     }
 
     override fun close() {
@@ -268,6 +277,22 @@ private class MarianTokenizer(
         for (c in t) sb.append(if (c in knownChars || c.isWhitespace()) c else ' ')
         return sb.toString().trim().split(WHITESPACE).joinToString(" ")
     }
+
+    /** OPUS sözlüğündeki tam kelimelerden (sıklık puanlarıyla) OCR kelime düzelticisi kurar. */
+    fun createWordCorrector(): OcrWordCorrector {
+        val words = HashMap<String, Float>()
+        val cased = HashSet<String>()
+        for ((piece, score) in pieceScores) {
+            if (!piece.startsWith(SPACE_MARK) || piece.length < 2) continue
+            val word = piece.substring(1)
+            if (word.all { it in 'a'..'z' }) words[word] = score
+            else if (word.length >= 2 && word[0] in 'A'..'Z') cased += word
+        }
+        return OcrWordCorrector(words, cased)
+    }
+
+    /** Kelime sözlükte tek parça ("▁word") olarak var mı? OCR bozukluğu olan kelimeler ("sorne") yok. */
+    fun isWholeWord(word: String): Boolean = pieceScores.containsKey(SPACE_MARK + word)
 
     fun encode(text: String): LongArray {
         val normalized = Normalizer.normalize(text, Normalizer.Form.NFKC)

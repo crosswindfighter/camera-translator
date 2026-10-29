@@ -55,6 +55,10 @@ fun MainOverlay(
     zoomLevel: Float,
     onTogglePause: () -> Unit,
     onZoomChange: (Float) -> Unit,
+    /** true: dikey kaydırıcı (geniş açı–20x), false: 1x–5x düğmeleri */
+    useZoomSlider: Boolean = true,
+    minZoom: Float = 1f,
+    maxZoom: Float = ZOOM_SLIDER_MAX,
     onOcrAreaChange: (RectF, Float, Float) -> Unit,
     translationMode: TranslationMode = TranslationMode.CLOUD,
     isOfflinePlusActive: Boolean = false,
@@ -422,9 +426,22 @@ fun MainOverlay(
             }
         }
 
-        // Left Zoom Controls with 1x, 2x, 3x, 4x, 5x (Hidden in Stealth Mode)
+        // Left Zoom Controls: kaydırıcı ya da 1x–5x düğmeleri (Hidden in Stealth Mode)
         // Automatically shifts away from camera punch-hole/notch on left edge in landscape mode!
-        if (!isStealthMode) {
+        if (!isStealthMode && useZoomSlider) {
+            val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
+            val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
+
+            ZoomSlider(
+                zoomLevel = zoomLevel,
+                minZoom = minZoom,
+                maxZoom = maxZoom,
+                onZoomChange = onZoomChange,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = dynamicStartPadding)
+            )
+        } else if (!isStealthMode) {
             val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
             val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
 

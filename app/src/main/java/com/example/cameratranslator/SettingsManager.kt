@@ -90,6 +90,15 @@ class SettingsManager(context: Context) {
         return prefs.getBoolean("ocr_center_only_enabled", true)
     }
 
+    /** Ana ekrandaki yakınlaştırma kontrolü: true = kaydırıcı (geniş açı–20x), false = 1x–5x düğmeleri. */
+    fun saveZoomSliderEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("zoom_slider_enabled", enabled).apply()
+    }
+
+    fun getZoomSliderEnabled(): Boolean {
+        return prefs.getBoolean("zoom_slider_enabled", true)
+    }
+
     fun saveCloudModeEnabled(enabled: Boolean) {
         prefs.edit().putBoolean("cloud_mode_enabled", enabled).apply()
     }

@@ -319,6 +319,8 @@ fun SettingsScreen(
     var isTtsApiKeyVisible by remember { mutableStateOf(false) }
 
     var customTestText by remember { mutableStateOf("") }
+    val zoomSettings = remember { SettingsManager(context) }
+    var useZoomSlider by remember { mutableStateOf(zoomSettings.getZoomSliderEnabled()) }
 
     val isTtsKeySaved = ttsApiKey.isNotBlank() && ttsApiKey == savedTtsApiKey
     val isApiKeySaved = apiKey.isNotBlank() && apiKey == savedApiKey
@@ -419,6 +421,51 @@ fun SettingsScreen(
                         onCheckedChange = { onShowDisplayModeQuickSwitchChange(it) }
                     )
                 }
+
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+
+                // Yakınlaştırma kontrolü: kaydırıcı ya da sabit düğmeler
+                Text("Yakınlaştırma kontrolü", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    listOf(true to "Kaydırıcı", false to "Düğmeler (1x–5x)").forEach { (slider, label) ->
+                        val isSelected = slider == useZoomSlider
+                        Surface(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(40.dp)
+                                .clickable {
+                                    useZoomSlider = slider
+                                    zoomSettings.saveZoomSliderEnabled(slider)
+                                },
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = label,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 13.sp,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    }
+                }
+                Text(
+                    if (useZoomSlider) {
+                        "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üst 20x. 1x, 3x ve 10x telefonun gerçek lensleridir; kaydırıcı bu noktalara hafifçe yapışır, görüntü en net bu değerlerdedir."
+                    } else {
+                        "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
+                    },
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             // BLOCK 2: Çeviri Yazı Boyutu (Subtitle Font Size)

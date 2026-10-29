@@ -510,7 +510,17 @@ class MainActivity : ComponentActivity() {
         }
 
         val stabilizer = remember {
-            OcrStabilizer { confirmedText ->
+            OcrStabilizer(
+                // OPUS sözlüğüyle: iki temiz ve neredeyse aynı okuma 3. okumayı beklemeden onaylanır
+                isCleanReading = { CleanReading.isClean(it, translationManager::isKnownWord) },
+                // Onay beklenirken en olası metni OPUS'ta önceden çevir (sonuç önbellekte hazır olur).
+                // Ekrana erken bir şey gitmez; motor meşgulse gerçek çeviriyi bekletmemek için atlanır.
+                onLikelyCandidate = { candidate ->
+                    if (!isTrToEnRef.value && translationManager.canPretranslate && !translationManager.isBusy.value) {
+                        lifecycleScope.launch { translationManager.translate(candidate) }
+                    }
+                }
+            ) { confirmedText ->
                 val now = System.currentTimeMillis()
 
                 // QUOTA SHIELD: Is this OCR text duplicate/similar to recent API calls in last 10s or < 1.5s interval?
@@ -559,6 +569,7 @@ class MainActivity : ComponentActivity() {
                                 historyList = newHistory
                             }
                             currentTranslation = translated
+                            Log.d(PIPELINE_TAG, "On screen ${System.currentTimeMillis() - timestamp} ms after confirm")
                             speechManager.speak(translated, isTrToEnRef.value)
                         }
                     } catch (e: Exception) {
@@ -601,6 +612,10 @@ class MainActivity : ComponentActivity() {
         var isExposureControlsVisible by rememberSaveable { mutableStateOf(false) }
         var isFocusControlsVisible by rememberSaveable { mutableStateOf(false) }
         var exposureRange by remember { mutableStateOf(-4..4) }
+        // Kameranın desteklediği yakınlaştırma aralığı (S23 Ultra: 0.6x geniş açı – 100x)
+        var zoomRange by remember { mutableStateOf(1f..ZOOM_SLIDER_MAX) }
+        // Ayarlar'dan dönünce bu ekran yeniden kurulduğu için kayıtlı seçim okunur
+        val useZoomSlider = remember { settingsManager.getZoomSliderEnabled() }
         var isStealthMode by rememberSaveable { mutableStateOf(false) }
 
         LaunchedEffect(translationMode, isTrToEn) {
@@ -632,6 +647,11 @@ class MainActivity : ComponentActivity() {
                         manualFocusValue = manualFocusValue,
                         onCameraReady = { camera ->
                             currentCamera = camera
+                            // Aralık kamera bağlanınca hemen gelmeyebilir: değişince güncelle
+                            camera.cameraInfo.zoomState.removeObservers(this@MainActivity)
+                            camera.cameraInfo.zoomState.observe(this@MainActivity) { zoom ->
+                                zoomRange = zoom.minZoomRatio..zoom.maxZoomRatio.coerceAtMost(ZOOM_SLIDER_MAX)
+                            }
                             val state = camera.cameraInfo.exposureState
                             exposureRange = IntRange(
                                 state.exposureCompensationRange.lower,
@@ -759,6 +779,9 @@ class MainActivity : ComponentActivity() {
                     displayMode = displayMode,
                     showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
                     onToggleDisplayMode = onToggleDisplayMode,
+                    useZoomSlider = useZoomSlider,
+                    minZoom = zoomRange.start,
+                    maxZoom = zoomRange.endInclusive,
                     initialOcrRectDefaultPortrait = remember { settingsManager.getOcrRectDefaultPortrait() },
                     initialOcrRectDefaultLandscape = remember { settingsManager.getOcrRectDefaultLandscape() },
                     initialOcrRectScreenPortrait = remember { settingsManager.getOcrRectScreenPortrait() },

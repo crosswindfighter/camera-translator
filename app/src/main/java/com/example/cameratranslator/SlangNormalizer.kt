@@ -42,6 +42,9 @@ object SlangNormalizer {
         "\\bnice ride\\b" to "nice car",
         "\\bthe hood\\b" to "the neighborhood",
         "\\blet's bail\\b" to "let's leave",
+        // "ain't gonna be cool" OPUS'ta ters anlama dönüyordu ("hiç sorun olmaz")
+        "\\b(ain't|aint|isn't|is not|not) (gonna|going to) be cool\\b" to "won't be happy",
+        "\\bwon't be cool\\b" to "won't be happy",
 
         // Konuşma dili kısaltmaları
         "\\bgonna\\b" to "going to",

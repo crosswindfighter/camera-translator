@@ -13,10 +13,8 @@ android {
         applicationId = "com.example.cameratranslator"
         minSdk = 24
         targetSdk = 37
-        // versionCode 4 kalıyor: telefonda 1.0.3 adıyla kurulmuş test sürümü de versionCode 4,
-        // düşürülürse Android Studio "downgrade" hatası verir. GitHub'daki v1.0.1'den büyük olması yeterli.
-        versionCode = 4
-        versionName = "1.0.2"
+        versionCode = 5
+        versionName = "1.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
