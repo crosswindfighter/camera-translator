@@ -212,7 +212,7 @@ fun MainOverlay(
         if (displayMode == DisplayMode.DEFAULT) {
             // Altyazı alanının sınırı: kontroller görünürken yazı soldaki zoom'un ve sağdaki ikonların
             // iç kenarında biter (kontroller kamera deliğinden kaçınca sınır da onlarla kayar);
-            // göz modunda ekranın kenarına kadar uzanır, yalnızca kamera deliği ve küçük bir pay kalır.
+            // göz modunda ekranın kenarına kadar uzanır (kamera deliği dahil), yalnızca küçük bir kenar payı kalır.
             val layoutDirection = LocalLayoutDirection.current
             val cutout = WindowInsets.displayCutout.asPaddingValues()
             val cutoutLeft = cutout.calculateLeftPadding(layoutDirection)
@@ -222,10 +222,11 @@ fun MainOverlay(
             val subtitleTop: Dp
             val subtitleBottom: Dp
             if (isStealthMode) {
-                subtitleStart = cutoutLeft + 12.dp
-                subtitleEnd = cutoutRight + 12.dp
-                subtitleTop = cutout.calculateTopPadding() + 8.dp
-                subtitleBottom = cutout.calculateBottomPadding() + 8.dp
+                // Göz modunda kamera deliği payı yok: delik küçük, yazı tüm genişliği kullansın
+                subtitleStart = 12.dp
+                subtitleEnd = 12.dp
+                subtitleTop = 8.dp
+                subtitleBottom = 8.dp
             } else {
                 // Sol zoom: kenar payı + 40 dp genişlik; sağ ikonlar: kenar payı + 44 dp; araya 10 dp boşluk
                 subtitleStart = (if (cutoutLeft > 0.dp) cutoutLeft + 8.dp else 12.dp) + 40.dp + 10.dp
