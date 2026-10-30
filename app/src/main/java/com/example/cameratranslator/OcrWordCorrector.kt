@@ -45,6 +45,15 @@ class OcrWordCorrector(
 
         if (stem.isEmpty() || isKnown(stem.lowercase()) || stem.length <= 2 || allCaps) return token
         if ((capitalized && !sentenceStart) || word in casedWords) return token
+        // Uzatılmış ünlem: Nooo, Ahhh, Yesss ("Nooo" -> "Noon" oluyordu)
+        if (hasTripleLetter(word.lowercase())) return token
+        // Virgülle biten büyük harfli kelime çoğunlukla hitap/isimdir ("Tracey, go home!"):
+        // yalnızca harf ekleyen düzeltmeye izin ver (Alrigh, -> Alright, ama Tracey, -/-> Trace,)
+        val vocative = capitalized && post.startsWith(",")
+        // "I" kelimeye yapışmış: Ihate -> I hate, Ijust -> I just
+        if (word.length >= 3 && word[0] == 'I' && word.drop(1).all { it.isLowerCase() } && isKnown(word.substring(1))) {
+            return pre + "I " + word.substring(1) + post
+        }
 
         if (word.drop(1).any { it.isUpperCase() }) {
             // "factI", "thiSpenis": büyük harften bölmek kelimeleri (ve "I"yı) korur
@@ -66,42 +75,39 @@ class OcrWordCorrector(
         if (!lower.all { it in 'a'..'z' || it.isDigit() }) return token
         val normalized = lower.replace('0', 'o').replace('9', 'g').replace('1', 'l')
         // Cümle başındaki büyük harfli bilinmeyen kelime isim olabilir: yalnızca yaygın kelimeye düzelt
-        var fixed = correctWord(normalized, commonOnly = capitalized) ?: return token
+        var fixed = correctWord(normalized, commonOnly = capitalized, noShortening = vocative) ?: return token
         if (word[0].isUpperCase()) fixed = fixed.replaceFirstChar { it.uppercaseChar() }
         return pre + fixed + post
     }
 
-    private fun correctWord(word: String, commonOnly: Boolean): String? {
-        fun acceptable(candidate: String?): Boolean =
-            candidate != null && (!commonOnly || (rank[candidate.substringBefore(' ')] ?: Int.MAX_VALUE) < COMMON_RANK)
+    private fun correctWord(word: String, commonOnly: Boolean, noShortening: Boolean): String? {
+        fun acceptable(candidate: String?): Boolean {
+            if (candidate == null) return false
+            if (commonOnly && rankOf(candidate.substringBefore(' ')) >= COMMON_RANK) return false
+            return !noShortening || candidate.length >= word.length
+        }
 
         CONTRACTIONS[word]?.let { return it }
         // Kısa kelimede yanlış düzeltme riski yüksek: yalnızca OCR karışıklığıyla ve çok yaygın kelimeye
         if (word.length <= 3) {
             val candidate = best(confusionVariants(word))
-            return candidate?.takeIf { (rank[it] ?: Int.MAX_VALUE) < SHORT_WORD_RANK }
+            return candidate?.takeIf { rankOf(it) < SHORT_WORD_RANK }
         }
-
-        best(confusionVariants(word)).let { if (acceptable(it)) return it }
-        best(edits1(word)).let { if (acceptable(it)) return it }
 
         // Argo "-in" sonu (trippin, nothin) bölünmesin
-        if (!commonOnly && !word.endsWith("in")) {
-            var bestSplit: String? = null
-            var bestScore = Float.NEGATIVE_INFINITY
-            for (i in 1 until word.length) {
-                val left = word.substring(0, i)
-                val right = word.substring(i)
-                val leftScore = scores[left] ?: continue
-                val rightScore = scores[right] ?: continue
-                if ((left.length < 3 && left !in FUNCTION_WORDS) || (right.length < 3 && right !in FUNCTION_WORDS)) continue
-                if (leftScore + rightScore > bestScore) {
-                    bestScore = leftScore + rightScore
-                    bestSplit = "$left $right"
+        val split = if (commonOnly || word.endsWith("in")) null else bestSplit(word)
+
+        best(confusionVariants(word)).let { if (acceptable(it)) return it }
+        best(edits1(word)).let { candidate ->
+            if (acceptable(candidate)) {
+                // "saton": iki çok yaygın kelimeye bölünebiliyorsa nadir bir kelimeye düzeltme ("salon")
+                if (split != null && isCommonSplit(split) && rankOf(candidate!!) >= SPLIT_PART_RANK) {
+                    return split.joinToString(" ")
                 }
+                return candidate
             }
-            bestSplit?.let { return it }
         }
+        split?.let { return it.joinToString(" ") }
 
         if (word.length >= 6) {
             val candidates = HashSet<String>()
@@ -112,10 +118,47 @@ class OcrWordCorrector(
         return null
     }
 
-    private fun isKnown(word: String): Boolean =
-        word in scores || word in EXTRA_WORDS ||
-            (word.endsWith("s") && word.dropLast(1) in scores) ||
-            (word.endsWith("in") && (word + "g") in scores) // trippin, nothin
+    /** Sözlükte ya da çekimli hali sözlükte mi? relapsed, racer, jacking, daddies, stopped … */
+    private fun isKnown(word: String): Boolean {
+        if (word in scores || word in EXTRA_WORDS) return true
+        if (word.endsWith("in") && (word + "g") in scores) return true // trippin, nothin
+        for ((suffix, replacement) in SUFFIXES) {
+            if (!word.endsWith(suffix) || word.length - suffix.length < 2) continue
+            val stem = word.dropLast(suffix.length) + replacement
+            if (stem in scores) return true
+            // Çift ünsüz: stopped -> stop, jogging -> jog
+            if (replacement.isEmpty() && stem.length >= 3 && stem[stem.length - 1] == stem[stem.length - 2] &&
+                stem.dropLast(1) in scores
+            ) return true
+        }
+        return false
+    }
+
+    private fun rankOf(word: String): Int = rank[word] ?: Int.MAX_VALUE
+
+    /** İki kelimeye en olası bölme ("ofyou" -> of + you); kısa parça yalnızca gerçek kısa kelime olabilir. */
+    private fun bestSplit(word: String): List<String>? {
+        var result: List<String>? = null
+        var bestScore = Float.NEGATIVE_INFINITY
+        for (i in 1 until word.length) {
+            val left = word.substring(0, i)
+            val right = word.substring(i)
+            val leftScore = scores[left] ?: continue
+            val rightScore = scores[right] ?: continue
+            if ((left.length < 3 && left !in FUNCTION_WORDS) || (right.length < 3 && right !in FUNCTION_WORDS)) continue
+            if (leftScore + rightScore > bestScore) {
+                bestScore = leftScore + rightScore
+                result = listOf(left, right)
+            }
+        }
+        return result
+    }
+
+    private fun isCommonSplit(parts: List<String>): Boolean =
+        parts.all { it in FUNCTION_WORDS || rankOf(it) < SPLIT_PART_RANK }
+
+    private fun hasTripleLetter(word: String): Boolean =
+        (2 until word.length).any { word[it] == word[it - 1] && word[it] == word[it - 2] }
 
     private fun best(candidates: Collection<String>): String? =
         candidates.filter { it in scores }.maxByOrNull { scores.getValue(it) }
@@ -152,11 +195,22 @@ class OcrWordCorrector(
         private val TOKEN = Regex("^([^A-Za-z0-9']*)([A-Za-z0-9']+)([^A-Za-z0-9']*)$")
         private const val COMMON_RANK = 12_000
         private const val SHORT_WORD_RANK = 3_500
+        /** Bölünmüş kelimenin iki parçası da bu kadar yaygınsa nadir bir tek kelimeye tercih edilir. */
+        private const val SPLIT_PART_RANK = 3_000
+
+        /** Çekim ekleri (ek, köke eklenecek): relapsed -> relapse, racer -> race, daddies -> daddy. */
+        private val SUFFIXES = listOf(
+            "ies" to "y", "ied" to "y", "ier" to "y", "iest" to "y", "ing" to "", "ing" to "e", "ed" to "", "ed" to "e",
+            "er" to "", "er" to "e", "ers" to "", "ers" to "e", "est" to "", "ly" to "", "es" to "", "s" to "",
+            "d" to "", "r" to ""
+        )
 
         /** OPUS sözlüğünde tek parça olmayan ama altyazılarda sık geçen kelimeler (düzeltilmez). */
         private val EXTRA_WORDS = setOf(
             "oh", "ohh", "uh", "uhh", "um", "hmm", "ah", "ahh", "huh", "whoa", "wow", "ok", "okay",
-            "nah", "yep", "yup", "hey", "shh", "ugh", "yo", "ya", "homie", "homies", "dawg", "bro", "cuz", "fam"
+            "nah", "yep", "yup", "hey", "shh", "ugh", "yo", "ya", "homie", "homies", "dawg", "bro", "cuz", "fam",
+            "argh", "aargh", "ew", "eww", "yikes", "nope", "gee", "jeez", "damn", "dammit", "goddamn", "puke",
+            "kinda", "sorta", "gotcha", "wassup", "sup", "lol"
         )
         private val FUNCTION_WORDS = setOf(
             "a", "i", "of", "to", "in", "on", "at", "is", "it", "be", "we", "he", "me", "my", "do", "so",

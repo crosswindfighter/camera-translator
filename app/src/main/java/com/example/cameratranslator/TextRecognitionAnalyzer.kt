@@ -337,7 +337,9 @@ class TextRecognitionAnalyzer(
         if (text.length < 2) return false
 
         val letters = text.count { it.isLetter() }
-        if (letters < text.length * 0.45f) return false
+        // Oran noktalama/boşluk sayılmadan hesaplanır: "Uh..." (2 harf / 5 karakter) reddediliyordu
+        val meaningful = text.count { it.isLetterOrDigit() || it in "$%&@#*+=/\\|~^" }
+        if (letters < meaningful * 0.45f) return false
         // %15 sınırı "It's 20000 dollars." gibi sayılı altyazıları tamamen reddediyordu
         if (text.count { it.isDigit() } > text.length * 0.4f) return false
         if (REJECT_PATTERN.containsMatchIn(text)) return false
