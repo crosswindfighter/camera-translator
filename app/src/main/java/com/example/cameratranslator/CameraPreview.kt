@@ -176,23 +176,26 @@ fun CameraPreview(
         if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStepFor(camera, currentExposureIndex))
     }
 
-    // Kamera Ayarlarını (Pozlama ve Manuel Odak) Senkronize Et
+    // Kamera Ayarlarını (Pozlama ve Manuel Odak) Senkronize Et: değer değişince yalnızca bir kez gönder
     LaunchedEffect(cameraInstance, exposureIndex, manualFocusValue) {
         val camera = cameraInstance ?: return@LaunchedEffect
-
-        // 1. Değerler her değiştiğinde anında uygula
         applyExposure(camera, exposureIndex)
         CameraTuning.apply(camera, manualFocusValue, darkStepFor(camera, exposureIndex))
+    }
 
-        // 2. Uygulama her foreground olduğunda (Resume) ayarları tazelemek için
+    // Uygulamaya her dönüşte (Resume) ayarları tazele. Ayrı efekt: eskiden yukarıdaki efektin içindeydi
+    // ve kaydırıcının her değişiminde 200 ms sonra her şey zorla tekrar gönderilip odak yeniden
+    // tetikleniyordu; mor (ekstra karanlık) bölgede ayar yaparken görüntü bir an aydınlanıp kararıyordu.
+    LaunchedEffect(cameraInstance) {
+        val camera = cameraInstance ?: return@LaunchedEffect
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(200)
             camera.cameraControl.setZoomRatio(currentZoomLevel)
-            applyExposure(camera, exposureIndex)
-            val darkStep = darkStepFor(camera, exposureIndex)
-            CameraTuning.apply(camera, manualFocusValue, darkStep, force = true)
-            // Otomatik odak artık sürekli değil (bir kez odaklanıp sabit kalır): geri dönünce yeniden odakla
-            if (manualFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStep)
+            applyExposure(camera, currentExposureIndex)
+            val darkStep = darkStepFor(camera, currentExposureIndex)
+            CameraTuning.apply(camera, currentFocusValue, darkStep, force = true)
+            // Otomatik odak sürekli değil (bir kez odaklanıp sabit kalır): geri dönünce yeniden odakla
+            if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStep)
         }
     }
 
@@ -227,10 +230,15 @@ private fun darkStepFor(camera: Camera, exposureIndex: Int): Int {
     return (lower - exposureIndex).coerceIn(0, CameraTuning.EXTRA_DARK_STEPS)
 }
 
-/** Pozlama telafisini telefonun aralığında uygular (altındaki adımlar elle pozlamayla yapılır). */
+/**
+ * Pozlama telafisini telefonun aralığında uygular (altındaki adımlar elle pozlamayla yapılır).
+ * Değer zaten aynıysa gönderilmez: mor bölgede kaydırırken hep en alt değer kalır, her seferinde
+ * yeniden göndermek kameraya gereksiz istek yolluyordu.
+ */
 private fun applyExposure(camera: Camera, exposureIndex: Int) {
-    val range = camera.cameraInfo.exposureState.exposureCompensationRange
-    camera.cameraControl.setExposureCompensationIndex(exposureIndex.coerceIn(range.lower, range.upper))
+    val state = camera.cameraInfo.exposureState
+    val target = exposureIndex.coerceIn(state.exposureCompensationRange.lower, state.exposureCompensationRange.upper)
+    if (state.exposureCompensationIndex != target) camera.cameraControl.setExposureCompensationIndex(target)
 }
 
 /** Odak kaydırıcısının alt kısmı: bu değerin altı otomatik odak (AF). */
