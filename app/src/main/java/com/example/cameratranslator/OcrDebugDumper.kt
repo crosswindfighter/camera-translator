@@ -18,6 +18,8 @@ import java.util.Locale
  *  - fNNN_a_kamera.jpg : OCR alanının kameradan gelen hali
  *  - fNNN_b_ocr.jpg    : filtre sonrası ML Kit'e giden hali (filtre kapalıysa/devreye girmediyse yok)
  *  - ocr_log.txt       : her kaydedilen karede ML Kit'in okuduğu ve ayıklanmış metin
+ *  - ceviri_log.txt    : her altyazı için onaylanan OCR metni, OPUS'a giden metin (kelime
+ *                        düzeltme + argo kuralları sonrası) ve ekrana gelen çeviri
  *
  * Konum: Android/data/com.example.cameratranslator/files/ocr_debug
  * (Telefonu USB ile bilgisayara bağlayıp bu klasörden alınabilir.)
@@ -26,7 +28,8 @@ object OcrDebugDumper {
 
     private const val TAG = "OCR_DEBUG"
     private const val MIN_INTERVAL_MS = 700L
-    private const val MAX_SAVED_FRAMES = 40
+    /** Toplu test için: ~600 kare ≈ 7 dakika oyun, ~180 MB (eskisi 40 kare ≈ 30 sn). */
+    private const val MAX_SAVED_FRAMES = 600
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val timeFormat = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
@@ -98,6 +101,20 @@ object OcrDebugDumper {
                 File(dir, "ocr_log.txt").appendText(line)
             } catch (e: Exception) {
                 Log.e(TAG, "Debug log write failed", e)
+            }
+        }
+    }
+
+    /** Çeviri hattının bir adımını ceviri_log.txt'ye ekler (ör. "Onaylanan", "OPUS'a giden", "Çeviri"). */
+    fun logPipeline(label: String, text: String, endOfEntry: Boolean = false) {
+        if (!OcrTuning.debugDumpEnabled) return
+        val dir = directory ?: return
+        val line = "${timeFormat.format(Date())}  $label: ${text.replace('\n', '|')}\n" + if (endOfEntry) "\n" else ""
+        scope.launch {
+            try {
+                File(dir, "ceviri_log.txt").appendText(line)
+            } catch (e: Exception) {
+                Log.e(TAG, "Pipeline log write failed", e)
             }
         }
     }

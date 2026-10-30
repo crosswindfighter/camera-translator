@@ -101,6 +101,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
                 val corrected = corrector?.correct(cleaned) ?: cleaned
                 if (corrected != cleaned) Log.d(TAG, "OCR fix: \"$cleaned\" -> \"$corrected\"")
                 val source = SlangNormalizer.normalize(corrected)
+                OcrDebugDumper.logPipeline("OPUS'a giden", source)
                 // Cümle cümle çevirmek, modelin çok cümleli altyazılarda ilk cümleyi
                 // atlamasını önlüyor (testte "Siktir, kanka." kayboluyordu).
                 val result = SENTENCE_SPLIT.split(source)

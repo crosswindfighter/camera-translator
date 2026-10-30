@@ -537,6 +537,7 @@ class MainActivity : ComponentActivity() {
                 recentOcrApiHistory.add(OcrApiHistoryItem(confirmedText, normNew, now))
 
                 lastTranslatedSource = confirmedText
+                OcrDebugDumper.logPipeline("Onaylanan", confirmedText)
                 val timestamp = System.currentTimeMillis()
                 lastTranslationTimestamp.set(timestamp)
 
@@ -569,6 +570,7 @@ class MainActivity : ComponentActivity() {
                                 historyList = newHistory
                             }
                             currentTranslation = translated
+                            OcrDebugDumper.logPipeline("Çeviri", translated, endOfEntry = true)
                             Log.d(PIPELINE_TAG, "On screen ${System.currentTimeMillis() - timestamp} ms after confirm")
                             speechManager.speak(translated, isTrToEnRef.value)
                         }
