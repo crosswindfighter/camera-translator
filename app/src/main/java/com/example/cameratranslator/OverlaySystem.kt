@@ -41,6 +41,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -209,13 +210,36 @@ fun MainOverlay(
 
         // LAYER 2: Subtitle Display
         if (displayMode == DisplayMode.DEFAULT) {
-            val safeHorizontalPadding = if (isStealthMode) 24.dp else 72.dp
+            // Altyazı alanının sınırı: kontroller görünürken yazı soldaki zoom'un ve sağdaki ikonların
+            // iç kenarında biter (kontroller kamera deliğinden kaçınca sınır da onlarla kayar);
+            // göz modunda ekranın kenarına kadar uzanır, yalnızca kamera deliği ve küçük bir pay kalır.
+            val layoutDirection = LocalLayoutDirection.current
+            val cutout = WindowInsets.displayCutout.asPaddingValues()
+            val cutoutLeft = cutout.calculateLeftPadding(layoutDirection)
+            val cutoutRight = cutout.calculateRightPadding(layoutDirection)
+            val subtitleStart: Dp
+            val subtitleEnd: Dp
+            val subtitleTop: Dp
+            val subtitleBottom: Dp
+            if (isStealthMode) {
+                subtitleStart = cutoutLeft + 12.dp
+                subtitleEnd = cutoutRight + 12.dp
+                subtitleTop = cutout.calculateTopPadding() + 8.dp
+                subtitleBottom = cutout.calculateBottomPadding() + 8.dp
+            } else {
+                // Sol zoom: kenar payı + 40 dp genişlik; sağ ikonlar: kenar payı + 44 dp; araya 10 dp boşluk
+                subtitleStart = (if (cutoutLeft > 0.dp) cutoutLeft + 8.dp else 12.dp) + 40.dp + 10.dp
+                subtitleEnd = (if (cutoutRight > 0.dp) cutoutRight + 12.dp else 16.dp) + 44.dp + 10.dp
+                // Kontrol çubuğu yatayda üstte, dikeyde altta
+                subtitleTop = cutout.calculateTopPadding() + if (isLandscape) 56.dp else 12.dp
+                subtitleBottom = cutout.calculateBottomPadding() + if (isLandscape) 12.dp else 52.dp
+            }
 
             // VARSAYILAN (SİNEMATİK ALTYAZI) MOD: Center Subtitle Overlay with Invisible Wall Boundary
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = safeHorizontalPadding),
+                    .padding(start = subtitleStart, end = subtitleEnd, top = subtitleTop, bottom = subtitleBottom),
                 contentAlignment = Alignment.Center
             ) {
                 val effectiveFontSize = remember(currentTranslation, subtitleFontSize) {
@@ -266,16 +290,16 @@ fun MainOverlay(
 
                 // Active Current Translation
                 if (currentTranslation.isNotEmpty()) {
-                    Text(
+                    // Alana sığmazsa (büyük yazı boyutu, uzun cümle, küçük ekran) kendiliğinden küçülür
+                    AutoFitText(
                         text = currentTranslation,
-                        color = Color.White,
-                        fontSize = effectiveFontSize.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        lineHeight = (effectiveFontSize * 1.15f).sp,
+                        maxFontSize = effectiveFontSize,
+                        lineHeightFactor = 1.15f,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .align(Alignment.Center)
+                            .align(Alignment.Center),
+                        textModifier = Modifier
+                            .fillMaxWidth()
                             .onGloballyPositioned { coordinates ->
                                 val heightDp = with(density) { coordinates.size.height.toDp() }
                                 if (heightDp > 0.dp) {
@@ -304,13 +328,13 @@ fun MainOverlay(
                     val betaFontSize = remember(subtitleFontSize) {
                         (subtitleFontSize * 0.70f).coerceIn(16f, 48f)
                     }
-                    Text(
+                    // Kutuya sığmazsa kendiliğinden küçülür (kutu küçültülünce yazı taşmasın)
+                    AutoFitText(
                         text = currentTranslation,
-                        color = Color.White,
-                        fontSize = betaFontSize.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        lineHeight = (betaFontSize * 1.20f).sp
+                        maxFontSize = betaFontSize,
+                        lineHeightFactor = 1.20f,
+                        modifier = Modifier.fillMaxSize(),
+                        textModifier = Modifier.fillMaxWidth()
                     )
 
                     // Bottom-Right Corner Resize Arrow Indicator (Small Cyan Diagonal Arrow ⇲, visible when not in Stealth Mode)

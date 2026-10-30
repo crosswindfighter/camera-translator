@@ -791,10 +791,12 @@ class MainActivity : ComponentActivity() {
                     isZoomRangeKnown = zoomRange != null,
                     minZoom = zoomRange?.start ?: 1f,
                     maxZoom = zoomRange?.endInclusive ?: ZOOM_SLIDER_MAX,
-                    initialOcrRectDefaultPortrait = remember { settingsManager.getOcrRectDefaultPortrait() },
-                    initialOcrRectDefaultLandscape = remember { settingsManager.getOcrRectDefaultLandscape() },
-                    initialOcrRectScreenPortrait = remember { settingsManager.getOcrRectScreenPortrait() },
-                    initialOcrRectScreenLandscape = remember { settingsManager.getOcrRectScreenLandscape() },
+                    // Her seferinde ayarlardan taze okunur: eskiden ekran açılışında bir kez okunup saklandığı için
+                    // görünüm modu düğmesiyle geçince OCR alanı son ayarlanan yerine değil eski yerine dönüyordu
+                    initialOcrRectDefaultPortrait = settingsManager.getOcrRectDefaultPortrait(),
+                    initialOcrRectDefaultLandscape = settingsManager.getOcrRectDefaultLandscape(),
+                    initialOcrRectScreenPortrait = settingsManager.getOcrRectScreenPortrait(),
+                    initialOcrRectScreenLandscape = settingsManager.getOcrRectScreenLandscape(),
                     onOcrRectSaveDefaultPortrait = { left, top, right, bottom ->
                         settingsManager.saveOcrRectDefaultPortrait(left, top, right, bottom)
                     },

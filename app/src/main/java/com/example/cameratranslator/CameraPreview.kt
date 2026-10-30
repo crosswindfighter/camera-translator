@@ -12,6 +12,8 @@ import android.hardware.camera2.CaptureRequest
 import androidx.camera.camera2.interop.Camera2CameraControl
 import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.core.Camera
+import androidx.camera.core.FocusMeteringAction
+import androidx.camera.core.SurfaceOrientedMeteringPointFactory
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
@@ -40,6 +42,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.os.SystemClock
 import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 @Composable
@@ -160,8 +163,16 @@ fun CameraPreview(
     // Zoom ayrı uygulanır: kaydırıcı sürüklenirken pozlama/odak her seferinde yeniden
     // gönderilince (ve odak 200 ms sonra zorla tekrar uygulanınca) görüntü takılıyordu
     val currentZoomLevel by rememberUpdatedState(zoomLevel)
+    val currentFocusValue by rememberUpdatedState(manualFocusValue)
     LaunchedEffect(cameraInstance, zoomLevel) {
-        cameraInstance?.cameraControl?.setZoomRatio(zoomLevel)
+        val camera = cameraInstance ?: return@LaunchedEffect
+        camera.cameraControl.setZoomRatio(zoomLevel)
+        // Zoom değişince telefon başka bir lense geçebiliyor (S23 Ultra: 1x/3x/10x) ve sürekli
+        // otomatik odak bazen takılı kalıp yazılar bulanık kalıyordu (elle "Oto"ya alınca düzeliyordu).
+        // Kaydırma bitince (her değişimde efekt yeniden başladığı için ancak durunca buraya gelinir)
+        // odak Oto'daysa odağı bir kez yeniden tetikle. Elle odak ayarlıysa dokunma.
+        delay(REFOCUS_AFTER_ZOOM_MS)
+        if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera)
     }
 
     // Kamera Ayarlarını (Pozlama ve Manuel Odak) Senkronize Et
@@ -185,6 +196,22 @@ fun CameraPreview(
         factory = { previewView },
         modifier = modifier
     )
+}
+
+private const val REFOCUS_AFTER_ZOOM_MS = 400L
+
+/** Otomatik odak modunu yeniden gönderir ve ekranın ortasına bir kez odaklanır (sonra sürekli AF'ye döner). */
+private fun refocusCenter(camera: Camera) {
+    try {
+        applyManualFocus(camera, 0f, force = true)
+        val point = SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(0.5f, 0.5f)
+        val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
+            .setAutoCancelDuration(3, TimeUnit.SECONDS)
+            .build()
+        camera.cameraControl.startFocusAndMetering(action)
+    } catch (e: Exception) {
+        Log.e("CameraPreview", "Refocus after zoom failed", e)
+    }
 }
 
 /** Odak kaydırıcısının alt kısmı: bu değerin altı otomatik odak (AF). */
