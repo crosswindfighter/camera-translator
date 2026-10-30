@@ -13,15 +13,14 @@ import androidx.camera.camera2.interop.Camera2CameraInfo
 import androidx.camera.camera2.interop.CaptureRequestOptions
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.Camera
-import kotlin.math.pow
 
 /**
  * Kameraya giden Camera2 ayarlarının tek kaynağı: odak, elle pozlama (ekstra karanlık) ve
  * sabitleme. setCaptureRequestOptions her çağrıda öncekileri sildiği için hepsi birlikte gönderilir.
  *
  * Ekstra karanlık: Parlaklık kaydırıcısı telefonun pozlama telafisi sınırının altına inince
- * otomatik pozlama kapatılır ve perde hızı/ISO elle verilir. Her adım bir öncekinin yarısı kadar
- * ışık alır; başlangıç, otomatik pozlamanın en karanlık halindeki gerçek değerlerdir (sıçrama olmaz).
+ * otomatik pozlama kapatılır, ISO en düşüğe iner ve perde TV'yi titretmeyen sürelere (1/120 sn'nin
+ * katları) ayarlanır. Başlangıç, otomatik pozlamanın en karanlık halindeki gerçek değerlerdir.
  * TV kendi ışığını verdiği için beyaz altyazı parlak kalır, arka plan kararır.
  */
 @OptIn(ExperimentalCamera2Interop::class)
@@ -29,8 +28,14 @@ object CameraTuning {
 
     private const val TAG = "CameraTuning"
 
+    /**
+     * Titremesiz perde süreleri: 1/120 sn'nin katları (33,3 / 25 / 16,7 / 8,3 ms). TV 60/120 Hz'de
+     * yenilendiği için bunların dışındaki kısa süreler (ör. 9,6 ms, 4,8 ms) görüntüyü yanıp söndürüyordu.
+     */
+    private val FLICKER_FREE_EXPOSURES_NS = longArrayOf(33_333_333L, 25_000_000L, 16_666_667L, 8_333_333L)
+
     /** Parlaklık kaydırıcısında telefonun sınırının altına eklenen elle karartma adımı sayısı. */
-    const val EXTRA_DARK_STEPS = 6
+    val EXTRA_DARK_STEPS = FLICKER_FREE_EXPOSURES_NS.size
 
     /** Telefon kameralarının yakın odak sınırı ~10 cm = 10 diyoptri. */
     private const val MAX_FOCUS_DIOPTERS = 10f
@@ -131,13 +136,17 @@ object CameraTuning {
         }
     }
 
-    /** Adım başına ışık yarıya iner: önce ISO en düşüğe, sonra perde kısalır. */
+    /**
+     * ISO en düşükte, perde titremesiz sürelerden biri. Otomatik pozlamanın en karanlık halinden
+     * (aynı ISO'ya çevrilmiş) daha kısa olanlar sırayla kullanılır; böylece her adım daha karanlıktır.
+     */
     private fun manualExposure(step: Int): Pair<Long, Int> {
         val exposures = exposureRange ?: return FALLBACK_EXPOSURE_NS to FALLBACK_ISO
         val isos = isoRange ?: return FALLBACK_EXPOSURE_NS to FALLBACK_ISO
-        val totalLight = baseExposureNs.toDouble() * baseIso / 2.0.pow(step)
         val iso = isos.lower
-        val exposureNs = (totalLight / iso).toLong()
+        val baseAtMinIso = baseExposureNs.toDouble() * baseIso / iso
+        val darker = FLICKER_FREE_EXPOSURES_NS.filter { it < baseAtMinIso }.ifEmpty { listOf(FLICKER_FREE_EXPOSURES_NS.last()) }
+        val exposureNs = darker[(step - 1).coerceIn(0, darker.lastIndex)]
             .coerceIn(exposures.lower, minOf(exposures.upper, MAX_MANUAL_EXPOSURE_NS))
         return exposureNs to iso
     }
