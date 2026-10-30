@@ -273,13 +273,17 @@ class TextRecognitionAnalyzer(
         val cleanWord = word.lowercase().filter { it.isLetter() }
         if (cleanWord.length < 3) return false
 
-        // 1. Filter 3+ consecutive identical letters (e.g. "iii", "zzz", "lll")
+        // Eşikler OPUS sözlüğündeki ~25 bin İngilizce kelimeyle ayarlandı. Eski eşikler (3 aynı harf,
+        // 3 sesli, "y" dahil 4 sessiz) 860'tan fazla gerçek kelimeyi siliyordu: Johnny, everything,
+        // country, quickly, background, beautiful, quiet, Mmm, Shhh …
+
+        // 1. 4+ aynı harf art arda ("iiii", "llll"); "Mmm", "Shhh" gibi ünlemler kalır
         if (GIBBERISH_REPEAT_REGEX.containsMatchIn(cleanWord)) return true
 
-        // 2. Filter 3+ consecutive unnatural vowels (e.g. "aiii", "eiii")
+        // 2. 4+ sesli harf art arda (yalnızca queue, Hawaiian gibi birkaç kelime etkilenir)
         if (GIBBERISH_VOWELS_REGEX.containsMatchIn(cleanWord)) return true
 
-        // 3. Filter 4+ consecutive consonants (e.g. "xptz", "rtbn", "qwerty")
+        // 3. "y" hariç 5+ sessiz harf art arda ("qwrtz", "hjklm"); yalnızca birkaç nadir kelime etkilenir
         if (GIBBERISH_CONSONANTS_REGEX.containsMatchIn(cleanWord)) return true
 
         return false
@@ -372,8 +376,8 @@ class TextRecognitionAnalyzer(
         private val ALPHANUMERIC_NOISE_REGEX = Regex("(?=[A-Za-zÇĞİÖŞÜçğıöşü]*\\d)(?=\\d*[A-Za-zÇĞİÖŞÜçğıöşü])[A-Za-zÇĞİÖŞÜçğıöşü0-9-]+")
 
         // Gibberish artifact regexes
-        private val GIBBERISH_REPEAT_REGEX = Regex("(.)\\1{2,}")
-        private val GIBBERISH_VOWELS_REGEX = Regex("[aeiouıöü]{3,}")
-        private val GIBBERISH_CONSONANTS_REGEX = Regex("[bcdfghjklmnprstvwxyzçğş]{4,}")
+        private val GIBBERISH_REPEAT_REGEX = Regex("(.)\\1{3,}")
+        private val GIBBERISH_VOWELS_REGEX = Regex("[aeiouıöü]{4,}")
+        private val GIBBERISH_CONSONANTS_REGEX = Regex("[bcdfghjklmnpqrstvwxzçğş]{5,}")
     }
 }
