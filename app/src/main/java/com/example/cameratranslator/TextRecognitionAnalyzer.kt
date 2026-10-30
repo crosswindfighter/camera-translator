@@ -297,7 +297,9 @@ class TextRecognitionAnalyzer(
             // ("NO!", "GET DOWN!") ve kısaltmaları (FIB, LSPD, MC) da siliyordu.
 
             // 1. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
-            val hasAlphanumericNoise = ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
+            // Sıra sayıları, onyıllar ve saatler gerçek kelimedir: 1st, 24th, 90s, 10pm, 5k
+            val core = word.trim { !it.isLetterOrDigit() }
+            val hasAlphanumericNoise = !NUMBER_WITH_SUFFIX.matches(core) && ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
 
             // 2. Filter out unpronounceable OCR artifacts and gibberish noise words
             val isGibberish = isGibberishWord(word)
@@ -336,7 +338,8 @@ class TextRecognitionAnalyzer(
 
         val letters = text.count { it.isLetter() }
         if (letters < text.length * 0.45f) return false
-        if (text.count { it.isDigit() } > text.length * 0.15f) return false
+        // %15 sınırı "It's 20000 dollars." gibi sayılı altyazıları tamamen reddediyordu
+        if (text.count { it.isDigit() } > text.length * 0.4f) return false
         if (REJECT_PATTERN.containsMatchIn(text)) return false
 
         val words = text.split(SPACES_REGEX).filter { it.isNotBlank() }
@@ -346,13 +349,18 @@ class TextRecognitionAnalyzer(
         for (word in words) {
             val wordLetters = word.filter { it.isLetter() }
             if (wordLetters.length < 2) continue
+            // Sesli harfi olmayan ünlemler ("Shh!", "Hmm.", "Psst!") de gerçek altyazıdır
+            if (wordLetters.lowercase() in INTERJECTIONS) {
+                validWords++
+                continue
+            }
 
             val vowels = wordLetters.count { it.lowercaseChar() in "aeiouıöü" }
             val vowelRatio = vowels.toFloat() / wordLetters.length
             if (vowelRatio !in 0.15f..0.75f) continue
 
-            val upperRatio = wordLetters.count { it.isUpperCase() }.toFloat() / wordLetters.length
-            if (wordLetters.length > 4 && upperRatio > 0.7f) continue
+            // Not: büyük harfli uzun kelimeleri ("FREEZE!") geçersiz sayan kural kaldırıldı;
+            // bağırarak yazılmış tek kelimelik altyazılar reddediliyordu. HUD'u orta filtre eliyor.
             if (CAMEL_CASE_PATTERN.containsMatchIn(word)) continue
 
             validWords++
@@ -365,9 +373,12 @@ class TextRecognitionAnalyzer(
         private const val TAG = "OCR_ANALYZER"
         private const val EMPTY_RESET_THRESHOLD = 3
         private const val MAX_OCR_WIDTH = 2400f
-        private const val MIN_LINE_LETTERS = 3
+        // 3 iken "No!", "Go!", "Hi.", "Ok." gibi kısa altyazılar siliniyordu
+        private const val MIN_LINE_LETTERS = 2
 
         private val SPACES_REGEX = Regex("\\s+")
+        private val NUMBER_WITH_SUFFIX = Regex("\\d+(st|nd|rd|th|s|k|m|am|pm|x)", RegexOption.IGNORE_CASE)
+        private val INTERJECTIONS = setOf("shh", "shhh", "hmm", "hmmm", "hm", "mm", "mmm", "mhm", "psst", "pst", "pfft", "tsk", "brr", "grr", "sh")
         private val REJECT_PATTERN = Regex("[<>]+|_{2,}|={2,}")
         private val CAMEL_CASE_PATTERN = Regex("[a-z][A-Z]{2,}[a-z]")
 
