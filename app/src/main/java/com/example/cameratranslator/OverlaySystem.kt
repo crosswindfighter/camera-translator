@@ -560,9 +560,15 @@ fun MainOverlay(
 
         // Floating Sliders Overlay (Fixed Anchors on Right, DOES NOT CAUSE TOOLBAR BUTTONS TO SHIFT OR JUMP!)
         if (!isStealthMode && isExposureControlsVisible) {
+            // Telefonun sınırının altına elle pozlamayla "ekstra karanlık" adımlar eklenir (mor bölge)
+            val extraDark = if (CameraTuning.supportsManualExposure) CameraTuning.EXTRA_DARK_STEPS else 0
+            val sliderMin = exposureRange.first - extraDark
+            val sliderSpan = (exposureRange.last - sliderMin).coerceAtLeast(1)
             VerticalSliderCard(
                 value = exposureIndex.toFloat(),
-                valueRange = exposureRange.first.toFloat()..exposureRange.last.toFloat(),
+                valueRange = sliderMin.toFloat()..exposureRange.last.toFloat(),
+                autoZoneFraction = extraDark.toFloat() / sliderSpan,
+                zoneColor = Color(0xFFB388FF),
                 onValueChange = { onExposureIndexChange(it.roundToInt()) },
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
@@ -691,8 +697,9 @@ private fun VerticalSliderCard(
     valueRange: ClosedFloatingPointRange<Float>,
     onValueChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
-    /** >0 ise kaydırıcının alt kısmında bu oranda yeşil "otomatik" bölge çizilir. */
-    autoZoneFraction: Float = 0f
+    /** >0 ise kaydırıcının alt kısmında bu oranda renkli bölge çizilir (odak: otomatik, parlaklık: ekstra karanlık). */
+    autoZoneFraction: Float = 0f,
+    zoneColor: Color = Color(0xFF7CFC00)
 ) {
     val density = LocalDensity.current
     val defaultHeightPx = with(density) { 125.dp.toPx() }
@@ -755,7 +762,7 @@ private fun VerticalSliderCard(
                     .padding(bottom = trackMarginDp)
                     .width(8.dp)
                     .height(with(density) { (autoZoneFraction * availableTrackPx).toDp() })
-                    .background(Color(0xFF7CFC00).copy(alpha = 0.8f), RoundedCornerShape(3.dp))
+                    .background(zoneColor.copy(alpha = 0.8f), RoundedCornerShape(3.dp))
             )
         }
 

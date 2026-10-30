@@ -8,9 +8,7 @@ import android.view.Surface
 import android.view.WindowManager
 import android.content.Context
 import android.os.Build
-import android.hardware.camera2.CaptureRequest
-import androidx.camera.camera2.interop.Camera2CameraControl
-import androidx.camera.camera2.interop.CaptureRequestOptions
+import androidx.camera.camera2.interop.Camera2Interop
 import androidx.camera.core.Camera
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
@@ -42,7 +40,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import android.os.SystemClock
 import kotlinx.coroutines.delay
 import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
 @Composable
@@ -112,8 +109,10 @@ fun CameraPreview(
             delay(16)
         }
 
-        val preview = Preview.Builder()
-            .setTargetRotation(rotation)
+        val previewBuilder = Preview.Builder().setTargetRotation(rotation)
+        // Otomatik pozlamanın gerçek değerlerini oku (ekstra karanlığa geçişte sıçrama olmasın)
+        Camera2Interop.Extender(previewBuilder).setSessionCaptureCallback(CameraTuning.captureCallback)
+        val preview = previewBuilder
             .build()
             .also { it.surfaceProvider = previewView.surfaceProvider }
 
@@ -150,8 +149,9 @@ fun CameraPreview(
             Log.d(TAG, "Analysis resolution: ${imageAnalysis.resolutionInfo?.resolution}")
 
             // İlk değerleri uygula
+            CameraTuning.readCapabilities(camera)
             camera.cameraControl.setZoomRatio(zoomLevel)
-            camera.cameraControl.setExposureCompensationIndex(exposureIndex)
+            applyExposure(camera, exposureIndex)
             
             cameraInstance = camera
             onCameraReady(camera)
@@ -164,6 +164,7 @@ fun CameraPreview(
     // gönderilince (ve odak 200 ms sonra zorla tekrar uygulanınca) görüntü takılıyordu
     val currentZoomLevel by rememberUpdatedState(zoomLevel)
     val currentFocusValue by rememberUpdatedState(manualFocusValue)
+    val currentExposureIndex by rememberUpdatedState(exposureIndex)
     LaunchedEffect(cameraInstance, zoomLevel) {
         val camera = cameraInstance ?: return@LaunchedEffect
         camera.cameraControl.setZoomRatio(zoomLevel)
@@ -172,7 +173,7 @@ fun CameraPreview(
         // Kaydırma bitince (her değişimde efekt yeniden başladığı için ancak durunca buraya gelinir)
         // odak Oto'daysa odağı bir kez yeniden tetikle. Elle odak ayarlıysa dokunma.
         delay(REFOCUS_AFTER_ZOOM_MS)
-        if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera)
+        if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStepFor(camera, currentExposureIndex))
     }
 
     // Kamera Ayarlarını (Pozlama ve Manuel Odak) Senkronize Et
@@ -180,15 +181,18 @@ fun CameraPreview(
         val camera = cameraInstance ?: return@LaunchedEffect
 
         // 1. Değerler her değiştiğinde anında uygula
-        camera.cameraControl.setExposureCompensationIndex(exposureIndex)
-        applyManualFocus(camera, manualFocusValue)
+        applyExposure(camera, exposureIndex)
+        CameraTuning.apply(camera, manualFocusValue, darkStepFor(camera, exposureIndex))
 
         // 2. Uygulama her foreground olduğunda (Resume) ayarları tazelemek için
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             delay(200)
             camera.cameraControl.setZoomRatio(currentZoomLevel)
-            camera.cameraControl.setExposureCompensationIndex(exposureIndex)
-            applyManualFocus(camera, manualFocusValue, force = true)
+            applyExposure(camera, exposureIndex)
+            val darkStep = darkStepFor(camera, exposureIndex)
+            CameraTuning.apply(camera, manualFocusValue, darkStep, force = true)
+            // Otomatik odak artık sürekli değil (bir kez odaklanıp sabit kalır): geri dönünce yeniden odakla
+            if (manualFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStep)
         }
     }
 
@@ -200,58 +204,37 @@ fun CameraPreview(
 
 private const val REFOCUS_AFTER_ZOOM_MS = 400L
 
-/** Otomatik odak modunu yeniden gönderir ve ekranın ortasına bir kez odaklanır (sonra sürekli AF'ye döner). */
-private fun refocusCenter(camera: Camera) {
+/**
+ * Ortadaki noktaya bir kez odaklanır ve odağı orada sabitler (tripodda görüntü odak arayıp
+ * kaymasın). Zoom bittikten sonra, uygulamaya dönünce ve açılışta çağrılır.
+ */
+private fun refocusCenter(camera: Camera, darkStep: Int) {
     try {
-        applyManualFocus(camera, 0f, force = true)
+        CameraTuning.apply(camera, 0f, darkStep, force = true)
         val point = SurfaceOrientedMeteringPointFactory(1f, 1f).createPoint(0.5f, 0.5f)
         val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
-            .setAutoCancelDuration(3, TimeUnit.SECONDS)
+            .disableAutoCancel()
             .build()
         camera.cameraControl.startFocusAndMetering(action)
     } catch (e: Exception) {
-        Log.e("CameraPreview", "Refocus after zoom failed", e)
+        Log.e("CameraPreview", "Refocus failed", e)
     }
+}
+
+/** Parlaklık kaydırıcısı telefonun pozlama telafisi sınırının altındaysa elle karartma adımı (1..), değilse 0. */
+private fun darkStepFor(camera: Camera, exposureIndex: Int): Int {
+    val lower = camera.cameraInfo.exposureState.exposureCompensationRange.lower
+    return (lower - exposureIndex).coerceIn(0, CameraTuning.EXTRA_DARK_STEPS)
+}
+
+/** Pozlama telafisini telefonun aralığında uygular (altındaki adımlar elle pozlamayla yapılır). */
+private fun applyExposure(camera: Camera, exposureIndex: Int) {
+    val range = camera.cameraInfo.exposureState.exposureCompensationRange
+    camera.cameraControl.setExposureCompensationIndex(exposureIndex.coerceIn(range.lower, range.upper))
 }
 
 /** Odak kaydırıcısının alt kısmı: bu değerin altı otomatik odak (AF). */
 const val AUTO_FOCUS_ZONE = 0.08f
-
-/** Telefon kameralarının yakın odak sınırı ~10 cm = 10 diyoptri. */
-private const val MAX_FOCUS_DIOPTERS = 10f
-
-private var lastAppliedFocus = -1f
-private var lastFocusCamera: Camera? = null
-
-private fun applyManualFocus(camera: Camera, focusValue: Float, force: Boolean = false) {
-    // Kaydırma sırasında her küçük değişimde istek yağdırmamak için; ama kamera
-    // yeniden bağlandıysa (Ayarlar'dan dönüş, döndürme) değer aynı olsa da uygula.
-    if (!force && camera === lastFocusCamera && kotlin.math.abs(focusValue - lastAppliedFocus) < 0.004f) return
-    lastAppliedFocus = focusValue
-    lastFocusCamera = camera
-
-    try {
-        val camera2Control = Camera2CameraControl.from(camera.cameraControl)
-        if (focusValue < AUTO_FOCUS_ZONE) {
-            val options = CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_CONTINUOUS_PICTURE)
-                .build()
-            camera2Control.setCaptureRequestOptions(options)
-        } else {
-            // Karesel eğri: kaydırıcının büyük kısmı uzak mesafelere (TV: 2-4 m = 0.25-0.5 diyoptri)
-            // ayrılır. Eskiden doğrusaldı ve TV mesafesi kaydırıcının en alttaki %3'üne sıkışıyordu.
-            val t = ((focusValue - AUTO_FOCUS_ZONE) / (1f - AUTO_FOCUS_ZONE)).coerceIn(0f, 1f)
-            val targetDiopters = MAX_FOCUS_DIOPTERS * t * t
-            val options = CaptureRequestOptions.Builder()
-                .setCaptureRequestOption(CaptureRequest.CONTROL_AF_MODE, CaptureRequest.CONTROL_AF_MODE_OFF)
-                .setCaptureRequestOption(CaptureRequest.LENS_FOCUS_DISTANCE, targetDiopters)
-                .build()
-            camera2Control.setCaptureRequestOptions(options)
-        }
-    } catch (e: Exception) {
-        Log.e("CameraPreview", "Manual focus error", e)
-    }
-}
 
 /**
  * OCR sınıfını değiştirmeden ImageAnalysis karelerini seyreltir.
