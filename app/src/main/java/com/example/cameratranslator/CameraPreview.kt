@@ -173,6 +173,7 @@ fun CameraPreview(
         // Kaydırma bitince (her değişimde efekt yeniden başladığı için ancak durunca buraya gelinir)
         // odak Oto'daysa odağı bir kez yeniden tetikle. Elle odak ayarlıysa dokunma.
         delay(REFOCUS_AFTER_ZOOM_MS)
+        OcrDebugDumper.logPipeline("Zoom", "%.2fx".format(zoomLevel), endOfEntry = true)
         if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStepFor(camera, currentExposureIndex))
     }
 
@@ -194,8 +195,22 @@ fun CameraPreview(
             applyExposure(camera, currentExposureIndex)
             val darkStep = darkStepFor(camera, currentExposureIndex)
             CameraTuning.apply(camera, currentFocusValue, darkStep, force = true)
-            // Otomatik odak sürekli değil (bir kez odaklanıp sabit kalır): geri dönünce yeniden odakla
-            if (currentFocusValue < AUTO_FOCUS_ZONE) refocusCenter(camera, darkStep)
+        }
+    }
+
+    // Otomatik odak sürekli değil (bir kez odaklanıp sabit kalır). Oto'ya geçince hemen, sonra da
+    // belirli aralıklarla yeniden odakla: elle odaktan Oto'ya dönünce tetikleme yapılmadığı için
+    // lens eski yerinde kalıyor ve görüntü bulanık kalıyordu. Uygulamaya dönünce de baştan başlar.
+    val autoFocus = manualFocusValue < AUTO_FOCUS_ZONE
+    LaunchedEffect(cameraInstance, autoFocus) {
+        val camera = cameraInstance ?: return@LaunchedEffect
+        if (!autoFocus) return@LaunchedEffect
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            delay(AUTO_REFOCUS_DELAY_MS)
+            while (true) {
+                refocusCenter(camera, darkStepFor(camera, currentExposureIndex))
+                delay(PERIODIC_REFOCUS_MS)
+            }
         }
     }
 
@@ -206,6 +221,10 @@ fun CameraPreview(
 }
 
 private const val REFOCUS_AFTER_ZOOM_MS = 400L
+/** Oto odağa geçtikten / uygulamaya döndükten sonra ilk odaklama (ayarların kameraya ulaşması için kısa bekleme). */
+private const val AUTO_REFOCUS_DELAY_MS = 300L
+/** Oto odakta arada bir yeniden odaklama: zoom ya da ortam değişse de görüntü bulanık kalmasın. */
+private const val PERIODIC_REFOCUS_MS = 20_000L
 
 /**
  * Ortadaki noktaya bir kez odaklanır ve odağı orada sabitler (tripodda görüntü odak arayıp
@@ -218,7 +237,12 @@ private fun refocusCenter(camera: Camera, darkStep: Int) {
         val action = FocusMeteringAction.Builder(point, FocusMeteringAction.FLAG_AF)
             .disableAutoCancel()
             .build()
-        camera.cameraControl.startFocusAndMetering(action)
+        val future = camera.cameraControl.startFocusAndMetering(action)
+        // Geliştirici modu logu: bulanık görüntüde odağın denenip denenmediği / tutup tutmadığı görülsün
+        future.addListener({
+            val result = try { if (future.get().isFocusSuccessful) "netlendi" else "NETLENEMEDİ" } catch (e: Exception) { "iptal" }
+            OcrDebugDumper.logPipeline("Odak", result, endOfEntry = true)
+        }, Runnable::run)
     } catch (e: Exception) {
         Log.e("CameraPreview", "Refocus failed", e)
     }

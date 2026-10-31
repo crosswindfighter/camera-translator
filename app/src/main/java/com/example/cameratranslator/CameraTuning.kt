@@ -95,6 +95,10 @@ object CameraTuning {
             baseExposureNs = autoExposureNs.takeIf { it > 0 } ?: FALLBACK_EXPOSURE_NS
             baseIso = autoIso.takeIf { it > 0 } ?: FALLBACK_ISO
         }
+        if (key != lastKey) {
+            val focusText = if (autoFocus) "otomatik" else "elle %.2f".format(focusValue)
+            OcrDebugDumper.logPipeline("Kamera ayarı", "odak $focusText, ekstra karartma $step", endOfEntry = true)
+        }
         lastKey = key
         lastCamera = camera
 

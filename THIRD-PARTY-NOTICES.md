@@ -23,6 +23,15 @@ Camera Translator'ın kaynak kodu [MIT lisansı](LICENSE.md) ile yayımlanır. U
 
 ---
 
+## 📖 İngilizce kelime listesi — FrequencyWords
+
+- **Dosya:** `app/src/main/assets/en_words.txt` (OCR kelime düzelticisinin gerçek kelimeleri tanıması için)
+- **Kaynak:** [hermitdave/FrequencyWords](https://github.com/hermitdave/FrequencyWords) — `content/2018/en/en_50k.txt` (OpenSubtitles 2018 altyazılarından derlenmiş sıklık listesi)
+- **Lisans:** [Creative Commons Attribution-ShareAlike 4.0 International (CC-BY-SA 4.0)](https://creativecommons.org/licenses/by-sa/4.0/)
+- **Yapılan değişiklikler:** Sıklık sayıları çıkarılmış; OPUS sözlüğünde zaten olan kelimeler, 4 harften kısa kelimeler ve listede bulunan OCR hataları (ör. `lt`, `dont`, `ofthe`) ayıklanmıştır. Ortaya çıkan liste de CC-BY-SA 4.0 lisansıyla paylaşılır.
+
+---
+
 ## Yazılım kütüphaneleri
 
 | Bileşen | Kullanım | Lisans |

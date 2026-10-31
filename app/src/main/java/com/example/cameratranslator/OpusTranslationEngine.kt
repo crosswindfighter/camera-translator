@@ -38,6 +38,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
     override val isBusy: StateFlow<Boolean> = _isBusy
 
     val modelDir: File? = OfflineModelDownloader.modelDirectory(context)
+    private val assets = context.applicationContext.assets
 
     private val loadMutex = Mutex()
     private val runMutex = Mutex()
@@ -72,7 +73,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
                     setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
                 }
                 tokenizer = MarianTokenizer.load(File(dir, "source_pieces.tsv"), File(dir, "vocab.json"))
-                corrector = tokenizer?.createWordCorrector()
+                corrector = tokenizer?.createWordCorrector(loadRealWords())
                 encoder = environment.createSession(File(dir, "encoder_model.onnx").path, options)
                 decoder = environment.createSession(File(dir, "decoder_model_merged.onnx").path, options)
                 env = environment
@@ -84,6 +85,19 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
                 _status.value = TranslationStatus.Error("OPUS modeli yüklenemedi")
             }
         }
+    }
+
+    /**
+     * OPUS sözlüğünde olmayan gerçek İngilizce kelimeler (altyazılardan derlenmiş, OCR hatalarından
+     * ayıklanmış liste): düzeltici bunları hata sanıp değiştirmesin (scotch -/-> scorch, meds -/-> mess).
+     */
+    private fun loadRealWords(): Set<String> = try {
+        assets.open(REAL_WORDS_ASSET).bufferedReader().useLines { lines ->
+            lines.map { it.trim() }.filter { it.isNotEmpty() }.toHashSet()
+        }
+    } catch (e: Exception) {
+        Log.w(TAG, "Real word list missing", e)
+        emptySet()
     }
 
     override fun isKnownWord(word: String): Boolean = tokenizer?.isWholeWord(word) == true
@@ -107,6 +121,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
                 val result = SENTENCE_SPLIT.split(source)
                     .filter { it.isNotBlank() }
                     .joinToString(" ") { translateSentence(it) }
+                    .replace(LANGUAGE_NOTE, "")
                     .trim()
                 Log.d(TAG, "Translated in ${SystemClock.elapsedRealtime() - startedAt} ms")
                 result
@@ -121,6 +136,8 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
 
     /** Açgözlü (greedy) çözümleme, KV önbellekli birleşik decoder ile. */
     private fun translateSentence(sentence: String): String {
+        // Tek başına "Hey!" OPUS'ta "Merhaba!" oluyordu (oyunda hep seslenme)
+        if (STANDALONE_HEY.matches(sentence)) return sentence
         val environment = env ?: return ""
         val enc = encoder ?: return ""
         val dec = decoder ?: return ""
@@ -152,7 +169,9 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
             val output = ArrayList<Int>()
             var token = PAD_ID
             var previous: OrtSession.Result? = null
-            for (step in 0 until MAX_NEW_TOKENS) {
+            // Çeviri kaynaktan çok daha uzun olamaz: döngüye giren çeviri 128 adım (≈2 sn) sürüyordu
+            val maxTokens = minOf(MAX_NEW_TOKENS, inputIds.size * 2 + 8)
+            for (step in 0 until maxTokens) {
                 val tokenTensor = OnnxTensor.createTensor(environment, LongBuffer.wrap(longArrayOf(token.toLong())), longArrayOf(1, 1))
                 val cacheTensor = OnnxTensor.createTensor(environment, booleanArrayOf(step > 0))
                 val feeds = HashMap<String, OnnxTensor>(past)
@@ -184,12 +203,31 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
 
                 if (token == EOS_ID) break
                 output += token
+                if (trimRepetition(output)) break
             }
             previous?.close()
             return tok.decode(output)
         } finally {
             closeables.asReversed().forEach { runCatching { it.close() } }
         }
+    }
+
+    /**
+     * Model döngüye girdiyse ("p-p-p-p-p-p…") tekrarları atıp true döner. Sonda 1-3 tokenlık bir
+     * kalıp [MAX_REPEATS] kez art arda tekrarlanıyorsa döngü sayılır; kalıbın bir tekrarı bırakılır.
+     */
+    private fun trimRepetition(output: MutableList<Int>): Boolean {
+        for (size in 1..3) {
+            val span = size * MAX_REPEATS
+            if (output.size < span) continue
+            val start = output.size - span
+            val looping = (start + size until output.size).all { output[it] == output[it - size] }
+            if (looping) {
+                repeat(span - size) { output.removeAt(output.size - 1) }
+                return true
+            }
+        }
+        return false
     }
 
     private fun argmax(logits: FloatBuffer): Int {
@@ -234,8 +272,14 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
         const val MODEL_DIR_NAME = "opus_en_tr"
         private val REQUIRED_FILES = listOf("encoder_model.onnx", "decoder_model_merged.onnx", "source_pieces.tsv", "vocab.json")
 
+        private const val REAL_WORDS_ASSET = "en_words.txt"
+        /** OPUS'un bazen kendiliğinden eklediği dil notu: "El Burro Heights (İngilizce)" */
+        private val LANGUAGE_NOTE = Regex("\\s*\\((İngilizce|ingilizce|İspanyolca)\\)")
+
         private const val NUM_THREADS = 4
         private const val MAX_NEW_TOKENS = 128
+        /** Aynı kalıp bu kadar art arda gelirse döngü sayılır ("No, no, no, no, no" -> 5 "hayır" kalabilir) */
+        private const val MAX_REPEATS = 6
         private const val DECODER_LAYERS = 6
         private const val HEADS = 16
         private const val HEAD_DIM = 64
@@ -247,6 +291,7 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
         private const val UNK_ID = 52508
 
         private val SENTENCE_SPLIT = Regex("(?<=[.!?])\\s+")
+        private val STANDALONE_HEY = Regex("(?i)hey[.!]*")
     }
 }
 
@@ -280,7 +325,7 @@ private class MarianTokenizer(
     }
 
     /** OPUS sözlüğündeki tam kelimelerden (sıklık puanlarıyla) OCR kelime düzelticisi kurar. */
-    fun createWordCorrector(): OcrWordCorrector {
+    fun createWordCorrector(realWords: Set<String>): OcrWordCorrector {
         val words = HashMap<String, Float>()
         val cased = HashSet<String>()
         for ((piece, score) in pieceScores) {
@@ -289,7 +334,7 @@ private class MarianTokenizer(
             if (word.all { it in 'a'..'z' }) words[word] = score
             else if (word.length >= 2 && word[0] in 'A'..'Z') cased += word
         }
-        return OcrWordCorrector(words, cased)
+        return OcrWordCorrector(words, cased, realWords)
     }
 
     /** Kelime sözlükte tek parça ("▁word") olarak var mı? OCR bozukluğu olan kelimeler ("sorne") yok. */

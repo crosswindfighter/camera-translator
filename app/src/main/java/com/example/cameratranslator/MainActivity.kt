@@ -513,6 +513,7 @@ class MainActivity : ComponentActivity() {
             OcrStabilizer(
                 // OPUS sözlüğüyle: iki temiz ve neredeyse aynı okuma 3. okumayı beklemeden onaylanır
                 isCleanReading = { CleanReading.isClean(it, translationManager::isKnownWord) },
+                isKnownWord = translationManager::isKnownWord,
                 // Onay beklenirken en olası metni OPUS'ta önceden çevir (sonuç önbellekte hazır olur).
                 // Ekrana erken bir şey gitmez; motor meşgulse gerçek çeviriyi bekletmemek için atlanır.
                 onLikelyCandidate = { candidate ->

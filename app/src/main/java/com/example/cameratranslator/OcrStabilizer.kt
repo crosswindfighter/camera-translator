@@ -19,6 +19,8 @@ import kotlin.math.min
 class OcrStabilizer(
     /** Okuma temiz mi (bütün kelimeler gerçek kelime)? İki temiz ve neredeyse aynı okuma hemen onaylanır. */
     private val isCleanReading: (String) -> Boolean = { false },
+    /** Kelime gerçek bir kelime mi (küçük harf, noktalamasız)? Oylamada gerçek kelimeye küçük bir ek oy. */
+    private val isKnownWord: (String) -> Boolean = { false },
     /** Onay için bir okuma daha bekleniyorken en olası metin (önden çeviri için). */
     private val onLikelyCandidate: (String) -> Unit = {},
     private val onConfirmed: (String) -> Unit
@@ -67,7 +69,7 @@ class OcrStabilizer(
         var candidate: String? = null
         synchronized(lock) {
             val currentConfirmed = confirmed
-            if (currentConfirmed != null && similar(text, currentConfirmed)) {
+            if (currentConfirmed != null && (similar(text, currentConfirmed) || isFadingPrefix(text, currentConfirmed))) {
                 // OCR readings that fluctuate slightly while a subtitle remains visible
                 // belong to the already confirmed subtitle. Keep it locked.
                 recent.clear()
@@ -153,14 +155,33 @@ class OcrStabilizer(
             }
         }
 
-        // Her yazım için oy = okuma sayısı + güven/2; hiçbiri tekrar etmiyorsa en güvenli okumanınki kalır
+        // Her yazım için oy = okuma sayısı + güven/2; hiçbiri tekrar etmiyorsa en güvenli okumanınki kalır.
+        // Gerçek kelime olan yazıma ek oy: bozuk karelerde her okuma farklıysa ("thiakesbeng", "being",
+        // "0eirng") gerçek kelime kazanır; çoğunluğun okuduğu yazım yine de önde kalır.
         return candidates.joinToString(" ") { options ->
             val votes = LinkedHashMap<String, Float>()
             for ((word, confidence) in options) {
                 votes[word] = (votes[word] ?: 0f) + 1f + confidence.coerceIn(0f, 1f) * 0.5f
             }
+            if (votes.size > 1) {
+                for (word in votes.keys) {
+                    val key = wordKey(word).trim('\'')
+                    if (key.isNotEmpty() && isKnownWord(key)) votes[word] = votes.getValue(word) + KNOWN_WORD_BONUS
+                }
+            }
             votes.maxBy { it.value }.key
         }
+    }
+
+    /**
+     * Onaylanmış altyazı kaybolurken sondan kısalarak okunuyor ("Fly to the Agency headquarters," ->
+     * "Fly to the"): onaylanmış metnin en az 2 kelimelik başı yeni altyazı sayılmaz.
+     */
+    private fun isFadingPrefix(text: String, confirmed: String): Boolean {
+        val words = compareKey(text).split(' ').filter { it.isNotEmpty() }
+        val confirmedWords = compareKey(confirmed).split(' ').filter { it.isNotEmpty() }
+        if (words.size < 2 || words.size >= confirmedWords.size) return false
+        return words.indices.all { wordKey(words[it]) == wordKey(confirmedWords[it]) }
     }
 
     /** Kelime dizilerini hizalar: iskeletteki her kelimenin diğer okumadaki karşılığı (yoksa null). */
@@ -276,6 +297,8 @@ class OcrStabilizer(
         // 3. benzer okuma bu sürede gelmezse 2 okumayla devam edilir
         private const val MAX_WAIT_MS = 500L
         private const val GAP_COST = 0.8f
+        // Tek okumanın oyundan (1 + güven/2) az: iki karede aynı okunan yazım tek bir gerçek kelimeyi yine yener
+        private const val KNOWN_WORD_BONUS = 0.75f
         // "brothers," / "brothers." gibi 1-2 karakterlik OCR farkları
         private const val NEAR_IDENTICAL = 0.9f
         // ~6 OCR/sn ile 1.5 sn ≈ 9 okuma; araya giren bozuk kareleri tolere eder

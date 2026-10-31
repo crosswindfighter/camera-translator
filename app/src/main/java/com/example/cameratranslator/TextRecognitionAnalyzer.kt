@@ -18,8 +18,6 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Job
@@ -131,19 +129,20 @@ class TextRecognitionAnalyzer(
             if (original !== cropped) cropped.recycle()
             upscaled = original
 
-            // Beyaz altyazı filtresi; görüntü uygun değilse null döner
-            val filtered = if (OcrTuning.textMaskEnabled) SubtitleTextMask.apply(original) else null
+            // Önce filtresiz oku. Beyaz altyazı filtresi yalnızca okuma zayıfsa denenir (açık renk asfalt/kum
+            // üstündeki altyazı): eskiden her kare iki kez OCR'dan geçiyordu, filtre ise karelerin ancak ~%1,5'inde
+            // belirgin fark yaratıyordu. Hiç yazı bulunmayan karede de denenmez (1310 karede yalnızca 3 kez işe yaradı).
+            val originalResult = recognize(original, frameId)
+            val originalReading = originalResult?.first
+            val needsFilter = OcrTuning.textMaskEnabled && originalReading != null &&
+                originalReading.text.isNotBlank() && originalReading.confidence < FILTER_BELOW_CONFIDENCE
+            // Görüntü uygun değilse null döner
+            val filtered = if (needsFilter) SubtitleTextMask.apply(original) else null
             masked = filtered
             OcrDebugDumper.maybeSaveFrames(frameId, original, filtered)
-
-            // Filtre karanlık sahnede çok iyi, açık renkli zeminde bazen kötü çalışıyor.
-            // İkisini paralel okut, ML Kit'in daha emin olduğunu kullan.
-            val (originalResult, filteredResult) = coroutineScope {
-                val o = async { recognize(original, frameId) }
-                val f = filtered?.let { bitmap -> async { recognize(bitmap, frameId) } }
-                o.await() to f?.await()
-            }
-            val useFiltered = filteredResult != null && isBetter(filteredResult.first, originalResult?.first)
+            val filteredResult = filtered?.let { recognize(it, frameId) }
+            val useFiltered = filteredResult != null && isBetter(filteredResult.first, originalResult?.first) &&
+                !originalHasExtraWords(originalResult?.first, filteredResult.first)
             val best = if (useFiltered) filteredResult else originalResult
 
             val source = buildString {
@@ -195,6 +194,25 @@ class TextRecognitionAnalyzer(
         return candidate.confidence > other.confidence
     }
 
+    /**
+     * GTA görev yazılarında hedef kelime renklidir ("Go to the <sarı>warehouse</sarı>."): beyaz filtre
+     * o kelimeyi siler ve yazı "Go to the" diye yarım okunur. Orijinal okuma filtrelinin kelimelerini
+     * içerip fazladan kelime de buluyorsa (ve yeterince güvenliyse) orijinal tercih edilir.
+     */
+    private fun originalHasExtraWords(original: OcrReading?, filtered: OcrReading): Boolean {
+        if (original == null || original.confidence < MIN_ORIGINAL_CONFIDENCE) return false
+        val filteredWords = wordKeys(filtered.text)
+        if (filteredWords.isEmpty()) return false
+        // Satır satır bakılır: orijinaldeki ayrı bir HUD satırı (mesafe, sokak adı) "fazla kelime" sayılmasın
+        return original.text.split('\n').any { line ->
+            val lineWords = wordKeys(line)
+            lineWords.size > filteredWords.size && filteredWords.count { it in lineWords } >= filteredWords.size * 0.8f
+        }
+    }
+
+    private fun wordKeys(text: String): List<String> =
+        text.lowercase().split(' ', '\n').map { word -> word.filter { it.isLetterOrDigit() } }.filter { it.isNotEmpty() }
+
     private fun formatConfidence(value: Float): String = String.format(java.util.Locale.US, "%.2f", value)
 
     private fun upscaleForOcr(source: Bitmap): Bitmap {
@@ -235,7 +253,7 @@ class TextRecognitionAnalyzer(
             .flatMap { it.lines }
             .mapNotNull { line ->
                 val text = if (centerOnly) centeredText(line, imageWidth) else line.text.trim()
-                text?.takeIf { t -> t.count { it.isLetter() } >= MIN_LINE_LETTERS }?.let { line to it }
+                text?.takeIf { t -> t.count { it.isLetter() } >= MIN_LINE_LETTERS && !isCapsDecal(t) }?.let { line to it }
             }
         if (lines.isEmpty()) return OcrReading("", 0f)
 
@@ -248,6 +266,18 @@ class TextRecognitionAnalyzer(
         val confidence = if (totalLength > 0) weightedConfidence / totalLength else 0f
         val text = lines.joinToString("\n") { it.second }.trim()
         return OcrReading(text, confidence)
+    }
+
+    /**
+     * Araç/tabela yazısı: tamamı büyük harf ve cümle noktalaması yok ("LOS SANTOS FIRE DEPARTMENT KEEP BACK",
+     * "TEMP"). Bağırılan altyazılar ünlem/soru/noktayla biter ("FREEZE!", "GET DOWN!") ve kalır.
+     * Son testlerdeki 1000+ altyazının hiçbiri bu kurala takılmadı.
+     */
+    private fun isCapsDecal(text: String): Boolean {
+        val letters = text.filter { it.isLetter() }
+        if (letters.length < 4) return false
+        val upperRatio = letters.count { it.isUpperCase() }.toFloat() / letters.length
+        return upperRatio > 0.8f && !SENTENCE_END_PUNCTUATION.containsMatchIn(text)
     }
 
     /** Satırın yalnızca ortadaki kelime gruplarını döndürür; konum bilgisi yoksa satırı aynen bırakır. */
@@ -346,6 +376,8 @@ class TextRecognitionAnalyzer(
 
         val words = text.split(SPACES_REGEX).filter { it.isNotBlank() }
         if (text.length > 15 && words.size < 2) return false
+        // Harita/menü tuş ipuçları: "Zoom LT RT Select Blip", "Browse LB RB"
+        if (words.count { it.trim { c -> !c.isLetter() } in BUTTON_HINTS } >= 2) return false
 
         var validWords = 0
         for (word in words) {
@@ -377,6 +409,13 @@ class TextRecognitionAnalyzer(
         private const val MAX_OCR_WIDTH = 2400f
         // 3 iken "No!", "Go!", "Hi.", "Ok." gibi kısa altyazılar siliniyordu
         private const val MIN_LINE_LETTERS = 2
+        /** Renkli kelimeyi bulan orijinal okumanın filtreli okumaya tercih edilmesi için en düşük güven */
+        private const val MIN_ORIGINAL_CONFIDENCE = 0.6f
+        /** Filtresiz okumanın güveni bunun altındaysa beyaz filtre de denenir (iyi karelerde ~0.8) */
+        private const val FILTER_BELOW_CONFIDENCE = 0.75f
+        /** Oyun kumandası tuş adları (büyük harfle, tek başına) */
+        private val BUTTON_HINTS = setOf("LT", "RT", "LB", "RB", "LS", "RS")
+        private val SENTENCE_END_PUNCTUATION = Regex("[.!?…][\"')]*\\s*$")
 
         private val SPACES_REGEX = Regex("\\s+")
         private val NUMBER_WITH_SUFFIX = Regex("\\d+(st|nd|rd|th|s|k|m|am|pm|x)", RegexOption.IGNORE_CASE)

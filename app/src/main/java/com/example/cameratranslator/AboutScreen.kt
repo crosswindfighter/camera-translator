@@ -211,7 +211,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "Model lisansı: CC-BY 4.0 — Helsinki-NLP / OPUS-MT, Tatoeba Challenge.",
+                        text = "Model lisansı: CC-BY 4.0 — Helsinki-NLP / OPUS-MT, Tatoeba Challenge.\nOCR düzelticisinin kelime listesi: CC-BY-SA 4.0 — hermitdave/FrequencyWords (OpenSubtitles 2018).",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

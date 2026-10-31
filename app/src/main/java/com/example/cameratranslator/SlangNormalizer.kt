@@ -36,7 +36,9 @@ object SlangNormalizer {
         "\\bfive-?o\\b|\\b5-0\\b" to "the cops",
         "\\btricked[- ]out\\b" to "modified",
         "\\brepo\\b" to "repossess",
-        "\\bstrapped\\b" to "armed",
+        // "You're strapped in" (kemer/emniyet) "Silahlısın" oluyordu: in/down/into ile gelince dokunma
+        "\\bstrapped\\b(?!\\s+(in|down|into|to)\\b)" to "armed",
+        "\\blet's bounce\\b" to "let's go",
         "\\bgat\\b" to "gun",
         "\\bmy whip\\b" to "my car",
         "\\bnice ride\\b" to "nice car",
@@ -45,6 +47,8 @@ object SlangNormalizer {
         // "ain't gonna be cool" OPUS'ta ters anlama dönüyordu ("hiç sorun olmaz")
         "\\b(ain't|aint|isn't|is not|not) (gonna|going to) be cool\\b" to "won't be happy",
         "\\bwon't be cool\\b" to "won't be happy",
+        // GTA görev metni: "Lose the Cops." -> "Polisleri bırakın" çıkıyordu
+        "\\blose the (cops|police)\\b" to "escape the cops",
 
         // Konuşma dili kısaltmaları
         "\\bgonna\\b" to "going to",
@@ -57,8 +61,11 @@ object SlangNormalizer {
         "\\bain't got\\b" to "don't have",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
+    /** Kekeleme: "p-p-pretend", "A-A-And", "M-M-M-Mrs." -> pretend, And, Mrs. (OPUS döngüye giriyordu) */
+    private val STUTTER = Regex("\\b([A-Za-z])-(?:\\1-)*(?=\\1)", RegexOption.IGNORE_CASE)
+
     fun normalize(text: String): String {
-        var result = text
+        var result = STUTTER.replace(text, "")
         for ((regex, replacement) in RULES) {
             result = regex.replace(result) { match -> keepCase(match.value, replacement) }
         }
