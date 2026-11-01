@@ -477,6 +477,8 @@ class MainActivity : ComponentActivity() {
                 }
             ) { confirmedText ->
                 val now = System.currentTimeMillis()
+                // EN -> TR'de Türkçe yazı oyunun değil konsolun bildirimi ("Bu konsol 5 dakika içinde…"): çevrilmez
+                if (!isTrToEnRef.value && TURKISH_LETTERS.containsMatchIn(confirmedText)) return@OcrStabilizer
 
                 // QUOTA SHIELD: Is this OCR text duplicate/similar to recent API calls in last 10s or < 1.5s interval?
                 if (isApiCallDuplicateOrSimilar(confirmedText, now)) {
@@ -880,6 +882,8 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val PIPELINE_TAG = "PIPELINE"
+        /** İngilizcede olmayan Türkçe harfler */
+        private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
         private var hasShownAppLaunchSplash = false
     }
 }

@@ -144,6 +144,21 @@ class OcrWordCorrector(
             return pre + (if (sentenceStart) lower.replaceFirstChar { it.uppercaseChar() } else lower) + post
         }
         if (stem.isEmpty() || isKnown(stem.lowercase()) || stem.length <= 2 || allCaps) return token
+        // Kısaltmanın önüne yapışık kelime: "youdon't" -> you don't
+        splitBeforeContraction(word)?.let { return pre + it + post }
+        // Başta fazladan okunmuş büyük harf: "SAlright" -> Alright, "SOon" -> soon
+        if ('\'' !in word && word.length >= 4 && word[0].isUpperCase() && word[1].isUpperCase() &&
+            word.drop(2).all { it.isLowerCase() }
+        ) {
+            val lower = word.lowercase()
+            val dropped = lower.substring(1)
+            val fixed = when {
+                isKnown(lower) && rankOf(lower) < COMMON_RANK -> lower
+                isKnown(dropped) && rankOf(dropped) < COMMON_RANK -> dropped
+                else -> null
+            }
+            if (fixed != null) return pre + (if (sentenceStart) fixed.replaceFirstChar { it.uppercaseChar() } else fixed) + post
+        }
         // Kısaltmayla bitişik okunan kelime: "Donttell" -> Don't tell, "Aintthere" -> Ain't there; "JBIl" -> JB'll
         splitContraction(word)?.let { return pre + it + post }
         ACRONYM_LL.matchEntire(word)?.let { return pre + it.groupValues[1] + "'ll" + post }
@@ -180,7 +195,15 @@ class OcrWordCorrector(
             if (word[0].isUpperCase() || word.count { it.isUpperCase() } > 1) return token
             word = word.lowercase()
         }
-        if ('\'' in word) return token
+        if ('\'' in word) {
+            // Kesmeli kelimenin kökü bozuk: "everylbody's" -> everybody's
+            val suffix = word.substring(stem.length)
+            if (suffix in STEM_SUFFIXES) {
+                val fixed = correctToken(stem, sentenceStart, null)
+                if (fixed != stem && ' ' !in fixed && isKnown(fixed.lowercase())) return pre + fixed + suffix + post
+            }
+            return token
+        }
 
         val lower = word.lowercase()
         if (!lower.all { it in 'a'..'z' || it.isDigit() }) return token
@@ -260,11 +283,25 @@ class OcrWordCorrector(
 
     private fun splitContraction(word: String): String? {
         val lower = word.lowercase()
-        for (k in 3..lower.length - 2) {
+        // "Imjust" -> I'm just ("im" tek iki harfli kısaltma; bilinen kelimeler buraya hiç gelmez)
+        for (k in 2..lower.length - 2) {
             val fixed = CONTRACTIONS[lower.substring(0, k)] ?: continue
             val rest = lower.substring(k)
             if (!isKnown(rest) || rankOf(rest) >= COMMON_RANK) continue
             return (if (word[0].isUpperCase()) fixed.replaceFirstChar { it.uppercaseChar() } else fixed) + " " + rest
+        }
+        return null
+    }
+
+    private fun splitBeforeContraction(word: String): String? {
+        val apostrophe = word.indexOf('\'')
+        if (apostrophe < 4) return null
+        val lower = word.lowercase()
+        for (k in 2 until apostrophe - 1) {
+            val left = lower.substring(0, k)
+            if (lower.substring(k) !in CONTRACTION_FORMS) continue
+            if (left !in FUNCTION_WORDS && (!isKnown(left) || rankOf(left) >= SPLIT_PART_RANK)) continue
+            return word.substring(0, k) + " " + word.substring(k)
         }
         return null
     }
@@ -387,6 +424,8 @@ class OcrWordCorrector(
         fun fixPipes(text: String): String {
             if ('|' !in text) return text
             return text
+                // Kelimenin ortasında "|" ise l'dir: "Mo|lis" -> Mollis
+                .replace(PIPE_IN_WORD, "l")
                 .replace(PIPE_APOSTROPHE, "I")
                 .replace(PIPE_WORD) { "I " + it.groupValues[1] }
                 .replace(STANDALONE_PIPE, "I")
@@ -394,6 +433,7 @@ class OcrWordCorrector(
 
         // "|'m", "|-| demand" (kekeleme: I-I demand)
         private val PIPE_APOSTROPHE = Regex("(?<![\\p{L}\\d])\\|(?=['’-])|(?<=-)\\|(?![\\p{L}\\d])")
+        private val PIPE_IN_WORD = Regex("(?<=\\p{Ll})\\|(?=\\p{Ll})")
         private val PIPE_WORD = Regex("(?<![\\p{L}\\d])\\|(\\p{Ll}+)")
         private val STANDALONE_PIPE = Regex("(?<!\\S)\\|(?!\\S)")
         private val SPACES = Regex("\\s+")
@@ -431,10 +471,12 @@ class OcrWordCorrector(
             "hadnt" to "hadn't", "hasnt" to "hasn't", "arent" to "aren't", "werent" to "weren't", "theyll" to "they'll",
             "theyve" to "they've", "wouldve" to "would've", "couldve" to "could've", "shouldve" to "should've",
             "whos" to "who's", "whatll" to "what'll", "thatll" to "that'll", "wheres" to "where's", "hows" to "how's",
-            "itd" to "it'd", "youd" to "you'd"
+            "itd" to "it'd", "youd" to "you'd", "youl" to "you'll", "theyl" to "they'll"
         )
         /** I yerine okunan tek karakter ("l can't", "J did", "| hate") */
         private val LONE_I = setOf("l", "J", "|")
+        private val CONTRACTION_FORMS = CONTRACTIONS.values.map { it.lowercase() }.toSet()
+        private val STEM_SUFFIXES = setOf("'s", "'ll", "'re", "'ve", "'d")
         /** I'sı kaybolmuş kısaltmalar */
         private val I_FORMS = mapOf(
             "ll" to "I'll", "'ll" to "I'll", "m" to "I'm", "'m" to "I'm", "d" to "I'd", "'d" to "I'd",

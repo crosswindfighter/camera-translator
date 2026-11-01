@@ -34,6 +34,17 @@ object SlangNormalizer {
         "\\b(nigga|nigguh|niggah)s\\b" to "guys",
         "\\b(nigga|nigguh|niggah)\\b" to "man",
         "\\btricked[- ]out\\b" to "modified",
+        // "Mr. Revolutionary" -> "Bay. Devrimci" (nokta cümleyi bölüyordu)
+        "\\bMrs\\.(?=\\s+[A-Z])" to "Mrs",
+        "\\bMr\\.(?=\\s+[A-Z])" to "Mr",
+        "\\bDr\\.(?=\\s+[A-Z])" to "Dr",
+        // Sık OCR hataları
+        "\\byou'l\\b" to "you'll",
+        "\\bthey'l\\b" to "they'll",
+        "\\bwe'l\\b" to "we'll",
+        "\\baheads up\\b" to "a heads up",
+        "(?<=\\b(?:we|you|they|I|he|she) )gpt\\b" to "got",
+        "\\bsiting(?= (there|here|around)\\b)" to "sitting",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
     /** Yalnızca OPUS için (Google bunları zaten doğru çeviriyor). */
