@@ -102,6 +102,62 @@ private fun CollapsibleHeader(
     }
 }
 
+/**
+ * Ekran çevirisinin OCR alanları: 1. alan (altyazı) hep var; 2. ve 3. alan buradan eklenir/silinir.
+ * Eklenen alan ana ekranın üst kısmında çıkar, sürüklenip boyutlanarak yerine konur.
+ */
+@Composable
+private fun ScreenAreasSection() {
+    val context = LocalContext.current
+    val settings = remember { SettingsManager(context) }
+    var extraCount by remember { mutableIntStateOf(settings.getScreenExtraAreaCount()) }
+
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("OCR alanları", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            "${extraCount + 1} / 3",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary
+        )
+    }
+    Text(
+        "1. alan altyazıları okur. Ekranın başka bir yerinde de çevirmek istediğiniz bir yazı varsa (görev ve bilgi " +
+            "mesajları, menüler, telefon mesajları gibi) en fazla 2 alan daha ekleyebilirsiniz. Eklenen alanı ana ekranda " +
+            "istediğiniz yere sürükleyin, sağ alt köşesinden boyutunu ayarlayın; her alan kendi yazısını ayrı çevirir. " +
+            "Alan sayısı arttıkça çeviri biraz yavaşlayabilir.",
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    for (number in 2..extraCount + 1) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Alan $number", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface)
+            // Yalnızca sondaki alan silinir: numaralar kaymasın
+            if (number == extraCount + 1) {
+                TextButton(onClick = {
+                    extraCount--
+                    settings.saveScreenExtraAreaCount(extraCount)
+                }) { Text("Sil") }
+            }
+        }
+    }
+    if (extraCount < 2) {
+        TextButton(onClick = {
+            extraCount++
+            settings.saveScreenExtraAreaCount(extraCount)
+        }) { Text("+ OCR alanı ekle") }
+    }
+}
+
 @Composable
 private fun OfflineModelSection(
     state: OfflineModelDownloader.State,
@@ -511,7 +567,17 @@ fun SettingsScreen(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 
-                // Çeviri yazı boyutu (seçili görünüm moduna ayrı kaydedilir)
+                // Çeviri yazı boyutu yalnızca Sinematik Altyazı'da: Ekran Çevirisi'nde yazı, ekrandaki
+                // İngilizce yazının boyutuna kendiliğinden uyar
+                if (currentDisplayMode == DisplayMode.SCREEN_BETA) {
+                    Text(
+                        "Not: Ekran Çevirisi'nde yazı boyutu otomatiktir. Çeviri, ekrandaki İngilizce yazıyla aynı boyutta gösterilir; uzun cümlelerde kendiliğinden küçülür.",
+                        fontSize = 12.sp,
+                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    ScreenAreasSection()
+                } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -533,6 +599,7 @@ fun SettingsScreen(
                     steps = 31,
                     modifier = Modifier.fillMaxWidth()
                 )
+                }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
 

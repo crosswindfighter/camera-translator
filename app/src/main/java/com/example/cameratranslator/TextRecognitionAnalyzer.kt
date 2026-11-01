@@ -38,7 +38,16 @@ import kotlin.math.roundToInt
 class TextRecognitionAnalyzer(
     /** (metin, ML Kit güveni 0..1) */
     private val onTextDetected: (String, Float) -> Unit,
-    private val onEmptyDetected: () -> Unit = {}
+    private val onEmptyDetected: () -> Unit = {},
+    /**
+     * Okunan altyazının OCR alanı içindeki yeri ve ortalama satır yüksekliği (0..1, alana oranla):
+     * ekran çevirisi kutusu tam üstüne, aynı yazı boyutunda konur
+     */
+    private val onTextBounds: (RectF, Float) -> Unit = { _, _ -> },
+    /** Ekran çevirisindeki ek alanlar (0 = 2. alan): okunan yazı, güven, yeri ve satır yüksekliği */
+    private val onExtraText: (Int, String, Float, RectF?, Float) -> Unit = { _, _, _, _, _ -> },
+    /** Ek alanda yazı yok */
+    private val onExtraEmpty: (Int) -> Unit = {}
 ) : ImageAnalysis.Analyzer {
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
@@ -48,6 +57,7 @@ class TextRecognitionAnalyzer(
     private var emptyFrameCount = 0
 
     private val ocrArea = AtomicReference<RectF?>(null)
+    private val extraAreas = java.util.concurrent.atomic.AtomicReferenceArray<RectF?>(MAX_EXTRA_AREAS)
     private val previewViewRef = AtomicReference<PreviewView?>(null)
     private val isPaused = AtomicBoolean(true)
     private val activeOcrTasks = AtomicInteger(0)
@@ -60,6 +70,11 @@ class TextRecognitionAnalyzer(
 
     fun setOcrArea(rect: RectF?, @Suppress("UNUSED_PARAMETER") viewWidth: Float, @Suppress("UNUSED_PARAMETER") viewHeight: Float) {
         ocrArea.set(rect)
+    }
+
+    /** Ek OCR alanını ayarlar ya da (null) kaldırır; [index] 0 = 2. alan */
+    fun setExtraArea(index: Int, rect: RectF?) {
+        if (index in 0 until MAX_EXTRA_AREAS) extraAreas.set(index, rect)
     }
 
     fun setPaused(paused: Boolean) {
@@ -95,6 +110,16 @@ class TextRecognitionAnalyzer(
         imageProxy.close()
 
         if (previewBitmap == null) return
+
+        // Ek alanlar ana alanla aynı kareden kesilir ve ayrı ayrı okunur (ana kare aşağıda geri dönüştürülür)
+        for (index in 0 until MAX_EXTRA_AREAS) {
+            val extra = extraAreas.get(index) ?: continue
+            val rect = PreviewCoordinateMapper.mapNormalizedToBitmapRect(extra, previewBitmap.width, previewBitmap.height)
+            if (rect.width() < 30 || rect.height() < 12) continue
+            var crop = Bitmap.createBitmap(previewBitmap, rect.left, rect.top, rect.width(), rect.height())
+            if (crop === previewBitmap) crop = previewBitmap.copy(previewBitmap.config ?: Bitmap.Config.ARGB_8888, false)
+            scope.launch { runExtraOcr(index, crop, frameId) }
+        }
 
         activeOcrTasks.incrementAndGet()
         scope.launch {
@@ -160,7 +185,7 @@ class TextRecognitionAnalyzer(
                 val text = reading.text
                 OcrDebugDumper.logResult(frameId, best?.second.orEmpty(), text, reading.confidence, source)
                 if (frameId % 10 == 0L) Log.d(TAG, "Frame #$frameId OCR Result ($source): \"$text\"")
-                if (text.isNotBlank()) handleOcrResult(text, reading.confidence, frameId)
+                if (text.isNotBlank()) handleOcrResult(text, reading.confidence, frameId, reading.bounds, reading.lineHeight)
                 else handleEmptyResult(frameId)
             }
         } catch (e: CancellationException) {
@@ -175,11 +200,43 @@ class TextRecognitionAnalyzer(
         }
     }
 
+    /**
+     * Ek alan: filtresiz tek okuma. Orta filtresi uygulanmaz (sol üstteki bilgi yazısı alanın kenarında olabilir).
+     */
+    private suspend fun runExtraOcr(index: Int, crop: Bitmap, frameId: Long) {
+        var bitmap: Bitmap = crop
+        try {
+            bitmap = upscaleForOcr(crop)
+            if (bitmap !== crop) crop.recycle()
+            val reading = recognize(bitmap, frameId, centerOnly = false)?.first
+            withContext(Dispatchers.Main) {
+                if (isPaused.get()) return@withContext
+                val cleaned = reading?.text?.let { filterOcrNoise(it) }.orEmpty()
+                if (reading != null && cleaned.isNotBlank() && isPlausibleSubtitle(cleaned)) {
+                    onExtraText(index, cleaned, reading.confidence, reading.bounds, reading.lineHeight)
+                } else {
+                    onExtraEmpty(index)
+                }
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Frame #$frameId extra area ${index + 2} error", e)
+        } finally {
+            if (!crop.isRecycled) crop.recycle()
+            if (!bitmap.isRecycled) bitmap.recycle()
+        }
+    }
+
     /** ML Kit'i çalıştırır; (ayıklanmış okuma, ML Kit ham metni) döner, hata olursa null. */
-    private suspend fun recognize(bitmap: Bitmap, frameId: Long): Pair<OcrReading, String>? {
+    private suspend fun recognize(
+        bitmap: Bitmap,
+        frameId: Long,
+        centerOnly: Boolean = OcrTuning.centerOnlyEnabled
+    ): Pair<OcrReading, String>? {
         return try {
             val visionText = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
-            extractSubtitleText(visionText, bitmap.width) to visionText.text
+            extractSubtitleText(visionText, bitmap.width, bitmap.height, centerOnly) to visionText.text
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -236,7 +293,12 @@ class TextRecognitionAnalyzer(
         return scaled
     }
 
-    private data class OcrReading(val text: String, val confidence: Float)
+    private data class OcrReading(
+        val text: String,
+        val confidence: Float,
+        val bounds: RectF? = null,
+        val lineHeight: Float = 0f
+    )
 
     /**
      * ML Kit sonucunu kendi satır sırasıyla birleştirir ve okumanın ortalama
@@ -247,8 +309,7 @@ class TextRecognitionAnalyzer(
      * "Sadece ortadaki altyazı" açıksa kenardaki HUD yazıları (harita, telefon)
      * [SubtitleRegionFilter] ile atılır.
      */
-    private fun extractSubtitleText(visionText: Text, imageWidth: Int): OcrReading {
-        val centerOnly = OcrTuning.centerOnlyEnabled
+    private fun extractSubtitleText(visionText: Text, imageWidth: Int, imageHeight: Int, centerOnly: Boolean): OcrReading {
         val lines = visionText.textBlocks
             .flatMap { it.lines }
             .mapNotNull { line ->
@@ -265,7 +326,17 @@ class TextRecognitionAnalyzer(
         }
         val confidence = if (totalLength > 0) weightedConfidence / totalLength else 0f
         val text = lines.joinToString("\n") { it.second }.trim()
-        return OcrReading(text, confidence)
+        // Satırların kapladığı alan, görüntüye oranla (ekran çevirisi kutusu için)
+        val boxes = lines.mapNotNull { it.first.boundingBox }
+        val bounds = if (boxes.isEmpty() || imageWidth <= 0 || imageHeight <= 0) null else RectF(
+            boxes.minOf { it.left }.toFloat() / imageWidth,
+            boxes.minOf { it.top }.toFloat() / imageHeight,
+            boxes.maxOf { it.right }.toFloat() / imageWidth,
+            boxes.maxOf { it.bottom }.toFloat() / imageHeight
+        )
+        val lineHeight = if (boxes.isEmpty() || imageHeight <= 0) 0f
+            else boxes.map { it.height() }.average().toFloat() / imageHeight
+        return OcrReading(text, confidence, bounds, lineHeight)
     }
 
     /**
@@ -339,7 +410,7 @@ class TextRecognitionAnalyzer(
         return filteredWords.joinToString(" ").trim()
     }
 
-    private fun handleOcrResult(text: String, confidence: Float, frameId: Long) {
+    private fun handleOcrResult(text: String, confidence: Float, frameId: Long, bounds: RectF?, lineHeight: Float) {
         if (isPaused.get()) {
             Log.d(TAG, "Frame #$frameId ignored because analyzer is paused.")
             return
@@ -360,6 +431,7 @@ class TextRecognitionAnalyzer(
         // Forward each plausible OCR sample. OcrStabilizer needs repeated frame
         // evidence to distinguish a real subtitle from transient road texture.
         if (frameId % 10 == 0L) Log.d(TAG, "Frame #$frameId sampling: \"$cleaned\"")
+        bounds?.let { onTextBounds(it, lineHeight) }
         onTextDetected(cleaned, confidence)
     }
 
@@ -407,6 +479,8 @@ class TextRecognitionAnalyzer(
     }
 
     companion object {
+        /** Ekran çevirisinde ana alana ek en fazla 2 alan */
+        const val MAX_EXTRA_AREAS = 2
         private const val TAG = "OCR_ANALYZER"
         private const val EMPTY_RESET_THRESHOLD = 3
         private const val MAX_OCR_WIDTH = 2400f

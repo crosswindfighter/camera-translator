@@ -325,7 +325,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Televizyon veya monitör altyazılarını yerinde takip etmek için tasarlanmıştır. Türkçe çeviriyi, orijinal altyazının üzerine konumlandırılan siyah bir şerit üzerinde gösterir. OCR alanı sağ alt köşesindeki açık mavi boyutlandırma okuyla (⇲) ayarlanabilir.",
+                        text = "Televizyon veya monitör yazılarını yerinde takip etmek için tasarlanmıştır. OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar > Görünüm Modu'ndan en fazla 3 OCR alanı eklenebilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir. Alanlar sürüklenerek taşınır, sağ alt köşedeki açık mavi okla (⇲) boyutlandırılır; konumları dikey ve yatay için ayrı kaydedilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

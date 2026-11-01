@@ -45,7 +45,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
   <img src="images/Screenshot_20261024_143645_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
 
-- 📺 **Ekran Çevirisi:** Türkçe çeviriyi, orijinal altyazının üzerine konumlandırılan siyah bir şerit üzerinde gösterir.
+- 📺 **Ekran Çevirisi:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır, kutu çeviri sığacak kadar büyür. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla 3 OCR alanı kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
 <p align="center">
   <img src="images/Screenshot_20261024_144054_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
@@ -69,7 +69,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.0.6.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.0.7.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 

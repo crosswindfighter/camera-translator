@@ -307,6 +307,35 @@ class SettingsManager(context: Context) {
         return floatArrayOf(left, top, right, bottom)
     }
 
+    /** Ekran çevirisinde ana alana ek OCR alanı sayısı (0–2) */
+    fun getScreenExtraAreaCount(): Int = prefs.getInt("scr_extra_area_count", 0).coerceIn(0, 2)
+
+    fun saveScreenExtraAreaCount(count: Int) {
+        prefs.edit().putInt("scr_extra_area_count", count.coerceIn(0, 2)).apply()
+    }
+
+    /** Ek OCR alanının yeri ([index] 0 = 2. alan); varsayılanlar ekranın sol ve sağ üstü */
+    fun getExtraOcrRect(index: Int, landscape: Boolean): FloatArray {
+        val key = "ocr_extra${index}_${if (landscape) "land" else "port"}"
+        val defaults = if (index == 0) floatArrayOf(0.03f, 0.06f, 0.45f, 0.24f) else floatArrayOf(0.55f, 0.06f, 0.97f, 0.24f)
+        return floatArrayOf(
+            prefs.getFloat("${key}_left", defaults[0]),
+            prefs.getFloat("${key}_top", defaults[1]),
+            prefs.getFloat("${key}_right", defaults[2]),
+            prefs.getFloat("${key}_bottom", defaults[3])
+        )
+    }
+
+    fun saveExtraOcrRect(index: Int, landscape: Boolean, left: Float, top: Float, right: Float, bottom: Float) {
+        val key = "ocr_extra${index}_${if (landscape) "land" else "port"}"
+        prefs.edit()
+            .putFloat("${key}_left", left)
+            .putFloat("${key}_top", top)
+            .putFloat("${key}_right", right)
+            .putFloat("${key}_bottom", bottom)
+            .apply()
+    }
+
     // Screen Beta Mode OCR Rects
     fun saveOcrRectScreenPortrait(left: Float, top: Float, right: Float, bottom: Float) {
         prefs.edit()

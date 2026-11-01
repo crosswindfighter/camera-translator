@@ -63,6 +63,14 @@ fun MainOverlay(
     currentTranslation: String,
     /** Ekrandaki metin çeviri değil bilgi notu ("OPUS indirilmedi" gibi): küçük ve ince yazılır */
     isStatusMessage: Boolean = false,
+    /** Ekran çevirisi: çevrilen İngilizce yazının OCR alanı içindeki yeri (0..1); null = kutu gösterilmez */
+    screenTextBounds: RectF? = null,
+    /** İngilizce satırın yüksekliği (OCR alanına oranla); Türkçe yazı bu boyutta başlar, sığmazsa küçülür */
+    screenTextLineHeight: Float = 0f,
+    /** Ekran çevirisindeki ek OCR alanları (2. ve 3.); boş = yalnızca ana alan */
+    extraAreas: List<ExtraAreaUi> = emptyList(),
+    onExtraAreaChange: (index: Int, rect: RectF) -> Unit = { _, _ -> },
+    onExtraAreaSave: (index: Int, landscape: Boolean, rect: RectF) -> Unit = { _, _, _ -> },
     history: List<String>,
     isPaused: Boolean,
     zoomLevel: Float,
@@ -116,10 +124,12 @@ fun MainOverlay(
     val activeOcrPortrait = if (displayMode == DisplayMode.DEFAULT) initialOcrRectDefaultPortrait else initialOcrRectScreenPortrait
     val activeOcrLandscape = if (displayMode == DisplayMode.DEFAULT) initialOcrRectDefaultLandscape else initialOcrRectScreenLandscape
 
-    var left by rememberSaveable(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(0) { 0.15f } else activeOcrPortrait.getOrElse(0) { 0.1f }) }
-    var top by rememberSaveable(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(1) { 0.7f } else activeOcrPortrait.getOrElse(1) { 0.7f }) }
-    var right by rememberSaveable(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(2) { 0.85f } else activeOcrPortrait.getOrElse(2) { 0.9f }) }
-    var bottom by rememberSaveable(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(3) { 0.88f } else activeOcrPortrait.getOrElse(3) { 0.85f }) }
+    // Konum her mod (sinematik/ekran) ve yön (dikey/yatay) için ayrı kayıttan okunur. rememberSaveable değil:
+    // telefon dönünce ekran yeniden kurulurken eski yönün konumunu geri getirip yeni yönün kaydına yazıyordu.
+    var left by remember(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(0) { 0.15f } else activeOcrPortrait.getOrElse(0) { 0.1f }) }
+    var top by remember(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(1) { 0.7f } else activeOcrPortrait.getOrElse(1) { 0.7f }) }
+    var right by remember(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(2) { 0.85f } else activeOcrPortrait.getOrElse(2) { 0.9f }) }
+    var bottom by remember(displayMode, isLandscape) { mutableFloatStateOf(if (isLandscape) activeOcrLandscape.getOrElse(3) { 0.88f } else activeOcrPortrait.getOrElse(3) { 0.85f }) }
 
     var containerSize by remember { mutableStateOf(Size.Zero) }
     var isMenuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -133,8 +143,8 @@ fun MainOverlay(
         bottom = rect.getOrElse(3) { if (isLandscape) 0.88f else 0.85f }
     }
 
-    // Save OCR rect coordinates to SharedPreferences independently per mode and orientation
-    LaunchedEffect(left, top, right, bottom, isLandscape, displayMode) {
+    // Kayıt yalnızca kullanıcı alanı sürükleyip bırakınca, o anki mod ve yönün kaydına yapılır
+    val saveOcrRect = {
         if (displayMode == DisplayMode.DEFAULT) {
             if (isLandscape) {
                 onOcrRectSaveDefaultLandscape(left, top, right, bottom)
@@ -333,8 +343,40 @@ fun MainOverlay(
                 }
             }
         } else {
-            // EKRAN ÇEVİRİSİ MODU: Entire OCR Selection Area is a Solid Black Box with Small Cyan Diagonal Arrow ⇲
-            if (currentTranslation.isNotEmpty() && containerSize != Size.Zero) {
+            // EKRAN ÇEVİRİSİ MODU: OCR alanı şeffaf (ince camgöbeği çerçeve); çeviri, İngilizce yazının tam
+            // üstünde siyah kutuda beyaz yazıyla durur ve yazıyı örter
+            if (screenTextBounds != null && !isStatusMessage && containerSize != Size.Zero) {
+                ScreenTranslationBox(ocrRect, screenTextBounds, screenTextLineHeight, currentTranslation)
+            }
+            // Alanın yeri belli olsun (göz modunda gizli)
+            if (!isStealthMode && containerSize != Size.Zero) {
+                Box(
+                    modifier = Modifier
+                        .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
+                        .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
+                        .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                ) {
+                    // Birden çok alan varken numara: 1 ana (altyazı) alanı
+                    if (extraAreas.isNotEmpty()) {
+                        Text(
+                            text = "1",
+                            color = Color(0xFF00E5FF),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.align(Alignment.TopStart).padding(start = 5.dp, top = 2.dp)
+                        )
+                    }
+                    Text(
+                        text = "⇲",
+                        color = Color(0xFF00E5FF),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 2.dp, end = 4.dp)
+                    )
+                }
+            }
+            // Durum yazıları (OPUS indirme notu gibi) eskisi gibi alanın tamamında
+            if (screenTextBounds == null && isStatusMessage && currentTranslation.isNotEmpty() && containerSize != Size.Zero) {
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
@@ -390,8 +432,8 @@ fun MainOverlay(
                 modifier = Modifier
                     .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
                     .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
-                    .pointerInput(containerSize, displayMode) {
-                        detectDragGestures { change, dragAmount ->
+                    .pointerInput(containerSize, displayMode, isLandscape) {
+                        detectDragGestures(onDragEnd = { saveOcrRect() }) { change, dragAmount ->
                             change.consume()
                             val deltaX = dragAmount.x / containerSize.width
                             val deltaY = dragAmount.y / containerSize.height
@@ -421,8 +463,8 @@ fun MainOverlay(
                     modifier = Modifier
                         .size(40.dp)
                         .align(Alignment.BottomEnd)
-                        .pointerInput(containerSize, displayMode) {
-                            detectDragGestures { change, dragAmount ->
+                        .pointerInput(containerSize, displayMode, isLandscape) {
+                            detectDragGestures(onDragEnd = { saveOcrRect() }) { change, dragAmount ->
                                 change.consume()
                                 val deltaX = dragAmount.x / containerSize.width
                                 val deltaY = dragAmount.y / containerSize.height
@@ -431,6 +473,21 @@ fun MainOverlay(
                                 bottom = (bottom + deltaY).coerceIn(top + 0.02f, 1f)
                             }
                         }
+                )
+            }
+        }
+
+        // Ekran çevirisinin ek alanları (kendi çevirileri, sürükleme ve boyutlandırmalarıyla)
+        if (displayMode != DisplayMode.DEFAULT) {
+            extraAreas.forEachIndexed { index, area ->
+                ExtraOcrArea(
+                    number = index + 2,
+                    area = area,
+                    isLandscape = isLandscape,
+                    containerSize = containerSize,
+                    isStealthMode = isStealthMode,
+                    onRectChange = { rect -> onExtraAreaChange(index, rect) },
+                    onRectSave = { landscape, rect -> onExtraAreaSave(index, landscape, rect) }
                 )
             }
         }

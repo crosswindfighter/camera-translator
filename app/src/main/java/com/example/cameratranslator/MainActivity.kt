@@ -439,6 +439,13 @@ class MainActivity : ComponentActivity() {
         val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
         var currentTranslation by rememberSaveable { mutableStateOf("") }
+        // Ekran çevirisi: çeviri kutusu İngilizce yazının tam üstüne konur; yazı 5 sn görünmezse kutu kaybolur
+        var screenTextBounds by remember { mutableStateOf<android.graphics.RectF?>(null) }
+        val lastTextBounds = remember { arrayOfNulls<android.graphics.RectF>(1) }
+        // İngilizce satır yüksekliği (OCR alanına oranla): Türkçe yazı aynı boyutta gösterilir
+        var screenTextLineHeight by remember { mutableFloatStateOf(0f) }
+        val lastLineHeight = remember { floatArrayOf(0f) }
+        val lastTextSeenAt = remember { longArrayOf(0L) }
         var historyList by rememberSaveable { mutableStateOf(listOf<String>()) }
         var isPaused by rememberSaveable { mutableStateOf(true) }
         var isMuted by remember { mutableStateOf(!speechManager.isEnabled) }
@@ -527,6 +534,8 @@ class MainActivity : ComponentActivity() {
                                 historyList = newHistory
                             }
                             currentTranslation = translated
+                            screenTextBounds = lastTextBounds[0]
+                            screenTextLineHeight = lastLineHeight[0]
                             OcrDebugDumper.logPipeline("Çeviri", translated, endOfEntry = true)
                             Log.d(PIPELINE_TAG, "On screen ${System.currentTimeMillis() - timestamp} ms after confirm")
                             speechManager.speak(translated, isTrToEnRef.value)
@@ -538,10 +547,69 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Ekran çevirisinin ek alanları (2. ve 3.): her biri kendi onayı ve çevirisiyle, geçmiş ve sesli okuma yok
+        val extraAreaCount = remember { settingsManager.getScreenExtraAreaCount() }
+        val extraTranslations = remember { mutableStateListOf("", "") }
+        val extraBounds = remember { mutableStateListOf<android.graphics.RectF?>(null, null) }
+        val extraLineHeights = remember { mutableStateListOf(0f, 0f) }
+        val extraLastBounds = remember { arrayOfNulls<android.graphics.RectF>(2) }
+        val extraLastLine = remember { FloatArray(2) }
+        val extraSeenAt = remember { LongArray(2) }
+        val extraEmptyFrames = remember { IntArray(2) }
+        val extraStabilizers = remember {
+            List(2) { index ->
+                OcrStabilizer(
+                    isCleanReading = { CleanReading.isClean(it, translationManager::isKnownWord) },
+                    isKnownWord = translationManager::isKnownWord
+                ) { confirmedText ->
+                    if (!isTrToEnRef.value && TURKISH_LETTERS.containsMatchIn(confirmedText)) return@OcrStabilizer
+                    lifecycleScope.launch {
+                        try {
+                            val translated = withContext(Dispatchers.IO) { translationManager.translate(confirmedText) }
+                            if (translated.isBlank()) return@launch
+                            extraTranslations[index] = translated
+                            extraBounds[index] = extraLastBounds[index]
+                            extraLineHeights[index] = extraLastLine[index]
+                            OcrDebugDumper.logPipeline("Alan ${index + 2}", "$confirmedText → $translated", endOfEntry = true)
+                        } catch (e: Exception) {
+                            Log.e(PIPELINE_TAG, "Extra area translation exception", e)
+                        }
+                    }
+                }
+            }
+        }
+        LaunchedEffect(Unit) {
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                val now = System.currentTimeMillis()
+                for (i in 0 until 2) {
+                    if (extraBounds[i] != null && now - extraSeenAt[i] > SCREEN_BOX_HIDE_MS) extraBounds[i] = null
+                }
+            }
+        }
+
         val analyzer = remember {
             TextRecognitionAnalyzer(
                 onTextDetected = { ocrText, confidence ->
                     stabilizer.submit(ocrText, confidence)
+                },
+                onTextBounds = { bounds, lineHeight ->
+                    lastTextBounds[0] = bounds
+                    lastLineHeight[0] = lineHeight
+                    lastTextSeenAt[0] = System.currentTimeMillis()
+                },
+                onExtraText = { index, text, confidence, bounds, lineHeight ->
+                    extraEmptyFrames[index] = 0
+                    if (bounds != null) {
+                        extraLastBounds[index] = bounds
+                        extraLastLine[index] = lineHeight
+                    }
+                    extraSeenAt[index] = System.currentTimeMillis()
+                    extraStabilizers[index].submit(text, confidence)
+                },
+                onExtraEmpty = { index ->
+                    extraEmptyFrames[index]++
+                    if (extraEmptyFrames[index] >= 3) extraStabilizers[index].notifyEmpty()
                 },
                 onEmptyDetected = {
                     stabilizer.notifyEmpty()
@@ -551,8 +619,33 @@ class MainActivity : ComponentActivity() {
             )
         }
 
+        LaunchedEffect(displayMode) {
+            for (i in 0 until 2) {
+                if (displayMode == DisplayMode.DEFAULT || i >= extraAreaCount) analyzer.setExtraArea(i, null)
+            }
+        }
+
+        LaunchedEffect(screenTextBounds) {
+            if (screenTextBounds == null) return@LaunchedEffect
+            while (true) {
+                kotlinx.coroutines.delay(500)
+                if (System.currentTimeMillis() - lastTextSeenAt[0] > SCREEN_BOX_HIDE_MS) {
+                    screenTextBounds = null
+                    break
+                }
+            }
+        }
+
         LaunchedEffect(isPaused) {
             analyzer.setPaused(isPaused)
+            if (isPaused) {
+                screenTextBounds = null
+                for (i in 0 until 2) {
+                    extraStabilizers[i].reset()
+                    extraTranslations[i] = ""
+                    extraBounds[i] = null
+                }
+            }
             isFirstFrameAfterStart = true
             if (isPaused) {
                 stabilizer.reset()
@@ -666,6 +759,21 @@ class MainActivity : ComponentActivity() {
                     currentTranslation = displayResult,
                     // Küçük/ince yazı yalnızca OPUS indirme notunda; "Çeviriye Hazır" gibi durumlar eskisi gibi
                     isStatusMessage = opusModelHint.isNotEmpty(),
+                    screenTextBounds = if (isPaused || currentTranslation.isEmpty()) null else screenTextBounds,
+                    screenTextLineHeight = screenTextLineHeight,
+                    extraAreas = if (displayMode == DisplayMode.DEFAULT) emptyList() else List(extraAreaCount) { i ->
+                        ExtraAreaUi(
+                            initialPortrait = settingsManager.getExtraOcrRect(i, landscape = false),
+                            initialLandscape = settingsManager.getExtraOcrRect(i, landscape = true),
+                            translation = if (isPaused) "" else extraTranslations[i],
+                            bounds = if (isPaused) null else extraBounds[i],
+                            lineHeight = extraLineHeights[i]
+                        )
+                    },
+                    onExtraAreaChange = { index, rect -> analyzer.setExtraArea(index, rect) },
+                    onExtraAreaSave = { index, landscape, rect ->
+                        settingsManager.saveExtraOcrRect(index, landscape, rect.left, rect.top, rect.right, rect.bottom)
+                    },
                     history = historyList,
                     isPaused = isPaused,
                     zoomLevel = zoomLevel,
@@ -882,6 +990,8 @@ class MainActivity : ComponentActivity() {
 
     companion object {
         private const val PIPELINE_TAG = "PIPELINE"
+        /** Ekran çevirisinde İngilizce yazı bu kadar süre görünmezse çeviri kutusu kaybolur */
+        private const val SCREEN_BOX_HIDE_MS = 5000L
         /** İngilizcede olmayan Türkçe harfler */
         private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
         private var hasShownAppLaunchSplash = false
