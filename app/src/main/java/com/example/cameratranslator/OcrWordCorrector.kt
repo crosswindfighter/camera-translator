@@ -219,7 +219,7 @@ class OcrWordCorrector(
             if (acceptable(candidate)) {
                 // "saton": iki çok yaygın kelimeye bölünebiliyorsa nadir bir kelimeye düzeltme ("salon")
                 // Harf silen düzeltme de bölmeye yenilir: haveno -> have no ("haven" değil)
-                val shortens = candidate!!.length < word.length && split != null && split.all { it.length >= 2 }
+                val shortens = candidate!!.length < word.length && split != null && split.all { it.length >= 2 || it == "a" }
                 if (split != null && isCommonSplit(split) && (rankOf(candidate) >= SPLIT_PART_RANK || shortens)) {
                     return split.joinToString(" ")
                 }
@@ -459,14 +459,15 @@ class OcrWordCorrector(
         private val SIMILAR_LETTERS = setOf(
             'l' to 'i', 'i' to 'l', 'j' to 'y', 'y' to 'j', 'y' to 'v', 'v' to 'y', 'c' to 'e', 'e' to 'c',
             'a' to 'o', 'o' to 'a', 'n' to 'h', 'h' to 'n', 'u' to 'v', 'v' to 'u', 't' to 'f', 'f' to 't',
-            'i' to 'j', 'j' to 'i', 'l' to 't', 't' to 'l', 'o' to 'e', 'e' to 'o'
+            'i' to 'j', 'j' to 'i', 'l' to 't', 't' to 'l', 'o' to 'e', 'e' to 'o',
+            'q' to 'g', 'g' to 'q'
         )
         /** Kısaltma "'ll" okunuşu kısaltmaya yapışmış: "JBIl", "FBIll" */
         private val ACRONYM_LL = Regex("([A-Z]{2,4})(?:Il|ll|IIl)")
         /** Önceki kelimeye yapışık okunan sık kelimeler ("chasedyou", "toldthem") */
         private val TRAILING_WORDS = listOf("you", "the", "them", "him", "her", "me", "it", "to")
         /** I'll'ın okunuşları ("Next Il have", "lll just"); küçük harfli "ill" (hasta) değil */
-        private val I_LL = setOf("Il", "Ill", "IIl", "lll")
+        private val I_LL = setOf("Il", "Ill", "IIl", "lll", "rll", "Rll")
         /** Bunlardan sonra gelen "1" aslında "I" ("Did 1", "What if 1") */
         private val AUX_BEFORE_I = setOf(
             "did", "do", "does", "can", "could", "would", "should", "will", "am", "was", "have", "had",

@@ -63,6 +63,8 @@ object SlangNormalizer {
         // Konuşma dili kısaltmaları
         "\\bgonna\\b" to "going to",
         "\\bwanna\\b" to "want to",
+        // "it's gotta be" = "it's got to be" ("it's have to be" çıkıyordu)
+        "(?<=\\b(?:it|he|she|that|there)'s\\s)gotta\\b" to "got to",
         "\\bgotta\\b" to "have to",
         "\\blemme\\b" to "let me",
         "\\bgimme\\b" to "give me",
