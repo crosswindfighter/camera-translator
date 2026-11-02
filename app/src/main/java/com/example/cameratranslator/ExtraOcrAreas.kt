@@ -62,7 +62,12 @@ fun ScreenTranslationBox(
     text: String,
     /** Ayardaki yazı boyutu: İngilizce yazı daha küçükse çeviri en az bu boyutta gösterilir */
     minFontSize: Float,
-    containerSize: Size
+    containerSize: Size,
+    /**
+     * Kutunun OCR alanını taşarken çıkamayacağı alan: zoom, sağdaki simgeler, başlat çubuğu ve kamera deliği
+     * dışı. null (göz modu, düğmeler gizli) = ekranın tamamı.
+     */
+    allowedArea: Rect? = null
 ) {
     val density = LocalDensity.current
     // Satır kutusunun ~%75'i harf boyutudur; telefonda okunabilsin diye ayardaki boyutun altına inmez
@@ -96,10 +101,11 @@ fun ScreenTranslationBox(
         style = style(size),
         constraints = Constraints(maxWidth = (width - padX).roundToInt().coerceAtLeast(1))
     ).size.height.toFloat()
-    val screenWidth = if (containerSize.width > 0f) containerSize.width - margin * 2 else ocrRect.width
-    val screenHeight = if (containerSize.height > 0f) containerSize.height - margin * 2 else ocrRect.height
-    val maxWidth = maxOf(ocrRect.width, minOf(screenWidth, ocrRect.width * 1.4f))
-    val maxHeight = minOf(screenHeight, maxOf(ocrRect.height * 1.6f, boxHeight * 3f))
+    val limit = allowedArea ?: if (containerSize.width > 0f && containerSize.height > 0f) {
+        Rect(margin, margin, containerSize.width - margin, containerSize.height - margin)
+    } else ocrRect
+    val maxWidth = maxOf(ocrRect.width, minOf(limit.width, ocrRect.width * 1.4f))
+    val maxHeight = minOf(limit.height, maxOf(ocrRect.height * 1.6f, boxHeight * 3f))
     var fontSize = maxOf(autoFontSize, minFontSize)
     if (textHeight(boxWidth, fontSize) + padY > boxHeight) boxWidth = ocrRect.width
     if (textHeight(boxWidth, fontSize) + padY > ocrRect.height) boxWidth = maxWidth
@@ -113,12 +119,12 @@ fun ScreenTranslationBox(
     val boxLeft = if (boxWidth <= ocrRect.width) {
         clampSafe(centerX - boxWidth / 2f, ocrRect.left, ocrRect.right - boxWidth)
     } else {
-        clampSafe(centerX - boxWidth / 2f, margin, margin + screenWidth - boxWidth)
+        clampSafe(centerX - boxWidth / 2f, limit.left, limit.right - boxWidth)
     }
     val boxTop = if (boxHeight <= ocrRect.height) {
         clampSafe(centerY - boxHeight / 2f, ocrRect.top, ocrRect.bottom - boxHeight)
     } else {
-        clampSafe(centerY - boxHeight / 2f, margin, margin + screenHeight - boxHeight)
+        clampSafe(centerY - boxHeight / 2f, limit.top, limit.bottom - boxHeight)
     }
     Box(
         modifier = Modifier
@@ -144,6 +150,7 @@ fun ExtraOcrArea(
     containerSize: Size,
     isStealthMode: Boolean,
     minFontSize: Float,
+    allowedArea: Rect?,
     /** Alanın yeri değişti (OCR'a bildirilir) */
     onRectChange: (rect: RectF) -> Unit,
     /** Kullanıcı sürükleyip bıraktı: o yönün kaydına yazılır */
@@ -169,7 +176,7 @@ fun ExtraOcrArea(
     )
 
     if (area.bounds != null && area.translation.isNotEmpty()) {
-        ScreenTranslationBox(rect, area.bounds, area.lineHeight, area.translation, minFontSize, containerSize)
+        ScreenTranslationBox(rect, area.bounds, area.lineHeight, area.translation, minFontSize, containerSize, allowedArea)
     }
     if (isStealthMode) return
 

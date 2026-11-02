@@ -72,6 +72,12 @@ fun CameraPreview(
     }
 
     var cameraInstance by remember { mutableStateOf<Camera?>(null) }
+    // Ayarlar, Hakkında ya da Çeviri geçmişi açılınca bu ekran kalkar: kamera da kapansın (pil, ısınma).
+    // Zoom, parlaklık ve odak ana ekranın üstünde saklandığı için dönünce kamera açılır açılmaz yeniden uygulanır.
+    var boundProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
+    DisposableEffect(Unit) {
+        onDispose { boundProvider?.unbindAll() }
+    }
 
     // Granular rotation takibi (özellikle 180 derece flip için)
     var displayRotation by remember { mutableIntStateOf(Surface.ROTATION_0) }
@@ -102,6 +108,7 @@ fun CameraPreview(
     LaunchedEffect(displayRotation) {
         // Bloklamadan bekle: kamera servisi yavaş açılırsa (ör. bellek sıkışıkken) ana iş parçacığı donup ANR veriyordu
         val cameraProvider = ProcessCameraProvider.awaitInstance(context)
+        boundProvider = cameraProvider
         val cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA
         val rotation = displayRotation
 

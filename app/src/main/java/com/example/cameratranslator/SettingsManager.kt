@@ -307,10 +307,29 @@ class SettingsManager(context: Context) {
         return floatArrayOf(left, top, right, bottom)
     }
 
+    /** Sinematik altyazıda önceki çevirilerin akışı (varsayılan: yukarı, 5 satır) */
+    fun getSubtitleFlow(): SubtitleFlow =
+        runCatching { SubtitleFlow.valueOf(prefs.getString("subtitle_flow", null) ?: "UP") }.getOrDefault(SubtitleFlow.UP)
+
+    fun saveSubtitleFlow(flow: SubtitleFlow) {
+        prefs.edit().putString("subtitle_flow", flow.name).apply()
+    }
+
+    fun getFlowLines(): Int = prefs.getInt("subtitle_flow_lines", 5).coerceIn(1, 10)
+
+    fun saveFlowLines(lines: Int) {
+        prefs.edit().putInt("subtitle_flow_lines", lines.coerceIn(1, 10)).apply()
+    }
+
+    /** "Yenilikler" penceresinin en son gösterildiği (ya da gerek görülmediği) sürüm; null = hiç kaydedilmedi */
+    fun getLastSeenVersion(): String? = prefs.getString("last_seen_version", null)
+
+    fun saveLastSeenVersion(version: String) {
+        prefs.edit().putString("last_seen_version", version).apply()
+    }
+
     /** İlk açılış rehberi görüldü mü (ya da uygulamayı zaten kullanan biri mi) */
     fun isGuideSeen(): Boolean = prefs.getBoolean("guide_seen", false)
-
-    fun hasGuideFlag(): Boolean = prefs.contains("guide_seen")
 
     fun saveGuideSeen(seen: Boolean) {
         prefs.edit().putBoolean("guide_seen", seen).apply()

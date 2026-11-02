@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -20,6 +21,10 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Menu
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.WbSunny
@@ -31,11 +36,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -54,6 +62,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
@@ -76,6 +90,9 @@ fun MainOverlay(
     onGuideNext: () -> Unit = {},
     onGuideSkip: () -> Unit = {},
     history: List<String>,
+    /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği */
+    subtitleFlow: SubtitleFlow = SubtitleFlow.UP,
+    flowLines: Int = 2,
     isPaused: Boolean,
     zoomLevel: Float,
     onTogglePause: () -> Unit,
@@ -281,7 +298,7 @@ fun MainOverlay(
             }
 
             // VARSAYILAN (SİNEMATİK ALTYAZI) MOD: Center Subtitle Overlay with Invisible Wall Boundary
-            Box(
+            BoxWithConstraints(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(start = subtitleStart, end = subtitleEnd, top = subtitleTop, bottom = subtitleBottom),
@@ -297,62 +314,63 @@ fun MainOverlay(
                     }
                 }
 
-                var activeTextHeightDp by remember { mutableStateOf(48.dp) }
-
-                // Past History Lines
-                if (history.isNotEmpty()) {
-                    val scrollState = rememberScrollState()
-                    LaunchedEffect(history.size) {
-                        scrollState.scrollTo(scrollState.maxValue)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(max = 120.dp)
-                            .align(Alignment.Center)
-                            .offset(y = - (activeTextHeightDp / 2 + 68.dp))
-                            .clipToBounds(),
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .verticalScroll(scrollState),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Bottom
-                        ) {
-                            history.forEach { prev ->
-                                Text(
-                                    text = prev,
-                                    color = Color.LightGray.copy(alpha = 0.5f),
-                                    fontSize = 16.sp,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(bottom = 4.dp)
-                                )
-                            }
-                        }
-                    }
-                }
-
-                // Active Current Translation
-                if (currentTranslation.isNotEmpty()) {
-                    // Alana sığmazsa (büyük yazı boyutu, uzun cümle, küçük ekran) kendiliğinden küçülür
+                if (isStatusMessage) {
+                    // Bilgi notu (OPUS indirme notu) eskisi gibi ortada
                     AutoFitText(
                         text = currentTranslation,
-                        maxFontSize = if (isStatusMessage) STATUS_FONT_SIZE else effectiveFontSize,
-                        fontWeight = if (isStatusMessage) FontWeight.Normal else FontWeight.Bold,
-                        color = if (isStatusMessage) Color.White.copy(alpha = 0.85f) else Color.White,
+                        maxFontSize = STATUS_FONT_SIZE,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.White.copy(alpha = 0.85f),
                         lineHeightFactor = 1.15f,
+                        modifier = Modifier.fillMaxWidth().align(Alignment.Center),
+                        textModifier = Modifier.fillMaxWidth()
+                    )
+                } else if (currentTranslation.isNotEmpty()) {
+                    // Akan altyazı: güncel çeviri OCR alanının hemen üstünde, öncekiler onun üstünde yukarı kayar.
+                    // Alan altyazı sınırının (zoom, simgeler, başlat çubuğu, kamera deliği dışı) içinde kesilir.
+                    // OCR alanı üstte kalmışsa (üstünde yer yoksa) altyazı alanının dibine dizilir.
+                    // Akıllı akış: OCR'ın üstünde daha çok yer varsa çeviri hemen üstünde çıkar ve yukarı akar;
+                    // altında daha çok yer varsa (OCR üstte) hemen altında çıkar ve aşağı akar. Akış OCR'a binmez.
+                    val ocrTopInArea = with(density) { ocrRect.top.toDp() } - subtitleTop
+                    val ocrBottomInArea = with(density) { ocrRect.bottom.toDp() } - subtitleTop
+                    val spaceAbove = (ocrTopInArea - 12.dp).coerceIn(0.dp, maxHeight)
+                    val spaceBelow = (maxHeight - ocrBottomInArea - 12.dp).coerceIn(0.dp, maxHeight)
+                    val flowUp = spaceAbove >= spaceBelow
+                    // İki taraf da çok darsa (OCR alanı ekranın neredeyse tamamı) bütün alan kullanılır
+                    val flowHeight = when {
+                        maxOf(spaceAbove, spaceBelow) < 72.dp -> maxHeight
+                        flowUp -> spaceAbove
+                        else -> spaceBelow
+                    }
+                    val flowAlignment = if (flowUp || flowHeight == maxHeight) Alignment.TopCenter else Alignment.BottomCenter
+                    val lines = if (subtitleFlow == SubtitleFlow.OFF) {
+                        listOf(currentTranslation)
+                    } else {
+                        history.takeLast(flowLines) + currentTranslation
+                    }
+                    // OCR'dan uzak kenara gelen satırlar kararıp kaybolur (başlat çubuğuna/kamera deliğine değmeden)
+                    val fadePx = with(density) { 56.dp.toPx() }
+                    FlowingSubtitles(
+                        lines = lines,
+                        currentMaxFontSize = effectiveFontSize,
+                        flowUp = flowUp,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .align(Alignment.Center),
-                        textModifier = Modifier
-                            .fillMaxWidth()
-                            .onGloballyPositioned { coordinates ->
-                                val heightDp = with(density) { coordinates.size.height.toDp() }
-                                if (heightDp > 0.dp) {
-                                    activeTextHeightDp = heightDp
-                                }
+                            .height(flowHeight)
+                            .align(flowAlignment)
+                            .clipToBounds()
+                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                            .drawWithContent {
+                                drawContent()
+                                val fade = (fadePx / size.height).coerceIn(0.01f, 0.5f)
+                                drawRect(
+                                    brush = if (flowUp) {
+                                        Brush.verticalGradient(0f to Color.Transparent, fade to Color.Black)
+                                    } else {
+                                        Brush.verticalGradient(1f - fade to Color.Black, 1f to Color.Transparent)
+                                    },
+                                    blendMode = BlendMode.DstIn
+                                )
                             }
                     )
                 }
@@ -360,10 +378,11 @@ fun MainOverlay(
         } else {
             // EKRAN ÇEVİRİSİ MODU: OCR alanı şeffaf (ince camgöbeği çerçeve); çeviri, İngilizce yazının tam
             // üstünde siyah kutuda beyaz yazıyla durur ve yazıyı örter
+            val allowedArea = controlsFreeArea(containerSize, isLandscape, isStealthMode)
             if (screenTextBounds != null && !isStatusMessage && containerSize != Size.Zero) {
                 ScreenTranslationBox(
                     ocrRect, screenTextBounds, screenTextLineHeight, currentTranslation,
-                    minFontSize = subtitleFontSize, containerSize = containerSize
+                    minFontSize = subtitleFontSize, containerSize = containerSize, allowedArea = allowedArea
                 )
             }
             // Alanın yeri belli olsun (göz modunda gizli)
@@ -509,6 +528,7 @@ fun MainOverlay(
                     containerSize = containerSize,
                     isStealthMode = isStealthMode,
                     minFontSize = subtitleFontSize,
+                    allowedArea = controlsFreeArea(containerSize, isLandscape, isStealthMode),
                     onRectChange = { rect -> onExtraAreaChange(index, rect) },
                     onRectSave = { landscape, rect -> onExtraAreaSave(index, landscape, rect) }
                 )
@@ -516,44 +536,70 @@ fun MainOverlay(
         }
 
         // LAYER 4 (TOP-MOST): Interactive Control Buttons
-        // Top Left Menu Button with anchored Dropdown (Hidden in Stealth Mode)
+        // Sol üst menü düğmesi (göz modunda gizli): yuvarlak, yarı saydam; menü düğmenin hemen altında (dikey)
+        // ya da hemen sağında (yatay; altta yer az) açılır
         if (!isStealthMode) {
+            // Soldaki zoom kontrolüyle aynı dikey hizada (kamera deliği yandaysa onun yanında)
+            val menuCutoutLeft = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
+            val menuStartPadding = if (menuCutoutLeft > 0.dp) menuCutoutLeft + 8.dp else 12.dp
             Box(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(start = menuStartPadding, top = 14.dp)
                     .align(Alignment.TopStart)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(32.dp)
-                        .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                        .size(40.dp)
                         .onGloballyPositioned { menuBounds = it.boundsInRoot() }
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = if (isMenuExpanded) 0.6f else 0.35f))
+                        .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape)
                         .clickable { isMenuExpanded = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("☰", color = Color.White, fontSize = 28.sp, modifier = Modifier.offset(y = (-1).dp))
-                }
+                    Icon(
+                        imageVector = Icons.Rounded.Menu,
+                        contentDescription = "Menü",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
 
-                DropdownMenu(
-                    expanded = isMenuExpanded,
-                    onDismissRequest = { isMenuExpanded = false },
-                    offset = if (isLandscape) DpOffset(32.dp, (-145).dp) else DpOffset(0.dp, 0.dp),
-                    modifier = Modifier.background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f))
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Ayarlar") },
-                        onClick = {
-                            isMenuExpanded = false
-                            onNavigate(Screen.SETTINGS)
+                    // Menü düğmeye göre konumlanır: dikeyde hemen altında, yatayda hemen sağında ve üst kenarları
+                    // aynı hizada. (Hazır açılır menü ekranın üstünden 48 dp boşluk bıraktığı için yatayda aşağıda kalıyordu.)
+                    if (isMenuExpanded) {
+                        val gapPx = with(density) { (if (isLandscape) 4.dp else 6.dp).roundToPx() }
+                        Popup(
+                            popupPositionProvider = remember(isLandscape, gapPx) { MenuPositionProvider(isLandscape, gapPx) },
+                            onDismissRequest = { isMenuExpanded = false },
+                            properties = PopupProperties(focusable = true)
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(16.dp),
+                                color = Color(0xF21C1F26),
+                                border = BorderStroke(1.dp, Color.White.copy(alpha = 0.10f))
+                            ) {
+                                Column(modifier = Modifier.width(IntrinsicSize.Max).padding(vertical = 8.dp)) {
+                                    listOf(
+                                        Triple(Icons.Rounded.Settings, "Ayarlar", Screen.SETTINGS),
+                                        Triple(Icons.Rounded.History, "Çeviri geçmişi", Screen.HISTORY),
+                                        Triple(Icons.Rounded.Info, "Hakkında", Screen.ABOUT)
+                                    ).forEach { (icon, label, screen) ->
+                                        DropdownMenuItem(
+                                            text = { Text(label, fontSize = 15.sp, fontWeight = FontWeight.Medium) },
+                                            leadingIcon = {
+                                                Icon(icon, contentDescription = null, tint = MENU_ICON_COLORS.getValue(screen), modifier = Modifier.size(22.dp))
+                                            },
+                                            colors = MenuDefaults.itemColors(textColor = Color.White),
+                                            onClick = {
+                                                isMenuExpanded = false
+                                                onNavigate(screen)
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Hakkında") },
-                        onClick = {
-                            isMenuExpanded = false
-                            onNavigate(Screen.ABOUT)
-                        }
-                    )
+                    }
                 }
             }
         }
@@ -625,7 +671,7 @@ fun MainOverlay(
                     Icon(
                         imageVector = Icons.Rounded.Cached,
                         contentDescription = "Görünüm modunu değiştir",
-                        tint = Color.White,
+                        tint = ICON_DISPLAY_MODE,
                         modifier = Modifier.size(SIDE_ICON_SIZE)
                     )
                 }
@@ -640,7 +686,7 @@ fun MainOverlay(
                     Icon(
                         imageVector = if (isMuted) Icons.AutoMirrored.Rounded.VolumeOff else Icons.AutoMirrored.Rounded.VolumeUp,
                         contentDescription = if (isMuted) "Sesli okumayı aç" else "Sesli okumayı kapat",
-                        tint = Color.White,
+                        tint = if (isMuted) ICON_SPEAKER_MUTED else ICON_SPEAKER,
                         modifier = Modifier.size(SIDE_ICON_SIZE)
                     )
                 }
@@ -659,7 +705,7 @@ fun MainOverlay(
                 Icon(
                     imageVector = if (isStealthMode) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility,
                     contentDescription = if (isStealthMode) "Arayüzü göster" else "Arayüzü gizle",
-                    tint = Color.White,
+                    tint = ICON_EYE,
                     modifier = Modifier.size(SIDE_ICON_SIZE)
                 )
             }
@@ -677,7 +723,7 @@ fun MainOverlay(
                     Icon(
                         imageVector = Icons.Rounded.WbSunny,
                         contentDescription = "Parlaklık",
-                        tint = if (isExposureControlsVisible) Color(0xFFFFD54F) else Color.White,
+                        tint = if (isExposureControlsVisible) ICON_SUN_ACTIVE else ICON_SUN,
                         modifier = Modifier.size(SIDE_ICON_SIZE)
                     )
                 }
@@ -696,7 +742,7 @@ fun MainOverlay(
                     Icon(
                         imageVector = Icons.Filled.CenterFocusStrong,
                         contentDescription = "Manuel odak",
-                        tint = if (isFocusControlsVisible) Color(0xFFFFD54F) else Color.White,
+                        tint = if (isFocusControlsVisible) ICON_FOCUS_ACTIVE else ICON_FOCUS,
                         modifier = Modifier.size(SIDE_ICON_SIZE)
                     )
                 }
@@ -960,8 +1006,47 @@ private fun VerticalSliderCard(
     }
 }
 
+/**
+ * Düğmelerin dışında kalan alan (ekran koordinatı): soldaki zoom, sağdaki simgeler, başlat çubuğu (yatayda üstte,
+ * dikeyde altta) ve kamera deliği hariç. Sinematik altyazının sınırıyla aynı. Göz modunda düğmeler gizli: null.
+ */
+@Composable
+private fun controlsFreeArea(containerSize: Size, isLandscape: Boolean, isStealthMode: Boolean): Rect? {
+    if (isStealthMode || containerSize.width <= 0f || containerSize.height <= 0f) return null
+    val density = LocalDensity.current
+    val cutout = WindowInsets.displayCutout.asPaddingValues()
+    val layoutDirection = LocalLayoutDirection.current
+    val cutoutLeft = cutout.calculateLeftPadding(layoutDirection)
+    val cutoutRight = cutout.calculateRightPadding(layoutDirection)
+    with(density) {
+        val left = ((if (cutoutLeft > 0.dp) cutoutLeft + 8.dp else 12.dp) + 40.dp + 10.dp).toPx()
+        val right = ((if (cutoutRight > 0.dp) cutoutRight + 12.dp else 16.dp) + 44.dp + 10.dp).toPx()
+        val top = (cutout.calculateTopPadding() + if (isLandscape) 56.dp else 12.dp).toPx()
+        val bottom = (cutout.calculateBottomPadding() + if (isLandscape) 12.dp else 52.dp).toPx()
+        if (containerSize.width - left - right <= 0f || containerSize.height - top - bottom <= 0f) return null
+        return Rect(left, top, containerSize.width - right, containerSize.height - bottom)
+    }
+}
+
 /** Sağdaki kontrol simgelerinin ortak boyutu (göz, ses, görünüm modu, parlaklık, odak) */
 private val SIDE_ICON_SIZE = 25.dp
+
+// Sağdaki simgelerin renkleri: bembeyaz yerine yumuşak tonlar; açık olan kaydırıcının simgesi daha canlı
+private val ICON_DISPLAY_MODE = Color(0xFFB39DDB) // lila
+private val ICON_SPEAKER = Color(0xFFA5D6A7) // yeşil (sesli okuma açık)
+private val ICON_SPEAKER_MUTED = Color(0xFFEF9A9A) // kırmızımsı (sessiz)
+private val ICON_EYE = Color(0xFF80DEEA) // açık mavi
+private val ICON_SUN = Color(0xFFFFE082) // açık sarı
+private val ICON_SUN_ACTIVE = Color(0xFFFFC107)
+private val ICON_FOCUS = Color(0xFF80CBC4) // turkuaz
+private val ICON_FOCUS_ACTIVE = Color(0xFF00E5FF)
+
+/** Sol üst menüdeki simgelerin renkleri (sağdaki simgelerle aynı yumuşak tonlar) */
+private val MENU_ICON_COLORS = mapOf(
+    Screen.SETTINGS to Color(0xFFB39DDB),
+    Screen.HISTORY to Color(0xFFA5D6A7), // yeşil
+    Screen.ABOUT to Color(0xFF64B5F6) // mavi (sarı uyarı gibi görünüyordu)
+)
 
 /**
  * Açılan kaydırıcı panelini kendi düğmesinin dikey hizasına ortalar (yatayda da dikeyde de);
@@ -981,3 +1066,20 @@ private fun Modifier.alignedToButton(buttonCenterY: Float?, containerHeight: Flo
 
 /** Bilgi notlarının yazı boyutu (çeviri yazısından küçük) */
 private const val STATUS_FONT_SIZE = 17f
+
+/** Sol üst menünün konumu: [beside] ise düğmenin sağında ve üstü aynı hizada, değilse hemen altında. */
+private class MenuPositionProvider(private val beside: Boolean, private val gapPx: Int) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val x = if (beside) anchorBounds.right + gapPx else anchorBounds.left
+        val y = if (beside) anchorBounds.top else anchorBounds.bottom + gapPx
+        return IntOffset(
+            x.coerceIn(0, maxOf(0, windowSize.width - popupContentSize.width)),
+            y.coerceIn(0, maxOf(0, windowSize.height - popupContentSize.height))
+        )
+    }
+}

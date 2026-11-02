@@ -65,19 +65,30 @@ private fun SettingsBlockCard(
 /** Bölüm içindeki bir ayar grubu: ince çizgiyle ayırmak yerine kendi çerçevesi içinde (daha derli toplu). */
 @Composable
 private fun SettingsSubCard(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(
-                1.dp,
-                MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (SectionCardStyle.isLight()) 0.8f else 0.5f),
-                RoundedCornerShape(12.dp)
-            )
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        content = content
-    )
+    val isLight = SectionCardStyle.isLight()
+    // Hafif kabartma (deneme): açık temada ince gölge, koyu temada biraz daha açık zemin.
+    // Beğenilmezse SUBCARD_RAISED = false eski düz çerçeveli görünüme döner.
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = when {
+            !SUBCARD_RAISED -> Color.Transparent
+            isLight -> MaterialTheme.colorScheme.surfaceContainerLowest
+            else -> Color.White.copy(alpha = 0.05f)
+        },
+        shadowElevation = if (SUBCARD_RAISED && isLight) 2.dp else 0.dp,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (isLight) 0.8f else 0.5f))
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            content = content
+        )
+    }
 }
+
+/** Ayar alt kutularında hafif kabartma efekti (false = düz çerçeve) */
+private const val SUBCARD_RAISED = true
 
 /**
  * Açılır kapanır ayar bölümü başlığı: başlık, sağda ok ve (isteğe bağlı) altında kısa açıklama.
@@ -118,6 +129,78 @@ private fun CollapsibleHeader(
             tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+/** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği. */
+@Composable
+private fun SubtitleFlowSection() {
+    val context = LocalContext.current
+    val settings = remember { SettingsManager(context) }
+    var flow by remember { mutableStateOf(settings.getSubtitleFlow()) }
+    var lines by remember { mutableIntStateOf(settings.getFlowLines()) }
+
+    Text("Geçmiş çeviriler", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        listOf(SubtitleFlow.UP to "Akıllı akış", SubtitleFlow.OFF to "Kapalı").forEach { (option, label) ->
+            val isSelected = option == flow
+            Surface(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(40.dp)
+                    .clickable {
+                        flow = option
+                        settings.saveSubtitleFlow(option)
+                    },
+                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 13.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+    }
+    if (flow != SubtitleFlow.OFF) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Görünen satır sayısı", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text("$lines", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        }
+        Slider(
+            value = lines.toFloat(),
+            onValueChange = {
+                lines = it.toInt()
+                settings.saveFlowLines(lines)
+            },
+            valueRange = 1f..10f,
+            steps = 8,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+    Text(
+        when (flow) {
+            SubtitleFlow.UP -> "OCR alanı aşağıdaysa yeni çeviri onun hemen üstünde belirir, öncekiler yukarı doğru akar; " +
+                "OCR alanı yukarıdaysa yeni çeviri hemen altında belirir, öncekiler aşağı doğru akar. Öncekiler küçülerek " +
+                "ekranın kenarında kaybolur ve hiçbir zaman altyazının üstüne binmez."
+            SubtitleFlow.OFF -> "Yalnızca son çeviri gösterilir. Kaçırdığınız altyazılara menüdeki \"Çeviri geçmişi\"nden bakabilirsiniz."
+        },
+        fontSize = 12.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
 }
 
 /**
@@ -639,6 +722,8 @@ fun SettingsScreen(
                 }
                 if (isScreenMode) {
                     SettingsSubCard { ScreenAreasSection() }
+                } else {
+                    SettingsSubCard { SubtitleFlowSection() }
                 }
 
                 SettingsSubCard {

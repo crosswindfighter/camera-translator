@@ -54,7 +54,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicLong
 
 enum class Screen {
-    CAMERA, SETTINGS, ABOUT
+    CAMERA, SETTINGS, ABOUT, HISTORY
 }
 
 class MainActivity : ComponentActivity() {
@@ -88,10 +88,16 @@ class MainActivity : ComponentActivity() {
         OcrDebugDumper.init(this)
         OfflineModelDownloader.init(this)
         OcrTextFixer.init(this)
-        // Rehber yalnızca uygulamayı yeni yükleyene: güncelleme yapan (zaten kullanan) birine çıkmaz
-        if (!settingsManager.hasGuideFlag()) {
-            val info = runCatching { packageManager.getPackageInfo(packageName, 0) }.getOrNull()
-            if (info != null && info.firstInstallTime != info.lastUpdateTime) settingsManager.saveGuideSeen(true)
+        // Rehber, görmemiş herkese bir kez: yeni yükleyene ve rehberin ilk geldiği 1.0.7'ye güncelleyene.
+        // Sonraki güncellemelerde (rehber zaten görülmüş) yalnızca "Yenilikler" penceresi çıkar.
+        // Yenilikler yalnızca güncelleyene: yeni yükleyen için bu sürüm görülmüş sayılır. İstisna: 1.0.7 büyük
+        // yenilenme sürümü olduğu için onu yeni yükleyen de yenilikleri görür.
+        val info = runCatching { packageManager.getPackageInfo(packageName, 0) }.getOrNull()
+        val isUpdate = info != null && info.firstInstallTime != info.lastUpdateTime
+        if (settingsManager.getLastSeenVersion() == null && !isUpdate &&
+            BuildConfig.VERSION_NAME !in WHATS_NEW_ON_FRESH_INSTALL
+        ) {
+            settingsManager.saveLastSeenVersion(BuildConfig.VERSION_NAME)
         }
         OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
         OcrTuning.opusCarefulEnabled = settingsManager.getOpusCarefulEnabled()
@@ -157,6 +163,13 @@ class MainActivity : ComponentActivity() {
             var manualFocusValue by rememberSaveable { mutableFloatStateOf(0f) }
 
             var availableUpdate by remember { mutableStateOf<UpdateChecker.ReleaseInfo?>(null) }
+            // Güncellemeden sonraki ilk açılışta bir kez: bu sürümün yenilikleri
+            var whatsNewNotes by remember {
+                mutableStateOf(
+                    if (settingsManager.getLastSeenVersion() == BuildConfig.VERSION_NAME) null
+                    else ReleaseNotes.notesFor(BuildConfig.VERSION_NAME)
+                )
+            }
             LaunchedEffect(Unit) {
                 availableUpdate = UpdateChecker.checkOnLaunch(settingsManager)
             }
@@ -361,6 +374,9 @@ class MainActivity : ComponentActivity() {
                                 onBack = { currentScreen = Screen.CAMERA }
                             )
                         }
+                        Screen.HISTORY -> {
+                            HistoryScreen(onBack = { currentScreen = Screen.CAMERA })
+                        }
                     }
 
                     // Full-Screen Opening Cover Overlay (Adaptive: opening_logo.png in Portrait, opening_logo2.png in Landscape)
@@ -384,9 +400,21 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    // Yeni sürüm penceresi: her sürüm için yalnızca bir kez, açılış logosundan sonra
+                    // Yenilikler penceresi: açılış logosundan sonra, sürüm başına bir kez
+                    val notes = whatsNewNotes
+                    if (notes != null && !isSplashVisible) {
+                        WhatsNewDialog(version = BuildConfig.VERSION_NAME, notes = notes) {
+                            settingsManager.saveLastSeenVersion(BuildConfig.VERSION_NAME)
+                            whatsNewNotes = null
+                        }
+                    } else if (notes == null && settingsManager.getLastSeenVersion() != BuildConfig.VERSION_NAME) {
+                        // Bu sürümün notu yoksa da bir dahaki sürüme kadar sorulmasın
+                        settingsManager.saveLastSeenVersion(BuildConfig.VERSION_NAME)
+                    }
+
+                    // Yeni sürüm penceresi: her sürüm için yalnızca bir kez, açılış logosundan ve yeniliklerden sonra
                     val update = availableUpdate
-                    if (update != null && !isSplashVisible) {
+                    if (update != null && !isSplashVisible && whatsNewNotes == null) {
                         val dismiss: () -> Unit = {
                             settingsManager.savePromptedUpdateVersion(update.version)
                             availableUpdate = null
@@ -423,6 +451,9 @@ class MainActivity : ComponentActivity() {
         val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
         var currentTranslation by rememberSaveable { mutableStateOf("") }
+        // Sinematik altyazıda önceki çevirilerin akışı (Ayarlar'dan; ekrana dönünce yeniden okunur)
+        val subtitleFlow = remember { settingsManager.getSubtitleFlow() }
+        val flowLines = remember { settingsManager.getFlowLines() }
         // İlk açılış rehberinin adımı (-1 = kapalı); Hakkında'dan tekrar açılabilir
         var guideStep by remember { mutableIntStateOf(if (settingsManager.isGuideSeen()) -1 else 0) }
         // Ekran çevirisi: çeviri kutusu İngilizce yazının tam üstüne konur; yazı 5 sn görünmezse kutu kaybolur
@@ -520,6 +551,7 @@ class MainActivity : ComponentActivity() {
                                 historyList = newHistory
                             }
                             currentTranslation = translated
+                            TranslationHistory.add(confirmedText, translated)
                             screenTextBounds = lastTextBounds[0]
                             screenTextLineHeight = lastLineHeight[0]
                             OcrDebugDumper.logPipeline("Çeviri", translated, endOfEntry = true)
@@ -561,6 +593,7 @@ class MainActivity : ComponentActivity() {
                             val translated = withContext(Dispatchers.IO) { translationManager.translate(confirmedText) }
                             if (translated.isBlank()) return@launch
                             extraTranslations[index] = translated
+                            TranslationHistory.add(confirmedText, translated, area = index + 2)
                             extraBounds[index] = extraLastBounds[index]
                             extraLineHeights[index] = extraLastLine[index]
                             OcrDebugDumper.logPipeline("Alan ${index + 2}", "$confirmedText → $translated", endOfEntry = true)
@@ -781,6 +814,8 @@ class MainActivity : ComponentActivity() {
                         settingsManager.saveExtraOcrRect(index, landscape, rect.left, rect.top, rect.right, rect.bottom)
                     },
                     history = historyList,
+                    subtitleFlow = subtitleFlow,
+                    flowLines = flowLines,
                     isPaused = isPaused,
                     zoomLevel = zoomLevel,
                     translationMode = translationMode,
@@ -998,6 +1033,8 @@ class MainActivity : ComponentActivity() {
         private const val PIPELINE_TAG = "PIPELINE"
         /** Ekran çevirisinde İngilizce yazı bu kadar süre görünmezse çeviri kutusu kaybolur */
         private const val SCREEN_BOX_HIDE_MS = 5000L
+        /** Yeni yükleyene de "Yenilikler" penceresinin gösterildiği sürümler (büyük yenilenmeler) */
+        private val WHATS_NEW_ON_FRESH_INSTALL = setOf("1.0.7")
         /** İngilizcede olmayan Türkçe harfler */
         private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
         private var hasShownAppLaunchSplash = false
