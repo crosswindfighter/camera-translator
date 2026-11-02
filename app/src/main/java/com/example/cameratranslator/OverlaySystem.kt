@@ -190,6 +190,11 @@ fun MainOverlay(
     var menuBounds by remember { mutableStateOf<Rect?>(null) }
     var startBounds by remember { mutableStateOf<Rect?>(null) }
     var eyeBounds by remember { mutableStateOf<Rect?>(null) }
+    var zoomBounds by remember { mutableStateOf<Rect?>(null) }
+    var sunBounds by remember { mutableStateOf<Rect?>(null) }
+    var focusBounds by remember { mutableStateOf<Rect?>(null) }
+    var directionBounds by remember { mutableStateOf<Rect?>(null) }
+    var engineBounds by remember { mutableStateOf<Rect?>(null) }
     var sunButtonCenterY by remember { mutableStateOf<Float?>(null) }
     var focusButtonCenterY by remember { mutableStateOf<Float?>(null) }
 
@@ -567,6 +572,7 @@ fun MainOverlay(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .padding(start = dynamicStartPadding)
+                    .onGloballyPositioned { zoomBounds = it.boundsInRoot() }
             )
         } else if (!isStealthMode && !useZoomSlider) {
             val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
@@ -577,6 +583,7 @@ fun MainOverlay(
                     .align(Alignment.CenterStart)
                     .padding(start = dynamicStartPadding)
                     .width(40.dp)
+                    .onGloballyPositioned { zoomBounds = it.boundsInRoot() }
                     .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(20.dp))
                     .padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -661,7 +668,10 @@ fun MainOverlay(
             if (!isStealthMode) {
                 IconButton(
                     onClick = onToggleExposureControls,
-                    modifier = Modifier.size(44.dp).onGloballyPositioned { sunButtonCenterY = it.boundsInRoot().center.y }
+                    modifier = Modifier.size(44.dp).onGloballyPositioned {
+                        sunButtonCenterY = it.boundsInRoot().center.y
+                        sunBounds = it.boundsInRoot()
+                    }
                 ) {
                     // Panel açıkken vurgulu (odak düğmesiyle aynı davranış)
                     Icon(
@@ -677,7 +687,10 @@ fun MainOverlay(
             if (!isStealthMode) {
                 IconButton(
                     onClick = onToggleFocusControls,
-                    modifier = Modifier.size(44.dp).onGloballyPositioned { focusButtonCenterY = it.boundsInRoot().center.y }
+                    modifier = Modifier.size(44.dp).onGloballyPositioned {
+                        focusButtonCenterY = it.boundsInRoot().center.y
+                        focusBounds = it.boundsInRoot()
+                    }
                 ) {
                     // Kameralardaki odak çerçevesi simgesi; panel açıkken vurgulu
                     Icon(
@@ -785,6 +798,7 @@ fun MainOverlay(
                 // Language Direction Toggle
                 Surface(
                     onClick = onToggleDirection,
+                    modifier = Modifier.onGloballyPositioned { directionBounds = it.boundsInRoot() },
                     color = Color.Transparent,
                     shape = RoundedCornerShape(2.dp)
                 ) {
@@ -801,6 +815,7 @@ fun MainOverlay(
                 
                 Surface(
                     onClick = onCycleTranslationMode,
+                    modifier = Modifier.onGloballyPositioned { engineBounds = it.boundsInRoot() },
                     color = Color.Transparent,
                     shape = RoundedCornerShape(2.dp)
                 ) {
@@ -831,6 +846,11 @@ fun MainOverlay(
                 GuideTarget.START -> startBounds?.translate(-offset)
                 GuideTarget.EYE -> eyeBounds?.translate(-offset)
                 GuideTarget.MENU -> menuBounds?.translate(-offset)
+                GuideTarget.ZOOM -> zoomBounds?.translate(-offset)
+                GuideTarget.SUN -> sunBounds?.translate(-offset)
+                GuideTarget.FOCUS -> focusBounds?.translate(-offset)
+                GuideTarget.DIRECTION -> directionBounds?.translate(-offset)
+                GuideTarget.ENGINE -> engineBounds?.translate(-offset)
             }
             OnboardingGuide(
                 step = guideStep,
