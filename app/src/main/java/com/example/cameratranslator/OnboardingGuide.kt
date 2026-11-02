@@ -34,15 +34,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** İlk açılış rehberinin hedefleri: her adım ana ekranda neyi parlak gösterecek. */
-enum class GuideTarget { NONE, OCR_AREA, START, EYE, MENU }
+enum class GuideTarget { NONE, ZOOM, SUN, FOCUS, OCR_AREA, DIRECTION, ENGINE, START, EYE, MENU }
 
 private data class GuideStep(val title: String, val text: String, val target: GuideTarget)
 
 private val STEPS = listOf(
     GuideStep(
         "Telefonu yerleştirin",
-        "Telefonu TV'ye bakacak şekilde sabit bir yere koyun. Soldaki kaydırıcıyla altyazı net görünene kadar yakınlaştırın.",
+        "Telefonu TV'ye bakacak şekilde sabit bir yere koyun (tripod ya da bir destek idealdir). Birkaç adımda uygulamayı tanıtalım.",
         GuideTarget.NONE
+    ),
+    GuideStep(
+        "Yakınlaştırma",
+        "Buradan yakınlaştırın. Altyazı ekranda büyük ve net görünene kadar yaklaşın; 1x, 3x gibi gerçek lens " +
+            "değerlerinde görüntü en nettir. Kaydırıcı yerine sabit düğmeler isterseniz Ayarlar'dan değiştirebilirsiniz.",
+        GuideTarget.ZOOM
+    ),
+    GuideStep(
+        "Parlaklık",
+        "TV ekranı kameraya genelde fazla parlak gelir. Parlaklığı kıstıkça yazılar daha net okunur. Kaydırıcının alt " +
+            "kısmındaki mor bölge ekstra karartmadır; çok parlak sahnelerde ya da yazılar hâlâ dağılıyorsa oraya inin.",
+        GuideTarget.SUN
+    ),
+    GuideStep(
+        "Odak",
+        "Uygulama açılışta ve yakınlaştırdıktan sonra kendiliğinden netler ve odağı kilitler. Yazı bulanıksa buradan elle " +
+            "odaklayabilir ya da OCR alanına dokunarak yeniden netleyebilirsiniz.",
+        GuideTarget.FOCUS
     ),
     GuideStep(
         "OCR alanı",
@@ -50,8 +68,19 @@ private val STEPS = listOf(
         GuideTarget.OCR_AREA
     ),
     GuideStep(
+        "Dil yönü",
+        "EN → TR İngilizce altyazıyı Türkçeye çevirir. Dokunarak TR → EN yönüne geçebilirsiniz.",
+        GuideTarget.DIRECTION
+    ),
+    GuideStep(
+        "Çeviri motoru",
+        "Dokunarak çeviri motorunu değiştirin. OPUS internetsiz ve ücretsiz çalışır (Ayarlar'dan bir kez indirilir), " +
+            "Google Translate internet ister, Google Cloud ise kendi API anahtarınızla çalışır.",
+        GuideTarget.ENGINE
+    ),
+    GuideStep(
         "Başlat",
-        "Başlat'a basın. Altyazılar okunup Türkçeye çevrilir.",
+        "Başlat'a basın. Altyazılar okunup çevrilir.",
         GuideTarget.START
     ),
     GuideStep(
@@ -61,7 +90,7 @@ private val STEPS = listOf(
     ),
     GuideStep(
         "Ayarlar",
-        "Ekran Çevirisi modu, yazı boyutu, sesli okuma ve internetsiz OPUS motoru buradaki Ayarlar'da. İpucu: oyunda altyazı " +
+        "Ekran Çevirisi modu, yazı boyutu, sesli okuma ve OPUS motoru buradaki Ayarlar'da. İpucu: oyunda altyazı " +
             "arka planını (siyah kutu) açarsanız okuma çok daha doğru olur.",
         GuideTarget.MENU
     )
