@@ -805,6 +805,7 @@ class MainActivity : ComponentActivity() {
                             guideStep++
                         }
                     },
+                    onGuideBack = { if (guideStep > 0) guideStep-- },
                     onGuideSkip = {
                         guideStep = -1
                         settingsManager.saveGuideSeen(true)

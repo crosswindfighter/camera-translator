@@ -13,7 +13,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -112,6 +120,7 @@ fun BoxScope.OnboardingGuide(
     target: Rect?,
     containerHeight: Float,
     onNext: () -> Unit,
+    onBack: () -> Unit,
     onSkip: () -> Unit
 ) {
     val current = STEPS.getOrNull(step) ?: return
@@ -156,26 +165,50 @@ fun BoxScope.OnboardingGuide(
             target.center.y > containerHeight / 2f -> Alignment.TopCenter
             else -> Alignment.BottomCenter
         }
-        Column(
+        // Kartın iki yanında oklar: yanlışlıkla geçilen adıma geri dönülebilsin
+        Row(
             modifier = Modifier
                 .align(cardAlignment)
-                .padding(horizontal = 24.dp, vertical = 40.dp)
-                .widthIn(max = 420.dp)
-                .fillMaxWidth()
-                .background(Color(0xFF1E1E1E), RoundedCornerShape(16.dp))
-                .padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+                .padding(horizontal = 8.dp, vertical = 40.dp)
+                .widthIn(max = 520.dp)
+                .fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("${step + 1} / ${STEPS.size}", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Text(current.title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-            Text(current.text, color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, lineHeight = 20.sp)
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (step < STEPS.lastIndex) {
-                    TextButton(onClick = onSkip) { Text("Atla", color = Color.White.copy(alpha = 0.7f)) }
+            GuideArrow(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, "Önceki adım", enabled = step > 0, onClick = onBack)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .background(Color(0xFF1E1E1E), RoundedCornerShape(16.dp))
+                    .padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("${step + 1} / ${STEPS.size}", color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(current.title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                Text(current.text, color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, lineHeight = 20.sp)
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    if (step < STEPS.lastIndex) {
+                        TextButton(onClick = onSkip) { Text("Atla", color = Color.White.copy(alpha = 0.7f)) }
+                    }
+                    Box(modifier = Modifier.weight(1f))
+                    Button(onClick = onNext) { Text(if (step < STEPS.lastIndex) "İleri" else "Başlayalım") }
                 }
-                Box(modifier = Modifier.weight(1f))
-                Button(onClick = onNext) { Text(if (step < STEPS.lastIndex) "İleri" else "Başlayalım") }
             }
+            GuideArrow(Icons.AutoMirrored.Rounded.KeyboardArrowRight, "Sonraki adım", enabled = true, onClick = onNext)
         }
+    }
+}
+
+/** Rehber kartının yanındaki yuvarlak ok düğmesi; ilk adımda geri oku soluk ve pasif */
+@Composable
+private fun GuideArrow(icon: ImageVector, description: String, enabled: Boolean, onClick: () -> Unit) {
+    IconButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = Modifier
+            .padding(horizontal = 4.dp)
+            .size(40.dp)
+            .background(Color(0xFF1E1E1E).copy(alpha = if (enabled) 0.9f else 0.4f), CircleShape)
+    ) {
+        Icon(icon, contentDescription = description, tint = Color.White.copy(alpha = if (enabled) 1f else 0.3f))
     }
 }

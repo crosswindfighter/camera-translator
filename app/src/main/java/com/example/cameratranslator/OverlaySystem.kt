@@ -88,6 +88,7 @@ fun MainOverlay(
     /** İlk açılış rehberinin adımı; -1 = rehber kapalı */
     guideStep: Int = -1,
     onGuideNext: () -> Unit = {},
+    onGuideBack: () -> Unit = {},
     onGuideSkip: () -> Unit = {},
     history: List<String>,
     /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği */
@@ -903,6 +904,7 @@ fun MainOverlay(
                 target = target,
                 containerHeight = containerSize.height,
                 onNext = onGuideNext,
+                onBack = onGuideBack,
                 onSkip = onGuideSkip
             )
         }
