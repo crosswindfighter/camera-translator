@@ -8,6 +8,11 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Uygulama içi güncelleme: indirilen yeni sürüm APK'sının kurulum penceresini açmak için -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Telefon ekranı modu: ekranı yakalayan ön plan hizmeti ve oyunun üstünde görünen çeviri katmanı -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature android:name="android.hardware.camera" />
     <uses-feature android:name="android.hardware.camera.autofocus" />
 
@@ -43,6 +48,12 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Telefon ekranı modu: ekranı okuyup oyunun üstünde çeviri gösteren hizmet -->
+        <service
+            android:name=".PhoneScreenService"
+            android:exported="false"
+            android:foregroundServiceType="mediaProjection" />
 
         <!-- Uygulama içi güncelleme: indirilen APK kurulum penceresine buradan verilir -->
         <provider
