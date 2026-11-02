@@ -165,11 +165,11 @@ class SettingsManager(context: Context) {
     }
 
     fun saveSubtitleFontSizeScreen(size: Float) {
-        prefs.edit().putFloat("subtitle_font_size_screen", size.coerceIn(20f, 85f)).apply()
+        prefs.edit().putFloat("subtitle_font_size_screen", size.coerceIn(12f, 85f)).apply()
     }
 
     fun getSubtitleFontSizeScreen(): Float {
-        return prefs.getFloat("subtitle_font_size_screen", 30f).coerceIn(20f, 85f)
+        return prefs.getFloat("subtitle_font_size_screen", 20f).coerceIn(12f, 85f)
     }
 
     fun saveTranslationMode(mode: TranslationMode) {
@@ -305,6 +305,15 @@ class SettingsManager(context: Context) {
         val right = prefs.getFloat("ocr_def_land_right", 0.85f)
         val bottom = prefs.getFloat("ocr_def_land_bottom", 0.88f)
         return floatArrayOf(left, top, right, bottom)
+    }
+
+    /** İlk açılış rehberi görüldü mü (ya da uygulamayı zaten kullanan biri mi) */
+    fun isGuideSeen(): Boolean = prefs.getBoolean("guide_seen", false)
+
+    fun hasGuideFlag(): Boolean = prefs.contains("guide_seen")
+
+    fun saveGuideSeen(seen: Boolean) {
+        prefs.edit().putBoolean("guide_seen", seen).apply()
     }
 
     /** Ekran çevirisinde ana alana ek OCR alanı sayısı (0–2) */

@@ -43,6 +43,8 @@ object SlangNormalizer {
         "\\bthey'l\\b" to "they'll",
         "\\bwe'l\\b" to "we'll",
         "\\baheads up\\b" to "a heads up",
+        // Kesmesi düşmüş "we'll": "Well talk about that later" ("as well be" hariç)
+        "(?<!\\bas )\\bwell(?= (talk|see|be|have|get|go|need|do|make|figure|find|meet|handle|take)\\b)" to "we'll",
         "(?<=\\b(?:we|you|they|I|he|she) )gpt\\b" to "got",
         "\\bsiting(?= (there|here|around)\\b)" to "sitting",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
@@ -82,6 +84,17 @@ object SlangNormalizer {
         "\\bdunno\\b" to "don't know",
         "\\by'all\\b" to "you all",
         "\\bain't got\\b" to "don't have",
+        "\\bokey[- ]doke(y)?\\b" to "okay",
+        // "casing the joint" -> "esrarı kovalamıyorduk" çıkıyordu
+        "\\bcasing the (joint|place)\\b" to "scouting the place",
+        "\\bcased the (joint|place)\\b" to "scouted the place",
+        "\\bcase the (joint|place)\\b" to "scout the place",
+        // "called shotgun" -> "pompalı tüfek çağırdı" çıkıyordu
+        "\\bcalled shotgun\\b" to "claimed the front seat",
+        "\\bcall shotgun\\b" to "claim the front seat",
+        // Telsizde "Roger" = anlaşıldı ("Roger November…" -> "Roger … tarafından yazıldı" çıkıyordu)
+        "\\broger that\\b" to "understood",
+        "^Roger(?=,?\\s+(November|Niner|Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|Tango|Victor|Whiskey|Zulu)\\b|[.!]?$)" to "Understood",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
     /** Kekeleme: "p-p-pretend", "A-A-And", "M-M-M-Mrs." -> pretend, And, Mrs. (OPUS döngüye giriyordu) */

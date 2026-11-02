@@ -71,6 +71,10 @@ fun MainOverlay(
     extraAreas: List<ExtraAreaUi> = emptyList(),
     onExtraAreaChange: (index: Int, rect: RectF) -> Unit = { _, _ -> },
     onExtraAreaSave: (index: Int, landscape: Boolean, rect: RectF) -> Unit = { _, _, _ -> },
+    /** İlk açılış rehberinin adımı; -1 = rehber kapalı */
+    guideStep: Int = -1,
+    onGuideNext: () -> Unit = {},
+    onGuideSkip: () -> Unit = {},
     history: List<String>,
     isPaused: Boolean,
     zoomLevel: Float,
@@ -181,6 +185,11 @@ fun MainOverlay(
 
     // Kaydırıcılar kendi düğmelerinin hizasında açılsın: düğmelerin dikey merkezi (kök koordinatında)
     var overlayTopY by remember { mutableFloatStateOf(0f) }
+    var overlayLeftX by remember { mutableFloatStateOf(0f) }
+    // Rehberin parlak göstereceği düğmelerin yeri (kök koordinatında)
+    var menuBounds by remember { mutableStateOf<Rect?>(null) }
+    var startBounds by remember { mutableStateOf<Rect?>(null) }
+    var eyeBounds by remember { mutableStateOf<Rect?>(null) }
     var sunButtonCenterY by remember { mutableStateOf<Float?>(null) }
     var focusButtonCenterY by remember { mutableStateOf<Float?>(null) }
 
@@ -190,6 +199,7 @@ fun MainOverlay(
             .onGloballyPositioned { coordinates ->
                 containerSize = Size(coordinates.size.width.toFloat(), coordinates.size.height.toFloat())
                 overlayTopY = coordinates.positionInRoot().y
+                overlayLeftX = coordinates.positionInRoot().x
             }
     ) {
         // LAYER 1: Scrim & Green OCR Box Border (Green border rendered ONLY in DEFAULT mode!)
@@ -346,7 +356,10 @@ fun MainOverlay(
             // EKRAN ÇEVİRİSİ MODU: OCR alanı şeffaf (ince camgöbeği çerçeve); çeviri, İngilizce yazının tam
             // üstünde siyah kutuda beyaz yazıyla durur ve yazıyı örter
             if (screenTextBounds != null && !isStatusMessage && containerSize != Size.Zero) {
-                ScreenTranslationBox(ocrRect, screenTextBounds, screenTextLineHeight, currentTranslation)
+                ScreenTranslationBox(
+                    ocrRect, screenTextBounds, screenTextLineHeight, currentTranslation,
+                    minFontSize = subtitleFontSize, containerSize = containerSize
+                )
             }
             // Alanın yeri belli olsun (göz modunda gizli)
             if (!isStealthMode && containerSize != Size.Zero) {
@@ -356,6 +369,10 @@ fun MainOverlay(
                         .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
                         .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                 ) {
+                    // Okuma sürüyor işareti: çeviri gelene kadar uygulamanın çalıştığı belli olsun
+                    if (!isPaused) {
+                        ReadingDot(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp))
+                    }
                     // Birden çok alan varken numara: 1 ana (altyazı) alanı
                     if (extraAreas.isNotEmpty()) {
                         Text(
@@ -486,6 +503,7 @@ fun MainOverlay(
                     isLandscape = isLandscape,
                     containerSize = containerSize,
                     isStealthMode = isStealthMode,
+                    minFontSize = subtitleFontSize,
                     onRectChange = { rect -> onExtraAreaChange(index, rect) },
                     onRectSave = { landscape, rect -> onExtraAreaSave(index, landscape, rect) }
                 )
@@ -504,6 +522,7 @@ fun MainOverlay(
                     modifier = Modifier
                         .size(32.dp)
                         .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(4.dp))
+                        .onGloballyPositioned { menuBounds = it.boundsInRoot() }
                         .clickable { isMenuExpanded = true },
                     contentAlignment = Alignment.Center
                 ) {
@@ -624,7 +643,10 @@ fun MainOverlay(
             IconButton(
                 onClick = onToggleStealthMode,
                 // Arayüz gizliyken göz simgesi karanlık ekranda dikkat çekmesin: yarı saydam (dokunma alanı aynı)
-                modifier = Modifier.size(44.dp).alpha(if (isStealthMode) 0.4f else 1f)
+                modifier = Modifier
+                    .size(44.dp)
+                    .alpha(if (isStealthMode) 0.4f else 1f)
+                    .onGloballyPositioned { eyeBounds = it.boundsInRoot() }
             ) {
                 // Emoji yerine odak simgesiyle aynı tarzda vektör simge: gizliyken "kapalı göz"
                 Icon(
@@ -741,6 +763,7 @@ fun MainOverlay(
                 // Play/Stop Toggle
                 Surface(
                     onClick = onTogglePause,
+                    modifier = Modifier.onGloballyPositioned { startBounds = it.boundsInRoot() },
                     color = Color.Transparent,
                     shape = RoundedCornerShape(4.dp)
                 ) {
@@ -797,6 +820,25 @@ fun MainOverlay(
                     )
                 }
             }
+        }
+
+        // İlk açılış rehberi (en üst katman): anlatılan düğme ya da alan parlak kalır
+        if (guideStep >= 0 && containerSize != Size.Zero) {
+            val offset = Offset(overlayLeftX, overlayTopY)
+            val target = when (guideTargetOf(guideStep)) {
+                GuideTarget.NONE -> null
+                GuideTarget.OCR_AREA -> ocrRect
+                GuideTarget.START -> startBounds?.translate(-offset)
+                GuideTarget.EYE -> eyeBounds?.translate(-offset)
+                GuideTarget.MENU -> menuBounds?.translate(-offset)
+            }
+            OnboardingGuide(
+                step = guideStep,
+                target = target,
+                containerHeight = containerSize.height,
+                onNext = onGuideNext,
+                onSkip = onGuideSkip
+            )
         }
     }
 }

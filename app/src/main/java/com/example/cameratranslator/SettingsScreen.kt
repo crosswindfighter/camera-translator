@@ -7,6 +7,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import com.example.cameratranslator.ui.theme.SectionCardStyle
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -61,6 +62,23 @@ private fun SettingsBlockCard(
     }
 }
 
+/** Bölüm içindeki bir ayar grubu: ince çizgiyle ayırmak yerine kendi çerçevesi içinde (daha derli toplu). */
+@Composable
+private fun SettingsSubCard(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(
+                1.dp,
+                MaterialTheme.colorScheme.outlineVariant.copy(alpha = if (SectionCardStyle.isLight()) 0.8f else 0.5f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content
+    )
+}
+
 /**
  * Açılır kapanır ayar bölümü başlığı: başlık, sağda ok ve (isteğe bağlı) altında kısa açıklama.
  * Ayarlar ekranı kalabalık görünmesin diye bazı bölümler kapalı başlar.
@@ -112,7 +130,6 @@ private fun ScreenAreasSection() {
     val settings = remember { SettingsManager(context) }
     var extraCount by remember { mutableIntStateOf(settings.getScreenExtraAreaCount()) }
 
-    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -231,24 +248,27 @@ private fun OfflineModelSection(
     if (isInfoExpanded && isInstalled) {
         // Dikkatli çeviri (beam search): daha doğal ama biraz daha yavaş; bilerek bu açılır bölümde
         var careful by remember { mutableStateOf(OcrTuning.opusCarefulEnabled) }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Açıklama metni anahtara değmesin
-            Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                Text("Dikkatli çeviri", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(
-                    "Birkaç çeviri seçeneğini deneyip en iyisini seçer. Çeviriler daha doğal olur, ancak biraz daha geç gelir.",
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+        SettingsSubCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Açıklama metni anahtara değmesin
+                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                    Text("Dikkatli çeviri", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "Her altyazıda birkaç çeviri seçeneğini deneyip en iyisini seçer. Çeviriler daha doğal olur, ancak biraz daha geç gelir. " +
+                            "Kapalıyken de yarım kalan ya da bozuk görünen çevirilerde kendiliğinden devreye girer.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Switch(checked = careful, onCheckedChange = {
+                    careful = it
+                    OcrTuning.opusCarefulEnabled = it
+                    SettingsManager(context).saveOpusCarefulEnabled(it)
+                })
             }
-            Switch(checked = careful, onCheckedChange = {
-                careful = it
-                OcrTuning.opusCarefulEnabled = it
-                SettingsManager(context).saveOpusCarefulEnabled(it)
-            })
         }
     }
 
@@ -313,6 +333,8 @@ private fun UpdatesSection() {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var state by remember { mutableStateOf<UpdateCheckState>(UpdateCheckState.Idle) }
+    var dialogRelease by remember { mutableStateOf<UpdateChecker.ReleaseInfo?>(null) }
+    dialogRelease?.let { UpdateDialog(release = it, onDismiss = { dialogRelease = null }) }
 
     fun openPage(url: String) {
         try {
@@ -339,7 +361,7 @@ private fun UpdatesSection() {
                 color = MaterialTheme.colorScheme.primary
             )
             Button(
-                onClick = { openPage(s.release.pageUrl) },
+                onClick = { dialogRelease = s.release },
                 modifier = Modifier.fillMaxWidth().height(46.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -459,6 +481,7 @@ fun SettingsScreen(
     val zoomSettings = remember { SettingsManager(context) }
     var isDisplaySectionExpanded by rememberSaveable { mutableStateOf(false) }
     var isOcrSectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var isTtsSectionExpanded by rememberSaveable { mutableStateOf(false) }
     var useZoomSlider by remember { mutableStateOf(zoomSettings.getZoomSliderEnabled()) }
 
     val isTtsKeySaved = ttsApiKey.isNotBlank() && ttsApiKey == savedTtsApiKey
@@ -520,159 +543,184 @@ fun SettingsScreen(
                     onToggle = { isDisplaySectionExpanded = !isDisplaySectionExpanded }
                 )
                 if (isDisplaySectionExpanded) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    DisplayMode.entries.forEach { mode ->
-                        val isSelected = mode == currentDisplayMode
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clickable { onDisplayModeChange(mode) },
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = when (mode) {
-                                        DisplayMode.DEFAULT -> "Sinematik Altyazı"
-                                        DisplayMode.SCREEN_BETA -> "Ekran Çevirisi"
-                                    },
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
+                // Çeviri yazı boyutu: Sinematik Altyazı'da doğrudan boyut; Ekran Çevirisi'nde en küçük boyut
+                // (çeviri ekrandaki İngilizce yazının boyutunu alır, ondan küçükse bu boyuta büyür)
+                val isScreenMode = currentDisplayMode == DisplayMode.SCREEN_BETA
+                SettingsSubCard {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        DisplayMode.entries.forEach { mode ->
+                            val isSelected = mode == currentDisplayMode
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clickable { onDisplayModeChange(mode) },
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = when (mode) {
+                                            DisplayMode.DEFAULT -> "Sinematik Altyazı"
+                                            DisplayMode.SCREEN_BETA -> "Ekran Çevirisi"
+                                        },
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
                             }
                         }
                     }
+
+                    // Show Quick Switcher on Main Screen Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Anahtara değmesin: kalan genişliği alır, arada boşluk bırakır
+                        Text(
+                            "Görünüm modu butonunu ana ekranda göster",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f).padding(end = 12.dp)
+                        )
+                        Switch(
+                            checked = showDisplayModeQuickSwitch,
+                            onCheckedChange = { onShowDisplayModeQuickSwitchChange(it) }
+                        )
+                    }
                 }
 
-                // Show Quick Switcher on Main Screen Toggle
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Görünüm modu butonunu ana ekranda göster", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                    Switch(
-                        checked = showDisplayModeQuickSwitch,
-                        onCheckedChange = { onShowDisplayModeQuickSwitchChange(it) }
+                SettingsSubCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            if (isScreenMode) "En küçük çeviri yazı boyutu" else "Çeviri yazı boyutu",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${subtitleFontSize.toInt()} sp",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Slider(
+                        value = subtitleFontSize,
+                        onValueChange = { onSubtitleFontSizeChange(it) },
+                        // 2 sp adımlarla: sinematikte 16–80 (24 sp bazılarına büyük geliyordu), ekran çevirisinde 12–48
+                        valueRange = if (isScreenMode) 12f..48f else 16f..80f,
+                        steps = if (isScreenMode) 17 else 31,
+                        modifier = Modifier.fillMaxWidth()
                     )
+                    if (isScreenMode) {
+                        Text(
+                            "Not: Ekran Çevirisi'nde çeviri, ekrandaki İngilizce yazının boyutunda gösterilir. İngilizce yazı küçükse " +
+                                "çeviri en az bu boyutta olur; sığmazsa kutu OCR alanını biraz taşar, yine sığmazsa yazı küçülür.",
+                            fontSize = 12.sp,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+                if (isScreenMode) {
+                    SettingsSubCard { ScreenAreasSection() }
                 }
 
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                // Çeviri yazı boyutu yalnızca Sinematik Altyazı'da: Ekran Çevirisi'nde yazı, ekrandaki
-                // İngilizce yazının boyutuna kendiliğinden uyar
-                if (currentDisplayMode == DisplayMode.SCREEN_BETA) {
+                SettingsSubCard {
+                    // Yakınlaştırma kontrolü: kaydırıcı ya da sabit düğmeler
+                    Text("Yakınlaştırma kontrolü", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
+                            .padding(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        listOf(true to "Kaydırıcı", false to "Düğmeler (1x–5x)").forEach { (slider, label) ->
+                            val isSelected = slider == useZoomSlider
+                            Surface(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clickable {
+                                        useZoomSlider = slider
+                                        zoomSettings.saveZoomSliderEnabled(slider)
+                                    },
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = label,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
                     Text(
-                        "Not: Ekran Çevirisi'nde yazı boyutu otomatiktir. Çeviri, ekrandaki İngilizce yazıyla aynı boyutta gösterilir; uzun cümlelerde kendiliğinden küçülür.",
+                        if (useZoomSlider) {
+                            "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üstü telefonun kamerasının izin verdiği en yüksek yakınlaştırma. Kaydırıcı gerçek lenslere (1x, 3x, 10x) hafifçe yapışır; görüntü en net bu değerlerdedir."
+                        } else {
+                            "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
+                        },
                         fontSize = 12.sp,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    ScreenAreasSection()
-                } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Çeviri yazı boyutu", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                    Text(
-                        text = "${subtitleFontSize.toInt()} sp",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                    )
                 }
-                Slider(
-                    value = subtitleFontSize,
-                    onValueChange = { onSubtitleFontSizeChange(it) },
-                    // 2 sp adımlarla 16–80 (24 sp bazılarına büyük geliyordu)
-                    valueRange = 16f..80f,
-                    steps = 31,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                // Yakınlaştırma kontrolü: kaydırıcı ya da sabit düğmeler
-                Text("Yakınlaştırma kontrolü", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    listOf(true to "Kaydırıcı", false to "Düğmeler (1x–5x)").forEach { (slider, label) ->
-                        val isSelected = slider == useZoomSlider
-                        Surface(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(40.dp)
-                                .clickable {
-                                    useZoomSlider = slider
-                                    zoomSettings.saveZoomSliderEnabled(slider)
-                                },
-                            color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = label,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    fontSize = 13.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-                }
-                Text(
-                    if (useZoomSlider) {
-                        "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üstü telefonun kamerasının izin verdiği en yüksek yakınlaştırma. Kaydırıcı gerçek lenslere (1x, 3x, 10x) hafifçe yapışır; görüntü en net bu değerlerdedir."
-                    } else {
-                        "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
-                    },
-                    fontSize = 12.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 }
             }
 
             // BLOCK 4: Sesli Okuma (Speech Reading)
             SettingsBlockCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text("Sesli Okuma", fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                        Text(
-                            "Çevrilen altyazıları sesli okur; ekrana bakmadan oyunu takip edebilirsiniz.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                // Diğer bölümler gibi okla açılır; açma/kapama anahtarı bölümün içinde
+                CollapsibleHeader(
+                    title = "Sesli Okuma",
+                    subtitle = "Çevrilen altyazıları sesli okur; ekrana bakmadan oyunu takip edebilirsiniz.",
+                    expanded = isTtsSectionExpanded,
+                    onToggle = { isTtsSectionExpanded = !isTtsSectionExpanded },
+                    badge = if (isTtsEnabled) "Açık" else "Kapalı"
+                )
+                if (isTtsSectionExpanded) {
+                    SettingsSubCard {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Sesli okumayı aç",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Switch(
+                                checked = isTtsEnabled,
+                                onCheckedChange = { onTtsEnabledChange(it) }
+                            )
+                        }
                     }
-                    Switch(
-                        checked = isTtsEnabled,
-                        onCheckedChange = { onTtsEnabledChange(it) }
-                    )
                 }
 
-                if (isTtsEnabled) {
+                if (isTtsSectionExpanded && isTtsEnabled) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
                         // TTS Engine Selection
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("Konuşma Motoru", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
@@ -1127,45 +1175,45 @@ fun SettingsScreen(
                     onToggle = { isOcrSectionExpanded = !isOcrSectionExpanded }
                 )
                 if (isOcrSectionExpanded) {
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Text(
-                            "Arka planı (siyah kutusu) olmayan beyaz altyazılarda kelimeler bozuk veya hatalı okunuyorsa açmanız önerilir. Yalnızca beyaz altyazılarda etkilidir.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                SettingsSubCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                "Arka planı (siyah kutusu) olmayan beyaz altyazılarda kelimeler bozuk veya hatalı okunuyorsa açmanız önerilir. Yalnızca beyaz altyazılarda etkilidir.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isOcrTextMaskEnabled,
+                            onCheckedChange = { onOcrTextMaskEnabledChange(it) }
                         )
                     }
-                    Switch(
-                        checked = isOcrTextMaskEnabled,
-                        onCheckedChange = { onOcrTextMaskEnabledChange(it) }
-                    )
                 }
-
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                        Text("Sadece ortadaki altyazıyı oku", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
-                        Text(
-                            "OCR alanının kenarlarındaki harita, telefon ve görev yazıları gibi oyun arayüzü metinlerini yok sayar. OCR alanını altyazıya ortalayın. Altyazısı sola/sağa dayalı oyunlarda kapatın.",
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                SettingsSubCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
+                            Text("Sadece ortadaki altyazıyı oku", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                            Text(
+                                "OCR alanının kenarlarındaki harita, telefon ve görev yazıları gibi oyun arayüzü metinlerini yok sayar. OCR alanını altyazıya ortalayın. Altyazısı sola/sağa dayalı oyunlarda kapatın.",
+                                fontSize = 12.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Switch(
+                            checked = isOcrCenterOnlyEnabled,
+                            onCheckedChange = { onOcrCenterOnlyEnabledChange(it) }
                         )
                     }
-                    Switch(
-                        checked = isOcrCenterOnlyEnabled,
-                        onCheckedChange = { onOcrCenterOnlyEnabledChange(it) }
-                    )
                 }
                 }
             }

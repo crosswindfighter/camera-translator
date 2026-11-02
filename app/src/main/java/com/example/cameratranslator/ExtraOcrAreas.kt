@@ -1,6 +1,7 @@
 package com.example.cameratranslator
 
 import android.graphics.RectF
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -54,9 +55,17 @@ private fun clampSafe(value: Float, min: Float, max: Float): Float = if (max <= 
  * Yazı boyutu ayardan değil ekrandaki İngilizce satırın yüksekliğinden gelir, sığmazsa küçülür.
  */
 @Composable
-fun ScreenTranslationBox(ocrRect: Rect, bounds: RectF, lineHeight: Float, text: String) {
+fun ScreenTranslationBox(
+    ocrRect: Rect,
+    bounds: RectF,
+    lineHeight: Float,
+    text: String,
+    /** Ayardaki yazı boyutu: İngilizce yazı daha küçükse çeviri en az bu boyutta gösterilir */
+    minFontSize: Float,
+    containerSize: Size
+) {
     val density = LocalDensity.current
-    // Satır kutusunun ~%75'i harf boyutudur
+    // Satır kutusunun ~%75'i harf boyutudur; telefonda okunabilsin diye ayardaki boyutun altına inmez
     val lineHeightPx = lineHeight * ocrRect.height
     val autoFontSize = if (lineHeightPx > 0f) {
         (lineHeightPx * 0.75f / (density.density * density.fontScale)).coerceIn(12f, 60f)
@@ -64,17 +73,16 @@ fun ScreenTranslationBox(ocrRect: Rect, bounds: RectF, lineHeight: Float, text: 
     val pad = with(density) { 8.dp.toPx() }
     val padX = with(density) { 8.dp.toPx() } * 2
     val padY = with(density) { 4.dp.toPx() } * 2
+    val margin = with(density) { 4.dp.toPx() }
     val centerX = ocrRect.left + (bounds.left + bounds.right) / 2f * ocrRect.width
     val centerY = ocrRect.top + (bounds.top + bounds.bottom) / 2f * ocrRect.height
     // Türkçe genelde daha uzun: kutu en az OCR alanının yarısı genişliğinde, en az 40 dp yüksekliğinde
     var boxWidth = (bounds.width() * ocrRect.width + pad * 2)
         .coerceAtLeast(ocrRect.width * 0.5f).coerceAtMost(ocrRect.width)
     var boxHeight = (bounds.height() * ocrRect.height + pad * 2).coerceAtLeast(with(density) { 40.dp.toPx() })
-    // Çeviri sığmıyorsa kutu büyür: önce alanın tüm genişliğine, sonra aşağı-yukarı alanın yüksekliğine.
-    // Alan çok darsa kutu alanın dışına taşar ama cümle yarım kalmaz (en son yazı küçülür).
-    // Kutunun boyu, içindeki yazının ölçüsünden hesaplanır (yazı aynı stil ve genişlikle çizilir):
-    // çeviri sığmıyorsa kutu önce alanın tüm genişliğine yayılır, sonra aşağı doğru uzar; ancak alanın
-    // (ya da İngilizce yazının 3 katının) boyunu aşacaksa yazı küçülür. Cümle hiçbir zaman kesilmez.
+    // Kutunun boyu, içindeki yazının ölçüsünden hesaplanır (yazı aynı stil ve genişlikle çizilir), cümle kesilmez.
+    // Sığmazsa kutu sırayla büyür: alanın tüm genişliği -> alanı biraz taşan genişlik (en fazla 1,4 katı) ->
+    // aşağı-yukarı uzama (alanın 1,6 katı ya da İngilizce yazının 3 katı). Bunlar da yetmezse yazı küçülür.
     val measurer = rememberTextMeasurer()
     fun style(size: Float) = TextStyle(
         fontSize = size.sp,
@@ -88,20 +96,29 @@ fun ScreenTranslationBox(ocrRect: Rect, bounds: RectF, lineHeight: Float, text: 
         style = style(size),
         constraints = Constraints(maxWidth = (width - padX).roundToInt().coerceAtLeast(1))
     ).size.height.toFloat()
-    var fontSize = autoFontSize
+    val screenWidth = if (containerSize.width > 0f) containerSize.width - margin * 2 else ocrRect.width
+    val screenHeight = if (containerSize.height > 0f) containerSize.height - margin * 2 else ocrRect.height
+    val maxWidth = maxOf(ocrRect.width, minOf(screenWidth, ocrRect.width * 1.4f))
+    val maxHeight = minOf(screenHeight, maxOf(ocrRect.height * 1.6f, boxHeight * 3f))
+    var fontSize = maxOf(autoFontSize, minFontSize)
     if (textHeight(boxWidth, fontSize) + padY > boxHeight) boxWidth = ocrRect.width
-    val maxHeight = maxOf(ocrRect.height, boxHeight * 3f)
+    if (textHeight(boxWidth, fontSize) + padY > ocrRect.height) boxWidth = maxWidth
     var measured = textHeight(boxWidth, fontSize)
     while (measured + padY > maxHeight && fontSize > 12f) {
         fontSize -= 1f
         measured = textHeight(boxWidth, fontSize)
     }
     boxHeight = maxOf(boxHeight, measured + padY)
-    val boxLeft = clampSafe(centerX - boxWidth / 2f, ocrRect.left, ocrRect.right - boxWidth)
+    // Alana sığıyorsa alanın içinde, taşıyorsa ekranın içinde kalır
+    val boxLeft = if (boxWidth <= ocrRect.width) {
+        clampSafe(centerX - boxWidth / 2f, ocrRect.left, ocrRect.right - boxWidth)
+    } else {
+        clampSafe(centerX - boxWidth / 2f, margin, margin + screenWidth - boxWidth)
+    }
     val boxTop = if (boxHeight <= ocrRect.height) {
         clampSafe(centerY - boxHeight / 2f, ocrRect.top, ocrRect.bottom - boxHeight)
     } else {
-        (centerY - boxHeight / 2f).coerceAtLeast(0f)
+        clampSafe(centerY - boxHeight / 2f, margin, margin + screenHeight - boxHeight)
     }
     Box(
         modifier = Modifier
@@ -126,6 +143,7 @@ fun ExtraOcrArea(
     isLandscape: Boolean,
     containerSize: Size,
     isStealthMode: Boolean,
+    minFontSize: Float,
     /** Alanın yeri değişti (OCR'a bildirilir) */
     onRectChange: (rect: RectF) -> Unit,
     /** Kullanıcı sürükleyip bıraktı: o yönün kaydına yazılır */
@@ -151,7 +169,7 @@ fun ExtraOcrArea(
     )
 
     if (area.bounds != null && area.translation.isNotEmpty()) {
-        ScreenTranslationBox(rect, area.bounds, area.lineHeight, area.translation)
+        ScreenTranslationBox(rect, area.bounds, area.lineHeight, area.translation, minFontSize, containerSize)
     }
     if (isStealthMode) return
 
@@ -203,4 +221,24 @@ fun ExtraOcrArea(
             )
         }
     }
+}
+
+/** Ekran çevirisinde okuma sürerken alanın köşesinde yavaşça yanıp sönen nokta ("çalışıyor" işareti). */
+@Composable
+fun ReadingDot(modifier: Modifier = Modifier) {
+    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "readingDot")
+    val alpha by transition.animateFloat(
+        initialValue = 0.25f,
+        targetValue = 0.9f,
+        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
+            animation = androidx.compose.animation.core.tween(900),
+            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
+        ),
+        label = "readingDotAlpha"
+    )
+    Box(
+        modifier = modifier
+            .size(7.dp)
+            .background(AREA_COLOR.copy(alpha = alpha), androidx.compose.foundation.shape.CircleShape)
+    )
 }

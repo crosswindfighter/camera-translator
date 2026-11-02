@@ -488,6 +488,14 @@ fun AboutScreen(onBack: () -> Unit) {
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
+                    // İlk açılış rehberi: ana ekrana dönünce baştan gösterilir
+                    OutlinedButton(
+                        onClick = {
+                            SettingsManager(context).saveGuideSeen(false)
+                            onBack()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text("Uygulama rehberini tekrar göster") }
                 }
             }
 

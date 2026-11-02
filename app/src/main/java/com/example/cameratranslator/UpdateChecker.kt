@@ -16,7 +16,8 @@ import java.util.concurrent.TimeUnit
  */
 object UpdateChecker {
 
-    data class ReleaseInfo(val version: String, val pageUrl: String, val notes: String)
+    /** [apkUrl]: sürüme eklenmiş APK (uygulama içi güncelleme için); yoksa null ve GitHub sayfası açılır. */
+    data class ReleaseInfo(val version: String, val pageUrl: String, val notes: String, val apkUrl: String? = null)
 
     private const val TAG = "UpdateChecker"
     private const val LATEST_URL = "https://api.github.com/repos/crosswindfighter/camera-translator/releases/latest"
@@ -46,9 +47,22 @@ object UpdateChecker {
                 version = json.getString("tag_name").trim().removePrefix("v").removePrefix("V"),
                 // Sunucudan gelen adres tarayıcıda açılacağı için sadece bu reponun sayfalarına izin ver
                 pageUrl = json.optString("html_url", "").takeIf { it.startsWith("$RELEASES_PAGE/") } ?: RELEASES_PAGE,
-                notes = json.optString("body", "").trim()
+                notes = json.optString("body", "").trim(),
+                apkUrl = findApk(json)
             )
         }
+    }
+
+    /** Sürümdeki .apk dosyası; indirilecek adres yalnızca bu reponun sürüm dosyalarından biri olabilir. */
+    private fun findApk(json: JSONObject): String? {
+        val assets = json.optJSONArray("assets") ?: return null
+        for (i in 0 until assets.length()) {
+            val asset = assets.optJSONObject(i) ?: continue
+            if (!asset.optString("name").endsWith(".apk", ignoreCase = true)) continue
+            val url = asset.optString("browser_download_url")
+            if (url.startsWith("$RELEASES_PAGE/download/")) return url
+        }
+        return null
     }
 
     /**

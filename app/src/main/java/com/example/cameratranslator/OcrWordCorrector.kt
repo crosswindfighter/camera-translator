@@ -126,6 +126,11 @@ class OcrWordCorrector(
         val match = TOKEN.matchEntire(token) ?: return token
         val (pre, rawWord, post) = match.destructured
         var word = rawWord
+        // Cümle başında fiilden önce tek "T" çoğunlukla I'dır ("T want you to…", "T just told you");
+        // GTA'daki "T" (Trevor) hitabı virgül ya da cümle sonuyla gelir ("T, come on", "Let's go, T.")
+        if (word == "T" && sentenceStart && post.isEmpty() &&
+            nextToken?.lowercase()?.trimEnd(',', '.', '!', '?') in T_AS_I_VERBS
+        ) return pre + "I"
         fixIGlyph(word, sentenceStart, nextToken)?.let { return pre + it + post }
         // Kesmesi düşmüş kısaltma, cümle ortasında büyük harfle de olsa: Youll -> You'll
         if ('\'' !in word && word.length >= 3 && word !in casedWords) {
@@ -422,8 +427,11 @@ class OcrWordCorrector(
          * Sözlük gerektirmez; her çeviri modunda (Google dahil) kullanılır.
          */
         fun fixPipes(text: String): String {
-            if ('|' !in text) return text
-            return text
+            // Küçük harfle başlayan kelimede büyük/küçük hali aynı görünen harfler büyük okunmuş:
+            // "diseuSS" -> diseuss (sonra discuss), "crosS-cOuntry" -> cross-country
+            val lowered = LOOKALIKE_CAPS.replace(text) { it.value.lowercase() }
+            if ('|' !in lowered) return lowered
+            return lowered
                 // Kelimenin ortasında "|" ise l'dir: "Mo|lis" -> Mollis
                 .replace(PIPE_IN_WORD, "l")
                 .replace(PIPE_APOSTROPHE, "I")
@@ -433,6 +441,7 @@ class OcrWordCorrector(
 
         // "|'m", "|-| demand" (kekeleme: I-I demand)
         private val PIPE_APOSTROPHE = Regex("(?<![\\p{L}\\d])\\|(?=['’-])|(?<=-)\\|(?![\\p{L}\\d])")
+        private val LOOKALIKE_CAPS = Regex("\\b(?=[a-z])(?=[a-zCOSUVWXZ]{4,}\\b)[a-z]*[COSUVWXZ][a-zCOSUVWXZ]*\\b")
         private val PIPE_IN_WORD = Regex("(?<=\\p{Ll})\\|(?=\\p{Ll})")
         private val PIPE_WORD = Regex("(?<![\\p{L}\\d])\\|(\\p{Ll}+)")
         private val STANDALONE_PIPE = Regex("(?<!\\S)\\|(?!\\S)")
@@ -471,7 +480,8 @@ class OcrWordCorrector(
             "hadnt" to "hadn't", "hasnt" to "hasn't", "arent" to "aren't", "werent" to "weren't", "theyll" to "they'll",
             "theyve" to "they've", "wouldve" to "would've", "couldve" to "could've", "shouldve" to "should've",
             "whos" to "who's", "whatll" to "what'll", "thatll" to "that'll", "wheres" to "where's", "hows" to "how's",
-            "itd" to "it'd", "youd" to "you'd", "youl" to "you'll", "theyl" to "they'll"
+            "itd" to "it'd", "youd" to "you'd", "youl" to "you'll", "theyl" to "they'll",
+            "howd" to "how'd", "whyd" to "why'd", "whered" to "where'd"
         )
         /** I yerine okunan tek karakter ("l can't", "J did", "| hate") */
         private val LONE_I = setOf("l", "J", "|")
@@ -481,6 +491,10 @@ class OcrWordCorrector(
         private val I_FORMS = mapOf(
             "ll" to "I'll", "'ll" to "I'll", "m" to "I'm", "'m" to "I'm", "d" to "I'd", "'d" to "I'd",
             "ve" to "I've", "'ve" to "I've"
+        )
+        private val T_AS_I_VERBS = setOf(
+            "want", "just", "know", "don't", "didn't", "think", "need", "gotta", "have", "had", "was", "am", "can",
+            "can't", "will", "won't", "told", "said", "mean", "guess", "swear", "never", "really", "thought", "wanna"
         )
         /** OCR'ın I yerine okuduğu harfler */
         private const val I_LOOKALIKES = "IlTJ|1f"

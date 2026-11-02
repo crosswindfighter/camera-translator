@@ -121,8 +121,43 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
     private fun translateSentence(sentence: String): String {
         // Tek başına "Hey!" OPUS'ta "Merhaba!" oluyordu (oyunda hep seslenme)
         if (STANDALONE_HEY.matches(sentence)) return sentence
-        return if (OcrTuning.opusCarefulEnabled) beamSentence(sentence) else greedySentence(sentence)
+        if (OcrTuning.opusCarefulEnabled) return beamSentence(sentence)
+        val fast = greedySentence(sentence)
+        // Kendini denetleme: çeviri şüpheliyse (cümle yarım, İngilizce kelime kalmış, tekrar, uydurma kalıp)
+        // aynı cümle dikkatli yöntemle bir kez daha çevrilir; daha az şüpheli olan gösterilir
+        val fastScore = suspicion(sentence, fast)
+        if (fastScore == 0) return fast
+        val careful = beamSentence(sentence)
+        val carefulScore = suspicion(sentence, careful)
+        val chosen = if (carefulScore < fastScore) careful else fast
+        OcrDebugDumper.logPipeline(
+            "Şüpheli çeviri",
+            "\"$fast\" ($fastScore) / dikkatli: \"$careful\" ($carefulScore) -> ${if (chosen === careful) "dikkatli" else "ilk"}"
+        )
+        return chosen
     }
+
+    /** Çevirinin biçimsel şüphe puanı (0 = sorun görünmüyor). Anlam hatalarını değil, bozuk çıktıyı yakalar. */
+    private fun suspicion(source: String, output: String): Int {
+        val out = output.trim()
+        if (out.isEmpty()) return 3
+        var score = 0
+        val sourceWords = WORD.findAll(source).map { it.value }.toList()
+        val outWords = WORD.findAll(out).map { it.value }.toList()
+        // Cümlenin bir kısmı atlanmış
+        if (sourceWords.size >= 5 && outWords.size < sourceWords.size * 0.4f) score++
+        // İngilizce kelime çevrilmeden kalmış (isimler ve kısaltmalar büyük harfle başladığı için sayılmaz)
+        val sourceLower = sourceWords.map { it.lowercase() }.toSet()
+        if (outWords.any { it.length >= 4 && it[0].isLowerCase() && it.all { c -> c in 'a'..'z' } && it in sourceLower }) score++
+        // Aynı kelime art arda tekrarlanmış (kaynakta da tekrar yoksa)
+        if (hasRepeat(outWords) && !hasRepeat(sourceWords)) score++
+        // Altyazıda geçmemesi gereken uydurma kalıp
+        if (MADE_UP.containsMatchIn(out)) score += 2
+        return score
+    }
+
+    private fun hasRepeat(words: List<String>): Boolean =
+        (2 until words.size).any { words[it].equals(words[it - 1], true) && words[it].equals(words[it - 2], true) }
 
     /**
      * Dikkatli çeviri (beam search): her adımda en olası [BEAM_SIZE] yol birlikte ilerletilir, sonunda
@@ -448,6 +483,9 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
 
         private val SENTENCE_SPLIT = Regex("(?<=[.!?])\\s+")
         private val STANDALONE_HEY = Regex("(?i)hey[.!]*")
+        private val WORD = Regex("[\\p{L}']+")
+        /** OPUS'un film/altyazı verisinden uydurduğu kalıplar ("Roger … tarafından yazıldı") */
+        private val MADE_UP = Regex("(?i)tarafından (yazıldı|çevrildi)|altyazı(lar)?:|çeviri:")
     }
 }
 

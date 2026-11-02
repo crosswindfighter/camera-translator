@@ -1,9 +1,7 @@
 package com.example.cameratranslator
 
 import android.Manifest
-import android.content.Intent
 import android.content.res.Configuration
-import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.WindowManager
@@ -90,6 +88,11 @@ class MainActivity : ComponentActivity() {
         OcrDebugDumper.init(this)
         OfflineModelDownloader.init(this)
         OcrTextFixer.init(this)
+        // Rehber yalnızca uygulamayı yeni yükleyene: güncelleme yapan (zaten kullanan) birine çıkmaz
+        if (!settingsManager.hasGuideFlag()) {
+            val info = runCatching { packageManager.getPackageInfo(packageName, 0) }.getOrNull()
+            if (info != null && info.firstInstallTime != info.lastUpdateTime) settingsManager.saveGuideSeen(true)
+        }
         OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
         OcrTuning.opusCarefulEnabled = settingsManager.getOpusCarefulEnabled()
         OcrTuning.centerOnlyEnabled = settingsManager.getOcrCenterOnlyEnabled()
@@ -388,27 +391,8 @@ class MainActivity : ComponentActivity() {
                             settingsManager.savePromptedUpdateVersion(update.version)
                             availableUpdate = null
                         }
-                        AlertDialog(
-                            onDismissRequest = dismiss,
-                            title = { Text("🎉 Yeni sürüm mevcut") },
-                            text = {
-                                Text(
-                                    "Camera Translator v${update.version} yayınlandı (yüklü sürüm: v${UpdateChecker.currentVersion}). " +
-                                        "Yeni özellikler ve iyileştirmeler için güncellemeniz önerilir."
-                                )
-                            },
-                            confirmButton = {
-                                TextButton(onClick = {
-                                    dismiss()
-                                    try {
-                                        startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(update.pageUrl)))
-                                    } catch (e: Exception) {
-                                        Log.e(PIPELINE_TAG, "Cannot open release page", e)
-                                    }
-                                }) { Text("Şimdi güncelle") }
-                            },
-                            dismissButton = { TextButton(onClick = dismiss) { Text("Daha sonra") } }
-                        )
+                        // Uygulama içinde indirip kurulum penceresini açar (APK yoksa GitHub sayfası)
+                        UpdateDialog(release = update, onDismiss = dismiss)
                     }
 
                 }
@@ -439,6 +423,8 @@ class MainActivity : ComponentActivity() {
         val cameraPermissionState = rememberPermissionState(Manifest.permission.CAMERA)
 
         var currentTranslation by rememberSaveable { mutableStateOf("") }
+        // İlk açılış rehberinin adımı (-1 = kapalı); Hakkında'dan tekrar açılabilir
+        var guideStep by remember { mutableIntStateOf(if (settingsManager.isGuideSeen()) -1 else 0) }
         // Ekran çevirisi: çeviri kutusu İngilizce yazının tam üstüne konur; yazı 5 sn görünmezse kutu kaybolur
         var screenTextBounds by remember { mutableStateOf<android.graphics.RectF?>(null) }
         val lastTextBounds = remember { arrayOfNulls<android.graphics.RectF>(1) }
@@ -563,6 +549,13 @@ class MainActivity : ComponentActivity() {
                     isKnownWord = translationManager::isKnownWord
                 ) { confirmedText ->
                     if (!isTrToEnRef.value && TURKISH_LETTERS.containsMatchIn(confirmedText)) return@OcrStabilizer
+                    // Ek alanlarda orta filtresi yok: harita, para, mesafe gibi yazılar ("$1,250", "0.4 mi")
+                    // çevrilmesin; en az 2 gerçek kelime gerekir
+                    val realWords = confirmedText.split(' ').count { word ->
+                        val core = word.trim { !it.isLetter() && it != '\'' }.lowercase()
+                        core.length >= 2 && translationManager.isKnownWord(core)
+                    }
+                    if (realWords < 2) return@OcrStabilizer
                     lifecycleScope.launch {
                         try {
                             val translated = withContext(Dispatchers.IO) { translationManager.translate(confirmedText) }
@@ -769,6 +762,19 @@ class MainActivity : ComponentActivity() {
                             bounds = if (isPaused) null else extraBounds[i],
                             lineHeight = extraLineHeights[i]
                         )
+                    },
+                    guideStep = guideStep,
+                    onGuideNext = {
+                        if (guideStep >= GUIDE_STEP_COUNT - 1) {
+                            guideStep = -1
+                            settingsManager.saveGuideSeen(true)
+                        } else {
+                            guideStep++
+                        }
+                    },
+                    onGuideSkip = {
+                        guideStep = -1
+                        settingsManager.saveGuideSeen(true)
                     },
                     onExtraAreaChange = { index, rect -> analyzer.setExtraArea(index, rect) },
                     onExtraAreaSave = { index, landscape, rect ->

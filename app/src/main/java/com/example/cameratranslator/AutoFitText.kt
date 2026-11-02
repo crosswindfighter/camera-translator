@@ -14,8 +14,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.sp
 
-/** Yazının küçülebileceği en küçük boyut (sp): bundan sonra sığmasa da okunur kalsın. */
-private const val MIN_FIT_FONT_SIZE = 14f
+/**
+ * Yazının küçülebileceği en küçük boyut (sp). Eskiden 14'tü: çok uzun altyazı 14 sp'de de sığmayınca
+ * son satırlar kesiliyordu; artık kesilmektense biraz daha küçük ama tam yazı gösterilir.
+ */
+private const val MIN_FIT_FONT_SIZE = 10f
 
 /**
  * Verilen alana sığan altyazı: önce [maxFontSize] denenir, satırlar alanın yüksekliğini aşıyorsa
