@@ -89,6 +89,9 @@ fun MainOverlay(
     guideStep: Int = -1,
     onGuideNext: () -> Unit = {},
     onGuideBack: () -> Unit = {},
+    /** Telefon ekranı modu: kamera ve kamera ayarları gizlenir, ortada yalnızca bilgi yazısı */
+    isPhoneMode: Boolean = false,
+    onToggleInputSource: () -> Unit = {},
     onGuideSkip: () -> Unit = {},
     history: List<String>,
     /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği */
@@ -226,7 +229,7 @@ fun MainOverlay(
             }
     ) {
         // LAYER 1: Scrim & Green OCR Box Border (Green border rendered ONLY in DEFAULT mode!)
-        if (containerSize != Size.Zero && !isStealthMode) {
+        if (containerSize != Size.Zero && !isStealthMode && !isPhoneMode) {
             if (displayMode == DisplayMode.DEFAULT) {
                 // Sinematik Altyazı modunda ekran kararır, OCR alanı şeffaf kesilir ve yeşil çerçeve çizilir
                 Canvas(modifier = Modifier.fillMaxSize()) {
@@ -269,8 +272,8 @@ fun MainOverlay(
             }
         }
 
-        // LAYER 2: Subtitle Display
-        if (displayMode == DisplayMode.DEFAULT) {
+        // LAYER 2: Subtitle Display (telefon ekranı modunda yalnızca ortadaki bilgi yazısı)
+        if (displayMode == DisplayMode.DEFAULT || isPhoneMode) {
             // Altyazı alanının sınırı: kontroller görünürken yazı soldaki zoom'un ve sağdaki ikonların
             // iç kenarında biter (kontroller kamera deliğinden kaçınca sınır da onlarla kayar);
             // göz modunda ekranın kenarına kadar uzanır, yalnızca kamera deliğinin hemen yanında durur.
@@ -469,7 +472,7 @@ fun MainOverlay(
 
         // LAYER 3: Touch Interaction Layer for OCR Box Dragging/Resizing (Hidden in Stealth Mode)
         // Bound dynamically to containerSize and displayMode so dragging never gets stuck!
-        if (containerSize.width > 0f && containerSize.height > 0f && !isStealthMode) {
+        if (containerSize.width > 0f && containerSize.height > 0f && !isStealthMode && !isPhoneMode) {
             Box(
                 modifier = Modifier
                     .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
@@ -520,7 +523,7 @@ fun MainOverlay(
         }
 
         // Ekran çevirisinin ek alanları (kendi çevirileri, sürükleme ve boyutlandırmalarıyla)
-        if (displayMode != DisplayMode.DEFAULT) {
+        if (displayMode != DisplayMode.DEFAULT && !isPhoneMode) {
             extraAreas.forEachIndexed { index, area ->
                 ExtraOcrArea(
                     number = index + 2,
@@ -607,7 +610,7 @@ fun MainOverlay(
 
         // Left Zoom Controls: kaydırıcı ya da 1x–5x düğmeleri (Hidden in Stealth Mode)
         // Automatically shifts away from camera punch-hole/notch on left edge in landscape mode!
-        if (!isStealthMode && useZoomSlider && isZoomRangeKnown) {
+        if (!isStealthMode && !isPhoneMode && useZoomSlider && isZoomRangeKnown) {
             val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
             val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
 
@@ -621,7 +624,7 @@ fun MainOverlay(
                     .padding(start = dynamicStartPadding)
                     .onGloballyPositioned { zoomBounds = it.boundsInRoot() }
             )
-        } else if (!isStealthMode && !useZoomSlider) {
+        } else if (!isStealthMode && !isPhoneMode && !useZoomSlider) {
             val cutoutLeftDp = WindowInsets.displayCutout.asPaddingValues().calculateLeftPadding(LocalLayoutDirection.current)
             val dynamicStartPadding = if (cutoutLeftDp > 0.dp) cutoutLeftDp + 8.dp else 12.dp
 
@@ -712,7 +715,7 @@ fun MainOverlay(
             }
 
             // 4. Exposure Control Sun Button
-            if (!isStealthMode) {
+            if (!isStealthMode && !isPhoneMode) {
                 IconButton(
                     onClick = onToggleExposureControls,
                     modifier = Modifier.size(44.dp).onGloballyPositioned {
@@ -731,7 +734,7 @@ fun MainOverlay(
             }
 
             // 5. Manual Focus Control Button
-            if (!isStealthMode) {
+            if (!isStealthMode && !isPhoneMode) {
                 IconButton(
                     onClick = onToggleFocusControls,
                     modifier = Modifier.size(44.dp).onGloballyPositioned {
@@ -751,7 +754,7 @@ fun MainOverlay(
         }
 
         // Floating Sliders Overlay (Fixed Anchors on Right, DOES NOT CAUSE TOOLBAR BUTTONS TO SHIFT OR JUMP!)
-        if (!isStealthMode && isExposureControlsVisible) {
+        if (!isStealthMode && !isPhoneMode && isExposureControlsVisible) {
             // Telefonun sınırının altına elle pozlamayla "ekstra karanlık" adımlar eklenir (mor bölge)
             val extraDark = if (CameraTuning.supportsManualExposure) CameraTuning.EXTRA_DARK_STEPS else 0
             val sliderMin = exposureRange.first - extraDark
@@ -769,7 +772,7 @@ fun MainOverlay(
             )
         }
 
-        if (!isStealthMode && isFocusControlsVisible) {
+        if (!isStealthMode && !isPhoneMode && isFocusControlsVisible) {
             val isAutoFocus = manualFocusValue < AUTO_FOCUS_ZONE
             Column(
                 modifier = Modifier
@@ -842,6 +845,24 @@ fun MainOverlay(
 
                 Spacer(modifier = Modifier.width(16.dp))
                 
+                // Okunacak kaynak: kamera (TV) ya da telefonun kendi ekranı. Yalnızca durdurulmuşken değişir.
+                Surface(
+                    onClick = onToggleInputSource,
+                    enabled = isPaused,
+                    color = Color.Transparent,
+                    shape = RoundedCornerShape(2.dp)
+                ) {
+                    Text(
+                        text = if (isPhoneMode) "📱 Ekran" else "📷 Kamera",
+                        color = Color.White.copy(alpha = if (isPaused) 1f else 0.4f),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(16.dp))
+
                 // Language Direction Toggle
                 Surface(
                     onClick = onToggleDirection,
