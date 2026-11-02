@@ -35,7 +35,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 - **Seslendirme Ayarları:** Her iki modda da seslendirmenin geride kalmaması için ayarlanabilir ses hızı.
 
 ### 📺 2 Farklı Çeviri Görünüm Modu
-- 🎬 **Sinematik Altyazı:** Çeviriyi iri puntoyla OCR alanının hemen yanında gösterir. **Akıllı akış** açıkken geçmiş çeviriler küçülerek akar: OCR alanı aşağıdaysa yukarı doğru, yukarıdaysa aşağı doğru; ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) ayarlanabilir.
+- 🎬 **Sinematik Altyazı:** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) ayarlanabilir.
 <p align="center">
   <img src="images/Screenshot_20261024_143417_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>

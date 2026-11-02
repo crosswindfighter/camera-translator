@@ -313,7 +313,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviriyi iri ve net bir puntoyla, OCR alanının hemen yanında gösterir. Akıllı akış açıkken geçmiş çeviriler küçülerek akar: OCR alanı aşağıdaysa yukarı doğru, yukarıdaysa aşağı doğru; ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) Ayarlar > Görünüm Modu'ndan seçilir, akış kapatılabilir. OCR alanı yeşil bir çerçeve ve sağ alt köşesindeki yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
+                        text = "Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) Ayarlar > Görünüm Modu'ndan seçilir, akış kapatılabilir. OCR alanı yeşil bir çerçeve ve sağ alt köşesindeki yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

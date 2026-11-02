@@ -25,7 +25,7 @@ object ReleaseNotes {
         "1.0.7" to listOf(
             "Ekran Çevirisi yenilendi: çeviri, İngilizce yazının tam üstünde yazıyı saran siyah bir kutuda gösterilir; yazı boyutu ekrandaki yazıya göre ayarlanır, kutu düğmelerin üstüne binmez, yazı kaybolunca çeviri de kaybolur.",
             "Ekran Çevirisi'nde 3'e kadar OCR alanı: altyazının yanında görev ve bilgi mesajlarını da ayrı ayrı çevirebilirsiniz.",
-            "Akıllı akış: OCR alanı aşağıdaysa geçmiş çeviriler yukarı doğru, yukarıdaysa aşağı doğru yumuşakça akar ve ekranın kenarında kaybolur.",
+            "Akıllı akış: çeviriler OCR alanının konumuna göre kendiliğinden akar. OCR alanı aşağıdaysa yeni çeviri üstünde belirir ve geçmiş çeviriler yukarı doğru, yukarıdaysa altında belirir ve aşağı doğru yumuşakça akar.",
             "Yeni Çeviri geçmişi ekranı: kaçırdığınız altyazılara menüden bakabilirsiniz.",
             "Kendini denetleyen çeviri: yarım kalan ya da bozuk görünen çeviriler otomatik olarak yeniden denenir.",
             "Daha doğru okuma ve çeviri: sık karşılaşılan OCR hataları ve argo kalıpları düzeltildi.",
