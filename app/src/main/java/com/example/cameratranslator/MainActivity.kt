@@ -9,6 +9,7 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.SurfaceOrientedMeteringPointFactory
@@ -59,6 +60,44 @@ enum class Screen {
 
 class MainActivity : ComponentActivity() {
 
+    // Telefon ekranı modu: Android'in ekran paylaşımı onayı; onaylanınca hizmet başlar ve uygulama arka plana geçer
+    private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode == RESULT_OK && data != null) {
+            PhoneScreenService.start(this, result.resultCode, data)
+            Toast.makeText(this, "Oyununuzu açın. Menü için ekranın kenarındaki yüzen düğmeye dokunun.", Toast.LENGTH_LONG).show()
+            moveTaskToBack(true)
+        } else {
+            Toast.makeText(this, "Ekran paylaşımına izin verilmedi.", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /** Telefon ekranı modunu başlatır: önce "diğer uygulamaların üstünde göster" izni, sonra ekran paylaşımı onayı */
+    private fun startPhoneScreen() {
+        if (!PhoneScreenService.isSupported) {
+            Toast.makeText(this, "Telefon ekranı modu Android 10 ve üstünde çalışır.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (!PhoneScreenService.canDrawOverlays(this)) {
+            Toast.makeText(
+                this,
+                "Çevirilerin oyunun üstünde görünmesi için açılan ekranda \"Diğer uygulamaların üzerinde göster\" iznini açın, sonra geri dönüp Başlat'a basın.",
+                Toast.LENGTH_LONG
+            ).show()
+            runCatching {
+                startActivity(
+                    android.content.Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        android.net.Uri.parse("package:$packageName")
+                    )
+                )
+            }
+            return
+        }
+        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
+        screenCaptureLauncher.launch(manager.createScreenCaptureIntent())
+    }
+
     private data class OcrApiHistoryItem(
         val rawText: String,
         val normalizedText: String,
@@ -66,7 +105,7 @@ class MainActivity : ComponentActivity() {
     )
 
     private val translationManager by lazy {
-        TranslationManager(CompositeTranslationEngine(offlinePlus = OpusTranslationEngine(applicationContext)))
+        SharedTranslation.get(applicationContext)
     }
     private lateinit var speechManager: SpeechManager
     private var lastTranslatedSource: String? = null
@@ -465,6 +504,9 @@ class MainActivity : ComponentActivity() {
         val lastTextSeenAt = remember { longArrayOf(0L) }
         var historyList by rememberSaveable { mutableStateOf(listOf<String>()) }
         var isPaused by rememberSaveable { mutableStateOf(true) }
+        // Okunacak kaynak: kamera (TV) ya da telefonun kendi ekranı (deneysel)
+        var isPhoneSource by remember { mutableStateOf(settingsManager.isPhoneScreenSource()) }
+        val phoneRunning by PhoneScreenService.running.collectAsStateWithLifecycle()
         var isMuted by remember { mutableStateOf(!speechManager.isEnabled) }
         var isFirstFrameAfterStart by remember { mutableStateOf(true) }
         val isTrToEnRef = rememberUpdatedState(isTrToEn)
@@ -719,7 +761,8 @@ class MainActivity : ComponentActivity() {
             ) {
                 val isStealthModeVal = isStealthMode
                 val cameraAlpha = if (isStealthModeVal && displayMode == DisplayMode.DEFAULT) 0f else 1f
-                Box(modifier = Modifier.fillMaxSize().alpha(cameraAlpha)) {
+                // Telefon ekranı modunda kamera hiç açılmaz (pil)
+                if (!isPhoneSource) Box(modifier = Modifier.fillMaxSize().alpha(cameraAlpha)) {
                     CameraPreview(
                         analyzer = analyzer,
                         zoomLevel = zoomLevel,
@@ -770,6 +813,12 @@ class MainActivity : ComponentActivity() {
                 val isBusy by translationManager.isBusy.collectAsStateWithLifecycle()
 
                 val displayResult = when {
+                    isPhoneSource -> if (phoneRunning) {
+                        "📱 Telefon ekranı çevriliyor.\nOyununuza dönün; OCR alanlarını düzenlemek ya da durdurmak için ekranın kenarındaki yüzen düğmeye dokunun."
+                    } else {
+                        "📱 Telefon ekranı modu (deneysel)\nTelefonda oynadığınız oyunun altyazılarını çevirir. Başlat'a basın, ekran paylaşımına izin verin, " +
+                            "sonra oyununuzu açın. OCR alanlarını oyunun içinden, yüzen düğmeyle yerleştirirsiniz."
+                    }
                     statusText.isNotEmpty() -> statusText
                     isPaused -> ""
                     currentTranslation.isNotEmpty() -> currentTranslation
@@ -784,7 +833,14 @@ class MainActivity : ComponentActivity() {
                 MainOverlay(
                     currentTranslation = displayResult,
                     // Küçük/ince yazı yalnızca OPUS indirme notunda; "Çeviriye Hazır" gibi durumlar eskisi gibi
-                    isStatusMessage = opusModelHint.isNotEmpty(),
+                    isStatusMessage = opusModelHint.isNotEmpty() || isPhoneSource,
+                    isPhoneMode = isPhoneSource,
+                    onToggleInputSource = {
+                        if (isPaused && !phoneRunning) {
+                            isPhoneSource = !isPhoneSource
+                            settingsManager.savePhoneScreenSource(isPhoneSource)
+                        }
+                    },
                     screenTextBounds = if (isPaused || currentTranslation.isEmpty()) null else screenTextBounds,
                     screenTextLineHeight = screenTextLineHeight,
                     extraAreas = if (displayMode == DisplayMode.DEFAULT) emptyList() else List(extraAreaCount) { i ->
@@ -817,7 +873,8 @@ class MainActivity : ComponentActivity() {
                     history = historyList,
                     subtitleFlow = subtitleFlow,
                     flowLines = flowLines,
-                    isPaused = isPaused,
+                    // Telefon ekranı modunda Başlat/Durdur hizmetin durumunu gösterir
+                    isPaused = if (isPhoneSource) !phoneRunning else isPaused,
                     zoomLevel = zoomLevel,
                     translationMode = translationMode,
                     isOfflinePlusActive = isOfflinePlusActive,
@@ -833,6 +890,10 @@ class MainActivity : ComponentActivity() {
                         translationManager.mode = translationMode
                     },
                     onTogglePause = {
+                        if (isPhoneSource) {
+                            if (phoneRunning) PhoneScreenService.stop(context) else startPhoneScreen()
+                            return@MainOverlay
+                        }
                         if (isPaused) {
                             if (translationMode == TranslationMode.CLOUD && settingsManager.getApiKey().isBlank()) {
                                 Toast.makeText(context, "Lütfen Ayarlar'dan Cloud Translation API anahtarınızı girin.", Toast.LENGTH_LONG).show()
@@ -895,7 +956,7 @@ class MainActivity : ComponentActivity() {
                     },
                     subtitleFontSize = subtitleFontSize,
                     displayMode = displayMode,
-                    showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
+                    showDisplayModeQuickSwitch = showDisplayModeQuickSwitch && !isPhoneSource,
                     onToggleDisplayMode = onToggleDisplayMode,
                     useZoomSlider = useZoomSlider,
                     isZoomRangeKnown = zoomRange != null,
@@ -1027,7 +1088,8 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
         speechManager.stop()
         speechManager.shutdown()
-        translationManager.close()
+        // Telefon ekranı modu sürüyorsa çeviri motoru hizmette kullanılmaya devam eder
+        if (!PhoneScreenService.running.value) SharedTranslation.close()
     }
 
     companion object {
