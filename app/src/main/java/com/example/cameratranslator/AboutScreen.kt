@@ -262,7 +262,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Sesli okuma, Ayarlar ekranındaki 'Sesli okuma' anahtarıyla açılıp kapatılabilir. Ayrıca aktif edildiğinde kamera ekranının sağ araç çubuğunda beliren hızlı hoparlör (🔊/🔇) butonuyla tek tıkla sessize alınabilir.",
+                        text = "Sesli okuma, Ayarlar → Sesli Okuma bölümündeki 'Sesli okumayı aç' anahtarıyla açılıp kapatılabilir. Ayrıca aktif edildiğinde kamera ekranının sağ araç çubuğunda beliren hızlı hoparlör (🔊/🔇) butonuyla tek tıkla sessize alınabilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -313,7 +313,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviriyi telefon ekranının tam ortasında iri ve net bir puntoyla gösterir. Yeni çeviriler geldikçe eski altyazılar yukarı doğru kayar, adeta bir sinema altyazısı deneyimi sunar. OCR alanı yeşil bir çerçeve ve sağ alt köşesinde yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
+                        text = "Çeviriyi iri ve net bir puntoyla, OCR alanının hemen yanında gösterir. Akıllı akış açıkken geçmiş çeviriler küçülerek akar: OCR alanı aşağıdaysa yukarı doğru, yukarıdaysa aşağı doğru; ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) Ayarlar > Görünüm Modu'ndan seçilir, akış kapatılabilir. OCR alanı yeşil bir çerçeve ve sağ alt köşesindeki yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -325,7 +325,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Televizyon veya monitör yazılarını yerinde takip etmek için tasarlanmıştır. OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar > Görünüm Modu'ndan en fazla 3 OCR alanı eklenebilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir. Alanlar sürüklenerek taşınır, sağ alt köşedeki açık mavi okla (⇲) boyutlandırılır; konumları dikey ve yatay için ayrı kaydedilir.",
+                        text = "Televizyon veya monitör yazılarını yerinde takip etmek için tasarlanmıştır. OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; Ayarlar'dan en küçük yazı boyutu seçilebilir. Siyah kutu yazıyı sarar, uzun çevirilerde büyür ama düğmelerin üstüne binmez; yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar > Görünüm Modu'ndan en fazla 3 OCR alanı eklenebilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir. Alanlar sürüklenerek taşınır, sağ alt köşedeki açık mavi okla (⇲) boyutlandırılır; konumları dikey ve yatay için ayrı kaydedilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -403,7 +403,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere neden olabilir. Sağ taraftaki Güneş ikonundan parlaklık kısıldığında parlamalar söner, OCR okuma doğruluğu ve netliği belirgin şekilde artar.",
+                        text = "Karanlık odada TV veya monitördeki beyaz altyazılar kamera merceğinde parlama (blooming) yaparak harflerin yanlış okunmasına ve hatalı çevirilere neden olabilir. Sağ taraftaki Güneş ikonundan parlaklık kısıldığında parlamalar söner, OCR okuma doğruluğu ve netliği belirgin şekilde artar. Kaydırıcının alt kısmındaki mor bölge ekstra karartmadır; çok parlak sahnelerde işe yarar.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -421,13 +421,37 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "• Zoom Kontrolleri (1x - 5x):",
+                        text = "• Çeviri Geçmişi (☰ Menü):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Koltukta otururken televizyona yaklaşmadan 1x ile 5x arasında yakınlaştırma yapabilirsiniz.",
+                        text = "Sol üstteki menüden açılır. Uygulama açık olduğu sürece çevrilen altyazılar İngilizceleriyle birlikte listelenir; kaçırdığınız bir cümleye sonradan bakabilirsiniz. Geçmiş telefona kaydedilmez, uygulama kapanınca silinir.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "• Güncellemeler ve Rehber:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Yeni sürüm çıktığında uygulama sizi bilgilendirir; güncelleme uygulamanın içinden indirilip tek dokunuşla kurulabilir. Güncellemeden sonraki ilk açılışta yenilikler gösterilir. Uygulamanın düğmelerini tanıtan rehbere bu sayfanın altındaki düğmeden tekrar ulaşabilirsiniz.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "• Zoom Kontrolleri:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Koltukta otururken televizyona yaklaşmadan yakınlaştırma yapabilirsiniz. Soldaki kaydırıcı telefonun kamerasının izin verdiği aralıkta çalışır ve gerçek lens değerlerine (1x, 3x, 10x) hafifçe yapışır; isterseniz Ayarlar'dan 1x–5x sabit düğmelerine geçebilirsiniz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

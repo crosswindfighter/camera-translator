@@ -81,9 +81,9 @@ fun ScreenTranslationBox(
     val margin = with(density) { 4.dp.toPx() }
     val centerX = ocrRect.left + (bounds.left + bounds.right) / 2f * ocrRect.width
     val centerY = ocrRect.top + (bounds.top + bounds.bottom) / 2f * ocrRect.height
-    // Türkçe genelde daha uzun: kutu en az OCR alanının yarısı genişliğinde, en az 40 dp yüksekliğinde
-    var boxWidth = (bounds.width() * ocrRect.width + pad * 2)
-        .coerceAtLeast(ocrRect.width * 0.5f).coerceAtMost(ocrRect.width)
+    // Kutu en az İngilizce yazıyı örtecek genişlikte (sonunda Türkçe yazıya göre daraltılır), en az 40 dp yüksekliğinde
+    val englishWidth = (bounds.width() * ocrRect.width + pad * 2).coerceAtMost(ocrRect.width)
+    var boxWidth = ocrRect.width
     var boxHeight = (bounds.height() * ocrRect.height + pad * 2).coerceAtLeast(with(density) { 40.dp.toPx() })
     // Kutunun boyu, içindeki yazının ölçüsünden hesaplanır (yazı aynı stil ve genişlikle çizilir), cümle kesilmez.
     // Sığmazsa kutu sırayla büyür: alanın tüm genişliği -> alanı biraz taşan genişlik (en fazla 1,4 katı) ->
@@ -96,25 +96,30 @@ fun ScreenTranslationBox(
         lineHeight = (size * 1.15f).sp,
         color = Color.White
     )
-    fun textHeight(width: Float, size: Float): Float = measurer.measure(
+    fun layout(width: Float, size: Float) = measurer.measure(
         text = text,
         style = style(size),
         constraints = Constraints(maxWidth = (width - padX).roundToInt().coerceAtLeast(1))
-    ).size.height.toFloat()
+    )
+    fun textHeight(width: Float, size: Float): Float = layout(width, size).size.height.toFloat()
     val limit = allowedArea ?: if (containerSize.width > 0f && containerSize.height > 0f) {
         Rect(margin, margin, containerSize.width - margin, containerSize.height - margin)
     } else ocrRect
     val maxWidth = maxOf(ocrRect.width, minOf(limit.width, ocrRect.width * 1.4f))
     val maxHeight = minOf(limit.height, maxOf(ocrRect.height * 1.6f, boxHeight * 3f))
     var fontSize = maxOf(autoFontSize, minFontSize)
-    if (textHeight(boxWidth, fontSize) + padY > boxHeight) boxWidth = ocrRect.width
-    if (textHeight(boxWidth, fontSize) + padY > ocrRect.height) boxWidth = maxWidth
+    if (textHeight(boxWidth, fontSize) + padY > maxOf(ocrRect.height, boxHeight)) boxWidth = maxWidth
     var measured = textHeight(boxWidth, fontSize)
     while (measured + padY > maxHeight && fontSize > 12f) {
         fontSize -= 1f
         measured = textHeight(boxWidth, fontSize)
     }
     boxHeight = maxOf(boxHeight, measured + padY)
+    // Kutu yazıyı sarar: iki yanda boş siyah kalmasın. En uzun satır kadar (+ kenar payı), ama İngilizce
+    // yazıyı örtmeye yetecek kadar. Satırlar zaten bu genişliğe sığdığı için aynı yerlerden bölünür.
+    val lines = layout(boxWidth, fontSize)
+    val longestLine = (0 until lines.lineCount).maxOfOrNull { lines.getLineRight(it) - lines.getLineLeft(it) } ?: 0f
+    boxWidth = maxOf(englishWidth, kotlin.math.ceil(longestLine) + padX + 2f).coerceAtMost(boxWidth)
     // Alana sığıyorsa alanın içinde, taşıyorsa ekranın içinde kalır
     val boxLeft = if (boxWidth <= ocrRect.width) {
         clampSafe(centerX - boxWidth / 2f, ocrRect.left, ocrRect.right - boxWidth)

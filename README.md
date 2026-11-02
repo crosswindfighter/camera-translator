@@ -35,7 +35,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 - **Seslendirme Ayarları:** Her iki modda da seslendirmenin geride kalmaması için ayarlanabilir ses hızı.
 
 ### 📺 2 Farklı Çeviri Görünüm Modu
-- 🎬 **Sinematik Altyazı:** Çeviriyi ekranın tam ortasında iri puntoyla gösterir, eski çeviriler yukarı kayar.
+- 🎬 **Sinematik Altyazı:** Çeviriyi iri puntoyla OCR alanının hemen yanında gösterir. **Akıllı akış** açıkken geçmiş çeviriler küçülerek akar: OCR alanı aşağıdaysa yukarı doğru, yukarıdaysa aşağı doğru; ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) ayarlanabilir.
 <p align="center">
   <img src="images/Screenshot_20261024_143417_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
@@ -45,7 +45,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
   <img src="images/Screenshot_20261024_143645_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
 
-- 📺 **Ekran Çevirisi:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır, kutu çeviri sığacak kadar büyür. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla 3 OCR alanı kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
+- 📺 **Ekran Çevirisi:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır (Ayarlar'dan en küçük boyut seçilebilir); uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
 <p align="center">
   <img src="images/Screenshot_20261024_144054_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
@@ -57,12 +57,16 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 </p>
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
-- **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır.
+- **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır. Kaydırıcının alt kısmındaki mor bölge ekstra karartmadır.
 - **Hayalet / Göz Modu (👁️‍🗨️):** Ekrandaki tüm araç çubuklarını ve çerçeveleri gizler.
-- **Zoom Kontrolü (1x - 5x):** Televizyona yaklaşmadan koltuktan rahat kullanım.
+- **Zoom Kontrolü:** Telefonun kamerasının izin verdiği aralıkta kaydırıcı (gerçek lens değerlerine hafifçe yapışır) ya da 1x–5x sabit düğmeler; televizyona yaklaşmadan koltuktan rahat kullanım.
 - **Manuel Odak + AUTO:** Uzaktaki TV'de yazı bulanıksa odak kaydırıcısıyla netliği elle ayarlayın; AUTO ile tek dokunuşta otomatik odağa dönün.
 - **Beyaz Altyazı Filtresi:** Arka planı olmayan beyaz altyazılarda dokulu sahnelerin (ör. araba sürerken yol) okumayı bozmasını azaltır.
 - **Bağımsız Mod Hafızası:** Dikey ve yatay ekran pozisyonları ile yazı boyutları her mod için bağımsız olarak saklanır.
+- **Çeviri Geçmişi:** Uygulama açık olduğu sürece çevrilen altyazılar İngilizceleriyle birlikte menüden görüntülenebilir; kaçırdığınız cümlelere sonradan bakabilirsiniz (telefona kaydedilmez).
+- **Kendini Denetleyen Çeviri:** OPUS'un yarım kalan ya da bozuk görünen çevirileri otomatik olarak daha dikkatli bir yöntemle yeniden denenir.
+- **Uygulama İçinden Güncelleme:** Yeni sürüm çıktığında uygulama sizi bilgilendirir; güncelleme uygulamanın içinden indirilip tek dokunuşla kurulur. Güncellemeden sonraki ilk açılışta yenilikler gösterilir.
+- **İlk Açılış Rehberi:** Uygulamanın düğmelerini adım adım tanıtır; Hakkında ekranından tekrar açılabilir.
 
 ---
 
@@ -104,7 +108,7 @@ Camera Translator geliştirdiğim ilk Android uygulamasıdır. Karşılaştığ�
 Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonrasında **Claude (Anthropic)** ile geliştirildi.
 
 - **Google Gemini** — Kamera, OCR, çeviri ve seslendirme altyapısı, arayüz ve ilk sürümler (v1.0.0 – v1.0.1).
-- **Claude (Anthropic)** — v1.0.2 ile gelen geliştirmelerin büyük bölümü. Fikirler, testler ve kararlar bana ait; Claude ile birlikte yapılanlar:
+- **Claude (Anthropic)** — v1.0.2'den itibaren gelen geliştirmelerin büyük bölümü. Fikirler, testler ve kararlar bana ait; Claude ile birlikte yapılanlar:
 
 #### 🔐 Güvenlik
 - Google Cloud API anahtarı URL yerine istek başlığıyla gönderiliyor; anahtar Google Cloud konsolunda yalnızca bu uygulamaya (paket adı + imza) kısıtlanabiliyor.
@@ -136,6 +140,14 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Manuel odak kaydırıcısında **AUTO** bölgesi/butonu, TV mesafesine göre hassaslaştırılmış odak.
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
+
+#### 🎨 v1.0.7: büyük yenilenme
+- Ekran Çevirisi baştan yazıldı: İngilizce yazının üstüne oturan ve onu saran çeviri kutusu, otomatik yazı boyutu, 3 OCR alanı.
+- Sinematik altyazıda akıllı akış ve çeviri geçmişi ekranı.
+- Kendini denetleyen OPUS çevirisi; OCR düzelticisinde ve argo kurallarında gerçek oyun testlerinden çıkan düzeltmeler.
+- Uygulama içinden güncelleme, ilk açılış rehberi ve "Yenilikler" penceresi.
+- Yenilenen görünüm: renkli simgeler, yeni menü, alt kutulara ayrılmış ayarlar, sade açılış ekranı.
+- Telefon döndürülünce uygulama baştan açılmıyor; Ayarlar açıkken kamera kapanıyor.
 
 Her iki asistana da geliştirme sürecindeki katkıları için teşekkür ederim. Hataları ve önerileri [GitHub Issues](https://github.com/crosswindfighter/camera-translator/issues) üzerinden bildirebilirsiniz.
 

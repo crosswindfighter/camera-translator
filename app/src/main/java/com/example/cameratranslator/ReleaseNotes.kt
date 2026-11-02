@@ -23,14 +23,14 @@ import androidx.compose.ui.unit.sp
 object ReleaseNotes {
     private val NOTES = mapOf(
         "1.0.7" to listOf(
-            "Ekran Çevirisi yenilendi: çeviri, İngilizce yazının tam üstünde siyah kutuda gösterilir; yazı boyutu ekrandaki yazıya göre ayarlanır, yazı kaybolunca çeviri de kaybolur.",
+            "Ekran Çevirisi yenilendi: çeviri, İngilizce yazının tam üstünde yazıyı saran siyah bir kutuda gösterilir; yazı boyutu ekrandaki yazıya göre ayarlanır, kutu düğmelerin üstüne binmez, yazı kaybolunca çeviri de kaybolur.",
             "Ekran Çevirisi'nde 3'e kadar OCR alanı: altyazının yanında görev ve bilgi mesajlarını da ayrı ayrı çevirebilirsiniz.",
             "Akıllı akış: OCR alanı aşağıdaysa geçmiş çeviriler yukarı doğru, yukarıdaysa aşağı doğru yumuşakça akar ve ekranın kenarında kaybolur.",
             "Yeni Çeviri geçmişi ekranı: kaçırdığınız altyazılara menüden bakabilirsiniz.",
             "Kendini denetleyen çeviri: yarım kalan ya da bozuk görünen çeviriler otomatik olarak yeniden denenir.",
             "Daha doğru okuma ve çeviri: sık karşılaşılan OCR hataları ve argo kalıpları düzeltildi.",
             "Uygulama içinden güncelleme: yeni sürüm tek dokunuşla indirilip kurulabilir.",
-            "İlk açılış rehberi ve yenilenen görünüm: renkli simgeler, yeni menü, daha derli toplu ayarlar.",
+            "İlk açılış rehberi ve yenilenen görünüm: renkli simgeler, yeni menü, daha derli toplu ayarlar, sade açılış ekranı.",
             "Daha kararlı: telefon döndürülünce kamera kapanıp açılmaz, Ayarlar'dayken kamera kapanır (pil), OCR alanlarının yeri dikey ve yatay için ayrı kaydedilir."
         )
     )
