@@ -328,6 +328,46 @@ class SettingsManager(context: Context) {
         prefs.edit().putString("last_seen_version", version).apply()
     }
 
+    /** Çeviri kaynağı: kamera (TV) ya da telefonun kendi ekranı */
+    fun isPhoneScreenSource(): Boolean = prefs.getBoolean("phone_screen_source", false)
+
+    fun savePhoneScreenSource(enabled: Boolean) {
+        prefs.edit().putBoolean("phone_screen_source", enabled).apply()
+    }
+
+    /** Telefon ekranı modundaki OCR alanı sayısı (1–3) */
+    fun getPhoneAreaCount(): Int = prefs.getInt("phone_area_count", 1).coerceIn(1, 3)
+
+    fun savePhoneAreaCount(count: Int) {
+        prefs.edit().putInt("phone_area_count", count.coerceIn(1, 3)).apply()
+    }
+
+    /** Telefon ekranı modundaki OCR alanının yeri (ekrana oranla); varsayılanlar: altyazı, sol üst, sağ üst */
+    fun getPhoneAreaRect(index: Int, landscape: Boolean): FloatArray {
+        val key = "phone_area${index}_${if (landscape) "land" else "port"}"
+        val defaults = when (index) {
+            0 -> if (landscape) floatArrayOf(0.15f, 0.74f, 0.85f, 0.94f) else floatArrayOf(0.05f, 0.72f, 0.95f, 0.88f)
+            1 -> floatArrayOf(0.03f, 0.08f, 0.45f, 0.26f)
+            else -> floatArrayOf(0.55f, 0.08f, 0.97f, 0.26f)
+        }
+        return floatArrayOf(
+            prefs.getFloat("${key}_left", defaults[0]),
+            prefs.getFloat("${key}_top", defaults[1]),
+            prefs.getFloat("${key}_right", defaults[2]),
+            prefs.getFloat("${key}_bottom", defaults[3])
+        )
+    }
+
+    fun savePhoneAreaRect(index: Int, landscape: Boolean, left: Float, top: Float, right: Float, bottom: Float) {
+        val key = "phone_area${index}_${if (landscape) "land" else "port"}"
+        prefs.edit()
+            .putFloat("${key}_left", left)
+            .putFloat("${key}_top", top)
+            .putFloat("${key}_right", right)
+            .putFloat("${key}_bottom", bottom)
+            .apply()
+    }
+
     /** İlk açılış rehberi görüldü mü (ya da uygulamayı zaten kullanan biri mi) */
     fun isGuideSeen(): Boolean = prefs.getBoolean("guide_seen", false)
 
