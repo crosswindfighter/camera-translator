@@ -841,8 +841,8 @@ class MainActivity : ComponentActivity() {
                     isPhoneSource -> if (phoneRunning) {
                         "📱 Ekran Çevirisi çalışıyor.\nOyununuza dönün; OCR alanlarını düzenlemek ya da durdurmak için ekranın kenarındaki yüzen düğmeye dokunun."
                     } else {
-                        "📱 Ekran Çevirisi\nTelefonun ekranındaki oyunu çevirir. En iyi sonuç için Samsung telefonunuzu kabloyla TV'ye bağlayıp " +
-                            "DeX'te Xbox ya da PlayStation Remote Play ile oynayın (kablosuz DeX bu modla çalışmaz). Başlat'a basın, ekran paylaşımında " +
+                        "📱 Ekran Çevirisi\nKamera kullanmadan telefonun ekranındaki oyunu çevirir. Samsung telefonunuzu kabloyla TV'ye bağlayıp " +
+                            "DeX'te Xbox ya da PlayStation Remote Play ile oynayın: oyun büyük ekranda net görünür, Türkçe çeviriler anında altyazının üstüne gelir (kablosuz DeX bu modla çalışmaz). Başlat'a basın, ekran paylaşımında " +
                             "\"Tek uygulama\" seçip oyunu seçin; OCR alanlarını oyunun içinden, yüzen balonla yerleştirin."
                     }
                     statusText.isNotEmpty() -> statusText

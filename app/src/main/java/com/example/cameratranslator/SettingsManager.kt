@@ -17,7 +17,7 @@ enum class TtsEngineType {
 }
 
 enum class DisplayMode {
-    DEFAULT,      // Sinematik Altyazı (kamera; çeviri OCR alanının yanında, akar)
+    DEFAULT,      // Sinematik Altyazı (kamera; çeviriler OCR alanının konumuna göre yukarı/aşağı akar)
     SCREEN_BETA,  // Yerinde Çeviri (kamera; çeviri TV'deki yazının tam üstünde)
     PHONE_SCREEN  // Ekran Çevirisi (telefonun kendi ekranı; çeviri oyunun üstünde)
 }
