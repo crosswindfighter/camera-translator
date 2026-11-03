@@ -167,7 +167,7 @@ private fun PhoneTranslationBox(
     }
     val longest = (0 until layout.lineCount).maxOfOrNull { layout.getLineRight(it) - layout.getLineLeft(it) } ?: 0f
     // Üstüne konuyorsa en az İngilizce yazıyı örtecek kadar büyük
-    val coverPad = with(density) { 4.dp.toPx() }
+    val coverPad = with(density) { 6.dp.toPx() }
     val boxWidth = minOf(
         maxWidth,
         maxOf(ceil(longest) + padX + 2f, if (cover) textRight - textLeft + coverPad * 2 else 0f)
@@ -187,7 +187,8 @@ private fun PhoneTranslationBox(
         modifier = Modifier
             .offset { IntOffset(boxLeft.roundToInt(), boxTop.roundToInt()) }
             .size(with(density) { boxWidth.toDp() }, with(density) { boxHeight.toDp() })
-            .background(Color.Black.copy(alpha = if (cover) 1f else 0.88f), RoundedCornerShape(6.dp))
+            // Simsiyah: yarı saydamken oyunun kendi altyazısı arkadan seçiliyordu
+            .background(Color.Black, RoundedCornerShape(6.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {

@@ -17,9 +17,18 @@ enum class TtsEngineType {
 }
 
 enum class DisplayMode {
-    DEFAULT,     // Varsayılan Kamera Ekranı
-    SCREEN_BETA  // Ekran Çevirisi
+    DEFAULT,      // Sinematik Altyazı (kamera; çeviri OCR alanının yanında, akar)
+    SCREEN_BETA,  // Yerinde Çeviri (kamera; çeviri TV'deki yazının tam üstünde)
+    PHONE_SCREEN  // Ekran Çevirisi (telefonun kendi ekranı; çeviri oyunun üstünde)
 }
+
+/** Modun ekranda görünen adı (kayıtlı adlar eski sürümlerle uyum için değişmedi) */
+val DisplayMode.label: String
+    get() = when (this) {
+        DisplayMode.DEFAULT -> "Sinematik Altyazı"
+        DisplayMode.SCREEN_BETA -> "Yerinde Çeviri"
+        DisplayMode.PHONE_SCREEN -> "Ekran Çevirisi"
+    }
 
 class SettingsManager(context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
@@ -71,7 +80,8 @@ class SettingsManager(context: Context) {
     }
 
     fun getShowDisplayModeQuickSwitch(): Boolean {
-        return prefs.getBoolean("show_display_mode_quick_switch", false)
+        // Varsayılan açık: hangi modda olunduğu ana ekrandan görülsün ve değiştirilebilsin
+        return prefs.getBoolean("show_display_mode_quick_switch", true)
     }
 
     fun saveOcrTextMaskEnabled(enabled: Boolean) {
@@ -333,6 +343,13 @@ class SettingsManager(context: Context) {
 
     fun savePhoneScreenSource(enabled: Boolean) {
         prefs.edit().putBoolean("phone_screen_source", enabled).apply()
+    }
+
+    /** Telefon ekranı modunda çevirinin en küçük yazı boyutu (görünüm modundan bağımsız) */
+    fun getPhoneMinFontSize(): Float = prefs.getFloat("phone_min_font_size", 18f).coerceIn(12f, 48f)
+
+    fun savePhoneMinFontSize(size: Float) {
+        prefs.edit().putFloat("phone_min_font_size", size.coerceIn(12f, 48f)).apply()
     }
 
     /** Telefon ekranı modundaki OCR alanı sayısı (1–3) */

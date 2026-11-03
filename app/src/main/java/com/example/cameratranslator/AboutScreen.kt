@@ -319,13 +319,25 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "• Ekran Çevirisi:",
+                        text = "• Yerinde Çeviri:",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
                         text = "Televizyon veya monitör yazılarını yerinde takip etmek için tasarlanmıştır. OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; Ayarlar'dan en küçük yazı boyutu seçilebilir. Siyah kutu yazıyı sarar, uzun çevirilerde büyür ama düğmelerin üstüne binmez; yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar > Görünüm Modu'ndan en fazla 3 OCR alanı eklenebilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir. Alanlar sürüklenerek taşınır, sağ alt köşedeki açık mavi okla (⇲) boyutlandırılır; konumları dikey ve yatay için ayrı kaydedilir.",
+                        fontSize = 14.sp,
+                        lineHeight = 22.sp
+                    )
+
+                    Text(
+                        text = "• Ekran Çevirisi:",
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 15.sp
+                    )
+                    Text(
+                        text = "Kamera yerine telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Telefonda oynanan oyunlarda çalışır; en iyi sonucu Samsung DeX ile alırsınız: Samsung telefonunuzu kabloyla TV'ye ya da monitöre bağlayıp DeX'te Xbox veya PlayStation Remote Play ile oynadığınız oyunlar büyük ekranda net bir şekilde çevrilir. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında \"Tek uygulama\" seçip oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez. Mod çalışırken telefonun ekranı açık tutulur. Android 10 ve üstü gerekir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

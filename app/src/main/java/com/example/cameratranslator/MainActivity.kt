@@ -64,7 +64,11 @@ class MainActivity : ComponentActivity() {
     private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         val data = result.data
         if (result.resultCode == RESULT_OK && data != null) {
-            PhoneScreenService.start(this, result.resultCode, data)
+            // Çeviriler uygulamanın açık olduğu ekranda gösterilir (DeX'te TV)
+            val displayId = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+                display?.displayId ?: android.view.Display.DEFAULT_DISPLAY
+            } else android.view.Display.DEFAULT_DISPLAY
+            PhoneScreenService.start(this, result.resultCode, data, displayId)
             Toast.makeText(this, "Oyununuzu açın. Menü için ekranın kenarındaki yüzen düğmeye dokunun.", Toast.LENGTH_LONG).show()
             moveTaskToBack(true)
         } else {
@@ -75,7 +79,7 @@ class MainActivity : ComponentActivity() {
     /** Telefon ekranı modunu başlatır: önce "diğer uygulamaların üstünde göster" izni, sonra ekran paylaşımı onayı */
     private fun startPhoneScreen() {
         if (!PhoneScreenService.isSupported) {
-            Toast.makeText(this, "Telefon ekranı modu Android 10 ve üstünde çalışır.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Ekran Çevirisi Android 10 ve üstünde çalışır.", Toast.LENGTH_LONG).show()
             return
         }
         if (!PhoneScreenService.canDrawOverlays(this)) {
@@ -124,6 +128,11 @@ class MainActivity : ComponentActivity() {
 
         GoogleApiAuth.init(this)
         settingsManager = SettingsManager(this)
+        // Eski ayrı "telefon ekranı kaynağı" ayarı artık üçüncü görünüm modu (Ekran Çevirisi)
+        if (settingsManager.isPhoneScreenSource()) {
+            settingsManager.saveDisplayMode(DisplayMode.PHONE_SCREEN)
+            settingsManager.savePhoneScreenSource(false)
+        }
         OcrDebugDumper.init(this)
         OfflineModelDownloader.init(this)
         OcrTextFixer.init(this)
@@ -256,8 +265,15 @@ class MainActivity : ComponentActivity() {
                                 displayMode = displayMode,
                                 showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
                                 onToggleDisplayMode = {
-                                    displayMode = if (displayMode == DisplayMode.DEFAULT) DisplayMode.SCREEN_BETA else DisplayMode.DEFAULT
+                                    // Sağdaki mod düğmesi üç mod arasında sırayla geçer
+                                    val modes = DisplayMode.entries
+                                    displayMode = modes[(modes.indexOf(displayMode) + 1) % modes.size]
                                     settingsManager.saveDisplayMode(displayMode)
+                                    // Ekran Çevirisi'nden çıkılınca ekran paylaşımı da durur
+                                    if (displayMode != DisplayMode.PHONE_SCREEN && PhoneScreenService.running.value) {
+                                        PhoneScreenService.stop(this@MainActivity)
+                                    }
+                                    Toast.makeText(this@MainActivity, displayMode.label, Toast.LENGTH_SHORT).show()
                                 },
                                 onToggleDirection = {
                                     isTrToEn = !isTrToEn
@@ -309,6 +325,9 @@ class MainActivity : ComponentActivity() {
                                 onDisplayModeChange = { mode ->
                                     displayMode = mode
                                     settingsManager.saveDisplayMode(mode)
+                                    if (mode != DisplayMode.PHONE_SCREEN && PhoneScreenService.running.value) {
+                                        PhoneScreenService.stop(this@MainActivity)
+                                    }
                                 },
                                 onShowDisplayModeQuickSwitchChange = { show ->
                                     showDisplayModeQuickSwitch = show
@@ -504,8 +523,13 @@ class MainActivity : ComponentActivity() {
         val lastTextSeenAt = remember { longArrayOf(0L) }
         var historyList by rememberSaveable { mutableStateOf(listOf<String>()) }
         var isPaused by rememberSaveable { mutableStateOf(true) }
-        // Okunacak kaynak: kamera (TV) ya da telefonun kendi ekranı (deneysel)
-        var isPhoneSource by remember { mutableStateOf(settingsManager.isPhoneScreenSource()) }
+        // Okunacak kaynak: kamera (TV) ya da telefonun kendi ekranı
+        // Ekran Çevirisi modu: kamera yerine telefonun kendi ekranı okunur
+        val isPhoneSource = displayMode == DisplayMode.PHONE_SCREEN
+        LaunchedEffect(isPhoneSource) {
+            // Bu moda geçilince kamera çevirisi durur (kamera zaten kapanır)
+            if (isPhoneSource) isPaused = true
+        }
         val phoneRunning by PhoneScreenService.running.collectAsStateWithLifecycle()
         var isMuted by remember { mutableStateOf(!speechManager.isEnabled) }
         var isFirstFrameAfterStart by remember { mutableStateOf(true) }
@@ -814,10 +838,11 @@ class MainActivity : ComponentActivity() {
 
                 val displayResult = when {
                     isPhoneSource -> if (phoneRunning) {
-                        "📱 Telefon ekranı çevriliyor.\nOyununuza dönün; OCR alanlarını düzenlemek ya da durdurmak için ekranın kenarındaki yüzen düğmeye dokunun."
+                        "📱 Ekran Çevirisi çalışıyor.\nOyununuza dönün; OCR alanlarını düzenlemek ya da durdurmak için ekranın kenarındaki yüzen düğmeye dokunun."
                     } else {
-                        "📱 Telefon ekranı modu (deneysel)\nTelefonda oynadığınız oyunun altyazılarını çevirir. Başlat'a basın, ekran paylaşımına izin verin, " +
-                            "sonra oyununuzu açın. OCR alanlarını oyunun içinden, yüzen düğmeyle yerleştirirsiniz."
+                        "📱 Ekran Çevirisi\nTelefonun ekranındaki oyunu çevirir. En iyi sonuç için Samsung telefonunuzu kabloyla TV'ye bağlayıp " +
+                            "DeX'te Xbox ya da PlayStation Remote Play ile oynayın (kablosuz DeX bu modla çalışmaz). Başlat'a basın, ekran paylaşımında " +
+                            "\"Tek uygulama\" seçip oyunu seçin; OCR alanlarını oyunun içinden, yüzen balonla yerleştirin."
                     }
                     statusText.isNotEmpty() -> statusText
                     isPaused -> ""
@@ -835,12 +860,6 @@ class MainActivity : ComponentActivity() {
                     // Küçük/ince yazı yalnızca OPUS indirme notunda; "Çeviriye Hazır" gibi durumlar eskisi gibi
                     isStatusMessage = opusModelHint.isNotEmpty() || isPhoneSource,
                     isPhoneMode = isPhoneSource,
-                    onToggleInputSource = {
-                        if (isPaused && !phoneRunning) {
-                            isPhoneSource = !isPhoneSource
-                            settingsManager.savePhoneScreenSource(isPhoneSource)
-                        }
-                    },
                     screenTextBounds = if (isPaused || currentTranslation.isEmpty()) null else screenTextBounds,
                     screenTextLineHeight = screenTextLineHeight,
                     extraAreas = if (displayMode == DisplayMode.DEFAULT) emptyList() else List(extraAreaCount) { i ->
@@ -956,7 +975,7 @@ class MainActivity : ComponentActivity() {
                     },
                     subtitleFontSize = subtitleFontSize,
                     displayMode = displayMode,
-                    showDisplayModeQuickSwitch = showDisplayModeQuickSwitch && !isPhoneSource,
+                    showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
                     onToggleDisplayMode = onToggleDisplayMode,
                     useZoomSlider = useZoomSlider,
                     isZoomRangeKnown = zoomRange != null,

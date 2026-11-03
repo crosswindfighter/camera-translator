@@ -131,6 +131,43 @@ private fun CollapsibleHeader(
     }
 }
 
+/**
+ * Telefon ekranı modu (alt çubuktaki 📱 Ekran): görünüm modundan bağımsızdır, çeviri her zaman yazının üstünde
+ * kutu içinde gösterilir. Yalnızca en küçük yazı boyutu buradan ayarlanır; OCR alanları oyunun içinden düzenlenir.
+ */
+@Composable
+private fun PhoneScreenSection() {
+    val context = LocalContext.current
+    val settings = remember { SettingsManager(context) }
+    var size by remember { mutableFloatStateOf(settings.getPhoneMinFontSize()) }
+
+    Text("📱 Ekran Çevirisi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Çeviri yazı boyutu", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+        Text("${size.toInt()} sp", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+    }
+    Slider(
+        value = size,
+        onValueChange = {
+            size = it
+            settings.savePhoneMinFontSize(it)
+        },
+        valueRange = 12f..48f,
+        steps = 17,
+        modifier = Modifier.fillMaxWidth()
+    )
+    Text(
+        "Not: Oyunun yazısı bu boyuttan küçükse çeviri bu boyutta, büyükse onun boyutunda gösterilir.",
+        fontSize = 12.sp,
+        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+}
+
 /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği. */
 @Composable
 private fun SubtitleFlowSection() {
@@ -626,9 +663,11 @@ fun SettingsScreen(
                     onToggle = { isDisplaySectionExpanded = !isDisplaySectionExpanded }
                 )
                 if (isDisplaySectionExpanded) {
-                // Çeviri yazı boyutu: Sinematik Altyazı'da doğrudan boyut; Ekran Çevirisi'nde en küçük boyut
-                // (çeviri ekrandaki İngilizce yazının boyutunu alır, ondan küçükse bu boyuta büyür)
+                // Çeviri yazı boyutu: Sinematik Altyazı'da doğrudan boyut; Yerinde Çeviri'de en küçük boyut
+                // (çeviri ekrandaki İngilizce yazının boyutunu alır, ondan küçükse bu boyuta büyür).
+                // Ekran Çevirisi (telefonun kendi ekranı) kameraya dayanmaz: yalnızca kendi ayarları görünür.
                 val isScreenMode = currentDisplayMode == DisplayMode.SCREEN_BETA
+                val isPhoneMode = currentDisplayMode == DisplayMode.PHONE_SCREEN
                 SettingsSubCard {
                     Row(
                         modifier = Modifier
@@ -649,10 +688,7 @@ fun SettingsScreen(
                             ) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Text(
-                                        text = when (mode) {
-                                            DisplayMode.DEFAULT -> "Sinematik Altyazı"
-                                            DisplayMode.SCREEN_BETA -> "Ekran Çevirisi"
-                                        },
+                                        text = mode.label,
                                         color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
                                         fontSize = 13.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -681,16 +717,27 @@ fun SettingsScreen(
                             onCheckedChange = { onShowDisplayModeQuickSwitchChange(it) }
                         )
                     }
+                    // Seçili modun ne işe yaradığı
+                    Text(
+                        when (currentDisplayMode) {
+                            DisplayMode.DEFAULT -> "🎬 Sinematik Altyazı: " + CINEMATIC_DESCRIPTION
+                            DisplayMode.SCREEN_BETA -> "📺 Yerinde Çeviri: " + IN_PLACE_DESCRIPTION
+                            DisplayMode.PHONE_SCREEN -> "📱 Ekran Çevirisi: " + PHONE_SCREEN_DESCRIPTION
+                        },
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
 
-                SettingsSubCard {
+                if (!isPhoneMode) SettingsSubCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            if (isScreenMode) "En küçük çeviri yazı boyutu" else "Çeviri yazı boyutu",
+                            "Çeviri yazı boyutu",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface
@@ -712,21 +759,22 @@ fun SettingsScreen(
                     )
                     if (isScreenMode) {
                         Text(
-                            "Not: Ekran Çevirisi'nde çeviri, ekrandaki İngilizce yazının boyutunda gösterilir. İngilizce yazı küçükse " +
-                                "çeviri en az bu boyutta olur; sığmazsa kutu OCR alanını biraz taşar, yine sığmazsa yazı küçülür.",
+                            "Not: Çeviri, ekrandaki İngilizce yazının boyutunda gösterilir; İngilizce yazı bu boyuttan küçükse çeviri bu " +
+                                "boyutta olur. Sığmazsa kutu OCR alanını biraz taşar, yine sığmazsa yazı küçülür.",
                             fontSize = 12.sp,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
-                if (isScreenMode) {
-                    SettingsSubCard { ScreenAreasSection() }
-                } else {
-                    SettingsSubCard { SubtitleFlowSection() }
+                when (currentDisplayMode) {
+                    DisplayMode.DEFAULT -> SettingsSubCard { SubtitleFlowSection() }
+                    DisplayMode.SCREEN_BETA -> SettingsSubCard { ScreenAreasSection() }
+                    DisplayMode.PHONE_SCREEN -> SettingsSubCard { PhoneScreenSection() }
                 }
 
-                SettingsSubCard {
+                // Yakınlaştırma yalnızca kamerayla çalışan modlarda
+                if (!isPhoneMode) SettingsSubCard {
                     // Yakınlaştırma kontrolü: kaydırıcı ya da sabit düğmeler
                     Text("Yakınlaştırma kontrolü", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                     Row(
@@ -1509,3 +1557,8 @@ fun SettingsScreen(
         }
     }
 }
+
+/** Görünüm modlarının açıklamaları (Ayarlar'da mod seçiminin altında) */
+private const val CINEMATIC_DESCRIPTION = "Çeviri iri ve net bir yazıyla, OCR alanının hemen yanında gösterilir; geçmiş çeviriler akıllı akışla akıp ekranın kenarında kaybolur. Göz simgesine bastığınızda sağdaki ve soldaki tüm düğmeler gizlenir, kamera görüntüsü kararır ve ekranda yalnızca altyazı kalır: dikkatiniz dağılmadan, bir sinema altyazısı gibi rahat ve net okursunuz."
+private const val IN_PLACE_DESCRIPTION = "Çeviri, TV'deki İngilizce yazının tam üstüne siyah bir kutuyla oturur ve onu örter; oyunu Türkçe oynuyormuş gibi olursunuz. Yazı boyutu ekrandaki yazıya göre ayarlanır, yazı ekrandan kaybolunca çevirisi de kaybolur. Altyazının yanında görev ve bilgi mesajları için en fazla 3 OCR alanı kullanabilirsiniz."
+const val PHONE_SCREEN_DESCRIPTION = "Kamera yerine telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Telefonda oynanan oyunlarda çalışır; en iyi sonucu Samsung DeX ile alırsınız: Samsung telefonunuzu kabloyla TV'ye ya da monitöre bağlayıp DeX'te Xbox veya PlayStation Remote Play ile oynadığınız oyunlar büyük ekranda net bir şekilde çevrilir. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında \"Tek uygulama\" seçip oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez."

@@ -34,7 +34,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 - **Google Cloud Text to Speech (Chirp 3: HD):** İnsansı yapay zeka ses modelleri (`Kore`, `Puck`, `Charon` vb.) ile Kadın ve Erkek ses seçeneklerinde daha doğal ve akıcı seslendirme. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır. Çevrimiçi bağlantı ve API gerektirir.
 - **Seslendirme Ayarları:** Her iki modda da seslendirmenin geride kalmaması için ayarlanabilir ses hızı.
 
-### 📺 2 Farklı Çeviri Görünüm Modu
+### 📺 3 Farklı Çeviri Görünüm Modu
 - 🎬 **Sinematik Altyazı:** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) ayarlanabilir.
 <p align="center">
   <img src="images/Screenshot_20261024_143417_Camera Translator.jpg" width="100%" alt="Camera Translator">
@@ -45,7 +45,8 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
   <img src="images/Screenshot_20261024_143645_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
 
-- 📺 **Ekran Çevirisi:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır (Ayarlar'dan en küçük boyut seçilebilir); uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
+- 📺 **Yerinde Çeviri:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır (Ayarlar'dan en küçük boyut seçilebilir); uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
+- 📱 **Ekran Çevirisi:** Kamera yerine telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Telefonda oynanan oyunlarda çalışır; en iyi sonucu Samsung DeX ile alırsınız: Samsung telefonunuzu kabloyla TV'ye ya da monitöre bağlayıp DeX'te Xbox veya PlayStation Remote Play ile oynadığınız oyunlar büyük ekranda net bir şekilde çevrilir. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında "Tek uygulama" seçip oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez.
 <p align="center">
   <img src="images/Screenshot_20261024_144054_Camera Translator.jpg" width="100%" alt="Camera Translator">
 </p>
@@ -73,7 +74,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.0.7.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.0.8.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
@@ -141,8 +142,13 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
 
+#### 📱 v1.0.8: Ekran Çevirisi
+- Telefonun kendi ekranını okuyan yeni mod (ekran yakalama + oyunun üstünde dokunmayı engellemeyen çeviri katmanı + yüzen balon).
+- Samsung DeX desteği; DeX'te kabloyla bağlanıp Xbox / PlayStation Remote Play ile oynanan oyunların büyük ekranda çevirisi.
+- Görünüm modları yeniden adlandırıldı (Sinematik Altyazı, Yerinde Çeviri, Ekran Çevirisi), Ayarlar'a mod açıklamaları eklendi.
+
 #### 🎨 v1.0.7: büyük yenilenme
-- Ekran Çevirisi baştan yazıldı: İngilizce yazının üstüne oturan ve onu saran çeviri kutusu, otomatik yazı boyutu, 3 OCR alanı.
+- Yerinde Çeviri (eski adıyla Ekran Çevirisi) baştan yazıldı: İngilizce yazının üstüne oturan ve onu saran çeviri kutusu, otomatik yazı boyutu, 3 OCR alanı.
 - Sinematik altyazıda akıllı akış ve çeviri geçmişi ekranı.
 - Kendini denetleyen OPUS çevirisi; OCR düzelticisinde ve argo kurallarında gerçek oyun testlerinden çıkan düzeltmeler.
 - Uygulama içinden güncelleme, ilk açılış rehberi ve "Yenilikler" penceresi.

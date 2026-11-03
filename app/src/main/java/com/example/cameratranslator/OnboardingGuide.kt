@@ -98,7 +98,7 @@ private val STEPS = listOf(
     ),
     GuideStep(
         "Ayarlar",
-        "Ekran Çevirisi modu, yazı boyutu, sesli okuma ve OPUS motoru buradaki Ayarlar'da. İpucu: oyunda altyazı " +
+        "Görünüm modları (Sinematik Altyazı, Yerinde Çeviri ve telefonun kendi ekranını çeviren Ekran Çevirisi), yazı boyutu, sesli okuma ve OPUS motoru buradaki Ayarlar'da. İpucu: oyunda altyazı " +
             "arka planını (siyah kutu) açarsanız okuma çok daha doğru olur.",
         GuideTarget.MENU
     )

@@ -272,26 +272,6 @@ class TextRecognitionAnalyzer(
 
     private fun formatConfidence(value: Float): String = String.format(java.util.Locale.US, "%.2f", value)
 
-    private fun upscaleForOcr(source: Bitmap): Bitmap {
-        val scaleWidth = 800f / source.width.toFloat()
-        val scaleHeight = 200f / source.height.toFloat()
-        // 1080p'de alan zaten büyük; genişliği sınırlamak OCR süresini sabit tutar,
-        // harfler bu boyutta ML Kit için fazlasıyla yeterli yükseklikte kalır.
-        val maxScale = maxOf(1f, MAX_OCR_WIDTH / source.width.toFloat())
-        val scale = minOf(maxOf(2.5f, scaleWidth, scaleHeight), maxScale)
-        if (scale <= 1.1f) return source
-
-        val width = (source.width * scale).roundToInt()
-        val height = (source.height * scale).roundToInt()
-        val scaled = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = Canvas(scaled)
-        val paint = Paint().apply {
-            isFilterBitmap = true
-            isAntiAlias = true
-        }
-        canvas.drawBitmap(source, Matrix().apply { postScale(scale, scale) }, paint)
-        return scaled
-    }
 
     private data class OcrReading(
         val text: String,
@@ -339,17 +319,6 @@ class TextRecognitionAnalyzer(
         return OcrReading(text, confidence, bounds, lineHeight)
     }
 
-    /**
-     * Araç/tabela yazısı: tamamı büyük harf ve cümle noktalaması yok ("LOS SANTOS FIRE DEPARTMENT KEEP BACK",
-     * "TEMP"). Bağırılan altyazılar ünlem/soru/noktayla biter ("FREEZE!", "GET DOWN!") ve kalır.
-     * Son testlerdeki 1000+ altyazının hiçbiri bu kurala takılmadı.
-     */
-    private fun isCapsDecal(text: String): Boolean {
-        val letters = text.filter { it.isLetter() }
-        if (letters.length < 4) return false
-        val upperRatio = letters.count { it.isUpperCase() }.toFloat() / letters.length
-        return upperRatio > 0.8f && !SENTENCE_END_PUNCTUATION.containsMatchIn(text)
-    }
 
     /** Satırın yalnızca ortadaki kelime gruplarını döndürür; konum bilgisi yoksa satırı aynen bırakır. */
     private fun centeredText(line: Text.Line, imageWidth: Int): String? {
@@ -370,45 +339,7 @@ class TextRecognitionAnalyzer(
         }
     }
 
-    private fun isGibberishWord(word: String): Boolean {
-        val cleanWord = word.lowercase().filter { it.isLetter() }
-        if (cleanWord.length < 3) return false
 
-        // Eşikler OPUS sözlüğündeki ~25 bin İngilizce kelimeyle ayarlandı. Eski eşikler (3 aynı harf,
-        // 3 sesli, "y" dahil 4 sessiz) 860'tan fazla gerçek kelimeyi siliyordu: Johnny, everything,
-        // country, quickly, background, beautiful, quiet, Mmm, Shhh …
-
-        // 1. 4+ aynı harf art arda ("iiii", "llll"); "Mmm", "Shhh" gibi ünlemler kalır
-        if (GIBBERISH_REPEAT_REGEX.containsMatchIn(cleanWord)) return true
-
-        // 2. 4+ sesli harf art arda (yalnızca queue, Hawaiian gibi birkaç kelime etkilenir)
-        if (GIBBERISH_VOWELS_REGEX.containsMatchIn(cleanWord)) return true
-
-        // 3. "y" hariç 5+ sessiz harf art arda ("qwrtz", "hjklm"); yalnızca birkaç nadir kelime etkilenir
-        if (GIBBERISH_CONSONANTS_REGEX.containsMatchIn(cleanWord)) return true
-
-        return false
-    }
-
-    private fun filterOcrNoise(text: String): String {
-        val words = text.replace(SPACES_REGEX, " ").trim().split(SPACES_REGEX)
-        val filteredWords = words.filter { word ->
-            // Not: büyük harfli kelimeleri (MENU, PAUSE) atan filtre kaldırıldı. HUD yazılarını artık
-            // "Sadece ortadaki altyazıyı oku" eliyor; o filtre bağırarak yazılmış altyazıları
-            // ("NO!", "GET DOWN!") ve kısaltmaları (FIB, LSPD, MC) da siliyordu.
-
-            // 1. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
-            // Sıra sayıları, onyıllar ve saatler gerçek kelimedir: 1st, 24th, 90s, 10pm, 5k
-            val core = word.trim { !it.isLetterOrDigit() }
-            val hasAlphanumericNoise = !NUMBER_WITH_SUFFIX.matches(core) && ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
-
-            // 2. Filter out unpronounceable OCR artifacts and gibberish noise words
-            val isGibberish = isGibberishWord(word)
-
-            !hasAlphanumericNoise && !isGibberish
-        }
-        return filteredWords.joinToString(" ").trim()
-    }
 
     private fun handleOcrResult(text: String, confidence: Float, frameId: Long, bounds: RectF?, lineHeight: Float) {
         if (isPaused.get()) {
@@ -435,50 +366,125 @@ class TextRecognitionAnalyzer(
         onTextDetected(cleaned, confidence)
     }
 
-    private fun isPlausibleSubtitle(text: String): Boolean {
-        if (text.length < 2) return false
-
-        val letters = text.count { it.isLetter() }
-        // Oran noktalama/boşluk sayılmadan hesaplanır: "Uh..." (2 harf / 5 karakter) reddediliyordu
-        val meaningful = text.count { it.isLetterOrDigit() || it in "$%&@#*+=/\\|~^" }
-        if (letters < meaningful * 0.45f) return false
-        // %15 sınırı "It's 20000 dollars." gibi sayılı altyazıları tamamen reddediyordu
-        if (text.count { it.isDigit() } > text.length * 0.4f) return false
-        if (REJECT_PATTERN.containsMatchIn(text)) return false
-
-        val words = text.split(SPACES_REGEX).filter { it.isNotBlank() }
-        if (text.length > 15 && words.size < 2) return false
-        // Harita/menü tuş ipuçları: "Zoom LT RT Select Blip", "Browse LB RB"
-        val cores = words.map { it.trim { c -> !c.isLetter() } }
-        if (cores.count { it in BUTTON_HINTS } >= 2) return false
-        // Tuşlardan biri yanlış okunsa da ("Zoom LT AT Select Blip") harita ipucu kelimesiyle birlikteyse at
-        if (cores.any { it in BUTTON_HINTS } && cores.any { it.lowercase() in MAP_HINT_WORDS }) return false
-
-        var validWords = 0
-        for (word in words) {
-            val wordLetters = word.filter { it.isLetter() }
-            if (wordLetters.length < 2) continue
-            // Sesli harfi olmayan ünlemler ("Shh!", "Hmm.", "Psst!") de gerçek altyazıdır
-            if (wordLetters.lowercase() in INTERJECTIONS) {
-                validWords++
-                continue
-            }
-
-            val vowels = wordLetters.count { it.lowercaseChar() in "aeiouıöü" }
-            val vowelRatio = vowels.toFloat() / wordLetters.length
-            if (vowelRatio !in 0.15f..0.75f) continue
-
-            // Not: büyük harfli uzun kelimeleri ("FREEZE!") geçersiz sayan kural kaldırıldı;
-            // bağırarak yazılmış tek kelimelik altyazılar reddediliyordu. HUD'u orta filtre eliyor.
-            if (CAMEL_CASE_PATTERN.containsMatchIn(word)) continue
-
-            validWords++
-        }
-
-        return validWords >= 1
-    }
 
     companion object {
+        // Telefon ekranı modu da kullanır (PhoneScreenService): kamera modundaki gürültü, HUD ve tuş ipucu filtreleri
+        internal fun upscaleForOcr(source: Bitmap): Bitmap {
+            val scaleWidth = 800f / source.width.toFloat()
+            val scaleHeight = 200f / source.height.toFloat()
+            // 1080p'de alan zaten büyük; genişliği sınırlamak OCR süresini sabit tutar,
+            // harfler bu boyutta ML Kit için fazlasıyla yeterli yükseklikte kalır.
+            val maxScale = maxOf(1f, MAX_OCR_WIDTH / source.width.toFloat())
+            val scale = minOf(maxOf(2.5f, scaleWidth, scaleHeight), maxScale)
+            if (scale <= 1.1f) return source
+
+            val width = (source.width * scale).roundToInt()
+            val height = (source.height * scale).roundToInt()
+            val scaled = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(scaled)
+            val paint = Paint().apply {
+                isFilterBitmap = true
+                isAntiAlias = true
+            }
+            canvas.drawBitmap(source, Matrix().apply { postScale(scale, scale) }, paint)
+            return scaled
+        }
+
+        /**
+         * Araç/tabela yazısı: tamamı büyük harf ve cümle noktalaması yok ("LOS SANTOS FIRE DEPARTMENT KEEP BACK",
+         * "TEMP"). Bağırılan altyazılar ünlem/soru/noktayla biter ("FREEZE!", "GET DOWN!") ve kalır.
+         * Son testlerdeki 1000+ altyazının hiçbiri bu kurala takılmadı.
+         */
+        internal fun isCapsDecal(text: String): Boolean {
+            val letters = text.filter { it.isLetter() }
+            if (letters.length < 4) return false
+            val upperRatio = letters.count { it.isUpperCase() }.toFloat() / letters.length
+            return upperRatio > 0.8f && !SENTENCE_END_PUNCTUATION.containsMatchIn(text)
+        }
+
+        internal fun isGibberishWord(word: String): Boolean {
+            val cleanWord = word.lowercase().filter { it.isLetter() }
+            if (cleanWord.length < 3) return false
+
+            // Eşikler OPUS sözlüğündeki ~25 bin İngilizce kelimeyle ayarlandı. Eski eşikler (3 aynı harf,
+            // 3 sesli, "y" dahil 4 sessiz) 860'tan fazla gerçek kelimeyi siliyordu: Johnny, everything,
+            // country, quickly, background, beautiful, quiet, Mmm, Shhh …
+
+            // 1. 4+ aynı harf art arda ("iiii", "llll"); "Mmm", "Shhh" gibi ünlemler kalır
+            if (GIBBERISH_REPEAT_REGEX.containsMatchIn(cleanWord)) return true
+
+            // 2. 4+ sesli harf art arda (yalnızca queue, Hawaiian gibi birkaç kelime etkilenir)
+            if (GIBBERISH_VOWELS_REGEX.containsMatchIn(cleanWord)) return true
+
+            // 3. "y" hariç 5+ sessiz harf art arda ("qwrtz", "hjklm"); yalnızca birkaç nadir kelime etkilenir
+            if (GIBBERISH_CONSONANTS_REGEX.containsMatchIn(cleanWord)) return true
+
+            return false
+        }
+
+        internal fun filterOcrNoise(text: String): String {
+            val words = text.replace(SPACES_REGEX, " ").trim().split(SPACES_REGEX)
+            val filteredWords = words.filter { word ->
+                // Not: büyük harfli kelimeleri (MENU, PAUSE) atan filtre kaldırıldı. HUD yazılarını artık
+                // "Sadece ortadaki altyazıyı oku" eliyor; o filtre bağırarak yazılmış altyazıları
+                // ("NO!", "GET DOWN!") ve kısaltmaları (FIB, LSPD, MC) da siliyordu.
+
+                // 1. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
+                // Sıra sayıları, onyıllar ve saatler gerçek kelimedir: 1st, 24th, 90s, 10pm, 5k
+                val core = word.trim { !it.isLetterOrDigit() }
+                val hasAlphanumericNoise = !NUMBER_WITH_SUFFIX.matches(core) && ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
+
+                // 2. Filter out unpronounceable OCR artifacts and gibberish noise words
+                val isGibberish = isGibberishWord(word)
+
+                !hasAlphanumericNoise && !isGibberish
+            }
+            return filteredWords.joinToString(" ").trim()
+        }
+
+        internal fun isPlausibleSubtitle(text: String): Boolean {
+            if (text.length < 2) return false
+
+            val letters = text.count { it.isLetter() }
+            // Oran noktalama/boşluk sayılmadan hesaplanır: "Uh..." (2 harf / 5 karakter) reddediliyordu
+            val meaningful = text.count { it.isLetterOrDigit() || it in "$%&@#*+=/\\|~^" }
+            if (letters < meaningful * 0.45f) return false
+            // %15 sınırı "It's 20000 dollars." gibi sayılı altyazıları tamamen reddediyordu
+            if (text.count { it.isDigit() } > text.length * 0.4f) return false
+            if (REJECT_PATTERN.containsMatchIn(text)) return false
+
+            val words = text.split(SPACES_REGEX).filter { it.isNotBlank() }
+            if (text.length > 15 && words.size < 2) return false
+            // Harita/menü tuş ipuçları: "Zoom LT RT Select Blip", "Browse LB RB"
+            val cores = words.map { it.trim { c -> !c.isLetter() } }
+            if (cores.count { it in BUTTON_HINTS } >= 2) return false
+            // Tuşlardan biri yanlış okunsa da ("Zoom LT AT Select Blip") harita ipucu kelimesiyle birlikteyse at
+            if (cores.any { it in BUTTON_HINTS } && cores.any { it.lowercase() in MAP_HINT_WORDS }) return false
+
+            var validWords = 0
+            for (word in words) {
+                val wordLetters = word.filter { it.isLetter() }
+                if (wordLetters.length < 2) continue
+                // Sesli harfi olmayan ünlemler ("Shh!", "Hmm.", "Psst!") de gerçek altyazıdır
+                if (wordLetters.lowercase() in INTERJECTIONS) {
+                    validWords++
+                    continue
+                }
+
+                val vowels = wordLetters.count { it.lowercaseChar() in "aeiouıöü" }
+                val vowelRatio = vowels.toFloat() / wordLetters.length
+                if (vowelRatio !in 0.15f..0.75f) continue
+
+                // Not: büyük harfli uzun kelimeleri ("FREEZE!") geçersiz sayan kural kaldırıldı;
+                // bağırarak yazılmış tek kelimelik altyazılar reddediliyordu. HUD'u orta filtre eliyor.
+                if (CAMEL_CASE_PATTERN.containsMatchIn(word)) continue
+
+                validWords++
+            }
+
+            return validWords >= 1
+        }
+
         /** Ekran çevirisinde ana alana ek en fazla 2 alan */
         const val MAX_EXTRA_AREAS = 2
         private const val TAG = "OCR_ANALYZER"

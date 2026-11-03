@@ -91,7 +91,6 @@ fun MainOverlay(
     onGuideBack: () -> Unit = {},
     /** Telefon ekranı modu: kamera ve kamera ayarları gizlenir, ortada yalnızca bilgi yazısı */
     isPhoneMode: Boolean = false,
-    onToggleInputSource: () -> Unit = {},
     onGuideSkip: () -> Unit = {},
     history: List<String>,
     /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği */
@@ -845,24 +844,6 @@ fun MainOverlay(
 
                 Spacer(modifier = Modifier.width(16.dp))
                 
-                // Okunacak kaynak: kamera (TV) ya da telefonun kendi ekranı. Yalnızca durdurulmuşken değişir.
-                Surface(
-                    onClick = onToggleInputSource,
-                    enabled = isPaused,
-                    color = Color.Transparent,
-                    shape = RoundedCornerShape(2.dp)
-                ) {
-                    Text(
-                        text = if (isPhoneMode) "📱 Ekran" else "📷 Kamera",
-                        color = Color.White.copy(alpha = if (isPaused) 1f else 0.4f),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(16.dp))
-
                 // Language Direction Toggle
                 Surface(
                     onClick = onToggleDirection,

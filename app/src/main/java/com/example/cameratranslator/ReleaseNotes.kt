@@ -22,9 +22,16 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     private val NOTES = mapOf(
+        "1.0.8" to listOf(
+            "Yeni Ekran Çevirisi modu: telefonun kendi ekranını okur, oyunun altyazısını oyunun üstünde, yazının tam yerine çevirir. En iyi sonuç için Samsung telefonu kabloyla TV'ye bağlayıp DeX'te Xbox veya PlayStation Remote Play ile oynayın.",
+            "Oyunu oynarken dokunmayı engellemeyen çeviri katmanı ve kenardaki yüzen balon: OCR alanlarını oyunun içinden yerleştirin, uygulamaya dönün ya da durdurun.",
+            "Görünüm modları yeniden adlandırıldı: Sinematik Altyazı, Yerinde Çeviri (eski adıyla Ekran Çevirisi) ve Ekran Çevirisi. Sağdaki mod düğmesi üçü arasında geçer ve artık varsayılan olarak açık.",
+            "Ayarlar'da her modun ne işe yaradığını anlatan açıklamalar.",
+            "Samsung DeX desteği: uygulama pencerede boyutlandırılabilir, DeX'e geçerken yeniden başlamaz."
+        ),
         "1.0.7" to listOf(
-            "Ekran Çevirisi yenilendi: çeviri, İngilizce yazının tam üstünde yazıyı saran siyah bir kutuda gösterilir; yazı boyutu ekrandaki yazıya göre ayarlanır, kutu düğmelerin üstüne binmez, yazı kaybolunca çeviri de kaybolur.",
-            "Ekran Çevirisi'nde 3'e kadar OCR alanı: altyazının yanında görev ve bilgi mesajlarını da ayrı ayrı çevirebilirsiniz.",
+            "Yerinde Çeviri (eski adıyla Ekran Çevirisi) yenilendi: çeviri, İngilizce yazının tam üstünde yazıyı saran siyah bir kutuda gösterilir; yazı boyutu ekrandaki yazıya göre ayarlanır, kutu düğmelerin üstüne binmez, yazı kaybolunca çeviri de kaybolur.",
+            "Yerinde Çeviri'de 3'e kadar OCR alanı: altyazının yanında görev ve bilgi mesajlarını da ayrı ayrı çevirebilirsiniz.",
             "Akıllı akış: çeviriler OCR alanının konumuna göre kendiliğinden akar. OCR alanı aşağıdaysa yeni çeviri üstünde belirir ve geçmiş çeviriler yukarı doğru, yukarıdaysa altında belirir ve aşağı doğru yumuşakça akar.",
             "Yeni Çeviri geçmişi ekranı: kaçırdığınız altyazılara menüden bakabilirsiniz.",
             "Kendini denetleyen çeviri: yarım kalan ya da bozuk görünen çeviriler otomatik olarak yeniden denenir.",

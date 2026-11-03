@@ -57,11 +57,13 @@ import kotlinx.coroutines.withContext
 /**
  * Telefon ekranı modu (deneysel): kamera yerine telefonun kendi ekranı okunur (ör. telefonda ya da Remote Play ile
  * oynanan oyun). Ekran Android'in ekran yakalama izniyle alınır; 1–3 OCR alanının yazısı okunur, çevrilir ve
- * oyunun üstündeki şeffaf katmanda, İngilizce yazının hemen üstünde (yer yoksa altında) gösterilir.
+ * oyunun üstündeki şeffaf katmanda gösterilir. Katmanlar Başlat'a basılan ekranda açılır (DeX'te TV'deki masaüstü).
  *
  * - Çeviri katmanı dokunulmazdır: dokunuşlar doğrudan oyuna gider.
- * - Katman ve yüzen düğme ekran yakalamada siyah görünür (FLAG_SECURE): OCR kendi çevirimizi okumaz. Bu yüzden
- *   çeviri İngilizce yazının üstüne değil yanına konur; üstüne konsaydı altındaki yeni altyazı okunamazdı.
+ * - Paylaşımda "tek uygulama" seçildiyse katman yakalanan görüntüde yoktur: çeviri İngilizce yazının tam üstüne
+ *   konur, katman ekran yansıtmada (Smart View) da görünür. "Tüm ekran" paylaşıldığı anlaşılırsa (OCR kendi
+ *   çevirimizi okursa) katman yakalamadan gizlenir (FLAG_SECURE; yakalamada siyah) ve çeviri yazının yanına alınır,
+ *   yoksa altındaki yeni altyazı okunamazdı.
  * - OCR alanları yalnızca yüzen düğmeden "Alanları düzenle" ile görünür ve taşınır.
  */
 class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
@@ -77,6 +79,14 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var settings: SettingsManager
     private lateinit var windowManager: WindowManager
+    /** Katmanların açıldığı ekranın bağlamı: Başlat'a basılan ekran (DeX'te TV) */
+    private var overlayContext: Context = this
+    /**
+     * Katmanlar ekran yakalamada gizli mi (FLAG_SECURE). Başta kapalı: "tek uygulama" paylaşımında katman zaten
+     * yakalanmaz, gizli olmayınca ekran yansıtmada (Smart View) da görünür. "Tüm ekran" paylaşıldığı anlaşılınca
+     * açılır ki OCR kendi çevirisini okumasın.
+     */
+    private var hideFromCapture = false
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
     private val translationManager by lazy { SharedTranslation.get(applicationContext) }
 
@@ -89,6 +99,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var bubbleView: ComposeView? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var overlayParams: WindowManager.LayoutParams? = null
+    /** Telefonun kendi ekranını açık tutan görünmez 1x1 pencere (DeX'te katman TV'deyken) */
+    private var keepAwakeView: android.view.View? = null
 
     // Katmanın okuduğu durum (Compose)
     val isLandscape = mutableStateOf(false)
@@ -110,6 +122,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val lastTextRect = arrayOfNulls<RectF>(MAX_AREAS)
     private val lastLineHeight = FloatArray(MAX_AREAS)
     private val emptyReads = IntArray(MAX_AREAS)
+    private val lastLoggedRead = arrayOfNulls<String>(MAX_AREAS)
     private val stabilizers by lazy {
         List(MAX_AREAS) { index ->
             OcrStabilizer(
@@ -125,7 +138,6 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         lifecycleRegistry.currentState = Lifecycle.State.CREATED
         settings = SettingsManager(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
-        isLandscape.value = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         areaCount.value = settings.getPhoneAreaCount()
     }
 
@@ -158,6 +170,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             return START_NOT_STICKY
         }
         projection = mediaProjection
+        useDisplay(intent.getIntExtra(EXTRA_DISPLAY_ID, android.view.Display.DEFAULT_DISPLAY))
         mediaProjection.registerCallback(object : MediaProjection.Callback() {
             override fun onStop() {
                 // Kullanıcı bildirimden ya da sistemden paylaşımı durdurdu
@@ -167,6 +180,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         startCapture()
         showOverlay()
         showBubble()
+        keepPhoneScreenOn()
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         _running.value = true
         captureJob = scope.launch { captureLoop() }
@@ -176,7 +190,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
-        isLandscape.value = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE
+        updateOrientation()
         // Dönünce ekranın boyutu değişir: yakalama da yeni boyuta göre yeniden kurulur
         for (i in 0 until MAX_AREAS) translations[i] = null
         stabilizers.forEach { it.reset() }
@@ -189,6 +203,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         scope.cancel()
         runCatching { overlayView?.let { windowManager.removeView(it) } }
         runCatching { bubbleView?.let { windowManager.removeView(it) } }
+        runCatching { keepAwakeView?.let { (getSystemService(WINDOW_SERVICE) as WindowManager).removeView(it) } }
+        keepAwakeView = null
         overlayView = null
         bubbleView = null
         releaseCapture()
@@ -201,8 +217,31 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     // ---------- Ekran yakalama ----------
 
+    /**
+     * Katmanları [displayId] ekranında açar (DeX'te uygulama TV'deki masaüstündeyse orada). Yakalama da o ekranın
+     * boyutunda kurulur: "tek uygulama" paylaşımında seçilen uygulamanın görüntüsü bu boyuta yerleşir.
+     */
+    private fun useDisplay(displayId: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && displayId != android.view.Display.DEFAULT_DISPLAY) {
+            val display = (getSystemService(DISPLAY_SERVICE) as DisplayManager).getDisplay(displayId)
+            if (display != null) {
+                overlayContext = createDisplayContext(display)
+                    .createWindowContext(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, null)
+                windowManager = overlayContext.getSystemService(WindowManager::class.java)
+            }
+        }
+        updateOrientation()
+    }
+
+    private fun updateOrientation() {
+        val (width, height) = screenSize()
+        isLandscape.value = width > height
+    }
+
+    private fun densityDpi(): Int = overlayContext.resources.displayMetrics.densityDpi
+
     private fun screenSize(): Pair<Int, Int> {
-        val metrics = resources.displayMetrics
+        val metrics = overlayContext.resources.displayMetrics
         val bounds = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             windowManager.currentWindowMetrics.bounds.let { it.width() to it.height() }
         } else {
@@ -220,7 +259,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         imageReader = reader
         virtualDisplay = mediaProjection.createVirtualDisplay(
-            "CameraTranslatorScreen", width, height, resources.displayMetrics.densityDpi,
+            "CameraTranslatorScreen", width, height, densityDpi(),
             DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader.surface, null, Handler(thread.looper)
         )
     }
@@ -232,7 +271,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val old = imageReader
         val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         imageReader = reader
-        display.resize(width, height, resources.displayMetrics.densityDpi)
+        display.resize(width, height, densityDpi())
         display.surface = reader.surface
         old?.close()
     }
@@ -248,10 +287,25 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     /** Son kareyi alır, alanları keser ve okur (OCR iki okuma arasında boş kalmaz, telefonu yormaz). */
     private suspend fun captureLoop() {
+        var lastFrameAt = System.currentTimeMillis()
+        var stallLogged = false
         while (scope.isActive) {
             delay(FRAME_INTERVAL_MS)
             if (isEditing.value) continue
-            val frame = withContext(Dispatchers.Default) { grabFrame() } ?: continue
+            val frame = withContext(Dispatchers.Default) { grabFrame() }
+            if (frame == null) {
+                // Görüntü değişmeyince yeni kare gelmez; uzun sürerse yakalama durmuş olabilir (geliştirici logu)
+                if (!stallLogged && System.currentTimeMillis() - lastFrameAt > STALL_LOG_MS) {
+                    stallLogged = true
+                    OcrDebugDumper.logPipeline("Telefon ekranı", "${STALL_LOG_MS / 1000} sn'dir ekrandan yeni görüntü gelmiyor", endOfEntry = true)
+                }
+                continue
+            }
+            if (stallLogged) {
+                stallLogged = false
+                OcrDebugDumper.logPipeline("Telefon ekranı", "Ekran görüntüsü yeniden geliyor", endOfEntry = true)
+            }
+            lastFrameAt = System.currentTimeMillis()
             try {
                 for (index in 0 until areaCount.value) {
                     val area = settings.getPhoneAreaRect(index, isLandscape.value)
@@ -288,19 +342,43 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val bottom = (area[3] * frame.height).toInt().coerceIn(top + 1, frame.height)
         if (right - left < 30 || bottom - top < 12) return
         val crop = Bitmap.createBitmap(frame, left, top, right - left, bottom - top)
+        // Kamera modundaki gibi OCR'dan önce büyütülür: ekrandaki küçük oyun yazısı büyütülmeden çok bozuk okunuyordu
+        // ("clorit kriow what tie fuck"). Kutuların yeri büyütme oranıyla geri ölçeklenir.
+        val ocrInput = TextRecognitionAnalyzer.upscaleForOcr(crop)
+        val scale = ocrInput.width.toFloat() / crop.width
         try {
-            val result = recognizer.process(InputImage.fromBitmap(crop, 0)).await()
+            val result = recognizer.process(InputImage.fromBitmap(ocrInput, 0)).await()
+            // 1. alan (altyazı) "Sadece ortadaki altyazıyı oku" açıksa kamera modundaki gibi yalnızca ortadaki kelime
+            // gruplarını alır: alanın kenarındaki harita, görev ve arayüz yazıları atılır. Diğer alanlar tümünü okur.
+            val centerOnly = index == 0 && OcrTuning.centerOnlyEnabled
             val lines = result.textBlocks.flatMap { it.lines }
                 .filter { line -> line.text.count { it.isLetter() } >= 2 }
-            val text = lines.joinToString(" ") { it.text.trim() }.trim()
+                .mapNotNull { line -> if (centerOnly) centeredLine(line, ocrInput.width) else ReadLine(line.text.trim(), line.boundingBox, line.confidence) }
+                // Araç/tabela yazısı ("PARK RANGER"): tamamı büyük harf ve noktalamasız
+                .filter { !TextRecognitionAnalyzer.isCapsDecal(it.text) }
+            // Kamera modundaki gürültü filtresi: harf-rakam karışığı ve anlamsız kelimeler atılır
+            val text = TextRecognitionAnalyzer.filterOcrNoise(lines.joinToString(" ") { it.text })
             if (text.isBlank()) {
                 detectBlackedOutCover(index, frame)
                 emptyReads[index]++
                 if (emptyReads[index] >= 3) stabilizers[index].notifyEmpty()
                 return
             }
+            // Altyazıya benzemeyen okuma (tuş ipuçları "Zoom LT RT ...", rakam yığını) "yazı yok" sayılmaz, yalnızca atlanır
+            if (!TextRecognitionAnalyzer.isPlausibleSubtitle(text)) return
             emptyReads[index] = 0
-            val boxes = lines.mapNotNull { it.boundingBox }
+            if (text != lastLoggedRead[index]) {
+                lastLoggedRead[index] = text
+                OcrDebugDumper.logPipeline("Telefon OCR ${index + 1}", text)
+            }
+            val boxes = lines.mapNotNull { line ->
+                line.box?.let {
+                    android.graphics.Rect(
+                        (it.left / scale).toInt(), (it.top / scale).toInt(),
+                        (it.right / scale).toInt(), (it.bottom / scale).toInt()
+                    )
+                }
+            }
             if (boxes.isNotEmpty()) {
                 // Yazının ekrandaki yeri (0..1)
                 lastTextRect[index] = RectF(
@@ -313,23 +391,39 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
             lastSeenAt[index] = System.currentTimeMillis()
             val confidence = lines.map { it.confidence }.average().toFloat().coerceIn(0f, 1f)
+            // Okunan yazı ekrandaki kendi çevirimizse "tüm ekran" paylaşılıyor: katmanı yakalamadan gizle
+            val shown = translations[index]
+            if (!hideFromCapture && shown != null && looksLikeOurs(text, shown.text)) {
+                OcrDebugDumper.logPipeline("Telefon ekranı", "Kendi çevirisi okundu, yanına alınıyor: \"$text\" / \"${shown.text}\"", endOfEntry = true)
+                switchToHiddenOverlay()
+                return
+            }
             stabilizers[index].submit(text, confidence)
         } catch (e: Exception) {
             Log.w(TAG, "OCR failed", e)
         } finally {
+            if (ocrInput !== crop) ocrInput.recycle()
             crop.recycle()
         }
     }
 
     private fun onConfirmed(index: Int, text: String) {
         val isTrToEn = translationManager.isTrToEn
-        if (!isTrToEn && TURKISH_LETTERS.containsMatchIn(text)) return
+        if (!isTrToEn && TURKISH_LETTERS.containsMatchIn(text)) {
+            OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Türkçe yazı, çevrilmedi: $text", endOfEntry = true)
+            return
+        }
         // Oyun arayüzü yazıları (sayı, para, mesafe) çevrilmesin: 1. alanda 1, diğerlerinde 2 gerçek kelime gerekir
+        // 1. alan (altyazı) zaten altyazı filtresinden geçti: "Woof!", "It's unconstitutional!" gibi kısa altyazılar
+        // atılıyordu. Ek alanlarda oyun arayüzü yazıları (para, mesafe) çevrilmesin: en az 2 gerçek kelime gerekir.
         val realWords = text.split(' ').count { word ->
             val core = word.trim { !it.isLetter() && it != '\'' }.lowercase()
-            core.length >= 2 && translationManager.isKnownWord(core)
+            core.length >= 2 && (translationManager.isKnownWord(core) || translationManager.isKnownWord(core.substringBefore('\'')))
         }
-        if (!isTrToEn && realWords < if (index == 0) 1 else 2) return
+        if (!isTrToEn && index > 0 && realWords < 2) {
+            OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Yeterli gerçek kelime yok, çevrilmedi: $text", endOfEntry = true)
+            return
+        }
         scope.launch {
             val translated = try {
                 withContext(Dispatchers.IO) { translationManager.translate(text) }
@@ -337,7 +431,10 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 Log.w(TAG, "Translation failed", e)
                 ""
             }
-            if (translated.isBlank()) return@launch
+            if (translated.isBlank()) {
+                OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Çeviri boş geldi: $text", endOfEntry = true)
+                return@launch
+            }
             val rect = lastTextRect[index] ?: return@launch
             translations[index] = AreaTranslation(translated, rect, lastLineHeight[index], System.currentTimeMillis())
             TranslationHistory.add(text, translated, area = index + 1)
@@ -371,12 +468,98 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
         }
         if (total > 0 && black >= total * 0.95f) {
+            OcrDebugDumper.logPipeline("Telefon ekranı", "Yazının yeri yakalamada siyah, çeviri yanına alınıyor", endOfEntry = true)
             coverText.value = false
             android.widget.Toast.makeText(
                 this,
                 "Çeviriler altyazının yanında gösterilecek. Tam üstünde görmek için ekran paylaşımında \"Tek uygulama\" seçin.",
                 android.widget.Toast.LENGTH_LONG
             ).show()
+        }
+    }
+
+    /** OCR'ın okuduğu satır (ortadaki kelimeler ayıklandıysa yalnızca onların metni ve yeri) */
+    private class ReadLine(val text: String, val box: android.graphics.Rect?, val confidence: Float)
+
+    /** Satırın yalnızca ortadaki kelime gruplarını tutar; ortada bir şey yoksa null. Konum bilgisi yoksa satır aynen kalır. */
+    private fun centeredLine(line: com.google.mlkit.vision.text.Text.Line, imageWidth: Int): ReadLine? {
+        val elements = line.elements
+        if (elements.isEmpty() || elements.any { it.boundingBox == null }) {
+            return ReadLine(line.text.trim(), line.boundingBox, line.confidence)
+        }
+        val words = elements.map { element ->
+            val box = element.boundingBox!!
+            SubtitleRegionFilter.Word(element.text, box.left, box.right, box.height())
+        }
+        val kept = SubtitleRegionFilter.keepCentered(words, imageWidth)?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        // Kalan kelimelerin kutuları: çeviri tam onların üstüne konsun
+        val remaining = kept.split(' ').toMutableList()
+        val boxes = elements.filter { remaining.remove(it.text) }.mapNotNull { it.boundingBox }
+        val box = if (boxes.isEmpty()) line.boundingBox else android.graphics.Rect(
+            boxes.minOf { it.left }, boxes.minOf { it.top }, boxes.maxOf { it.right }, boxes.maxOf { it.bottom }
+        )
+        return ReadLine(kept, box, line.confidence)
+    }
+
+    /**
+     * Okunan yazı ekrandaki kendi Türkçe çevirimiz mi? İsimler (büyük harfle başlayan kelimeler) iki dilde aynı
+     * olduğu için sayılmaz: "John, Dutch wants you" ile "John, Dutch seni istiyor" yanlışlıkla eşleşiyordu.
+     * Okunan küçük harfli kelimelerin büyük çoğunluğu çeviride geçiyorsa (ve en az 2 tane) bizimkidir.
+     */
+    private fun looksLikeOurs(read: String, translation: String): Boolean {
+        fun words(text: String) = text.split(' ', '\n')
+            .map { word -> word.filter { it.isLetter() } }
+            .filter { it.length >= 3 && it[0].isLowerCase() }
+            .toSet()
+        val readWords = words(read)
+        val ours = words(translation)
+        if (readWords.size < 2 || ours.isEmpty()) return false
+        return readWords.count { it in ours } >= readWords.size * 0.8f
+    }
+
+    /**
+     * "Tüm ekran" paylaşılıyor: katmanlar yakalamada gizlenir (OCR kendi çevirisini okumasın). Gizli katman
+     * yakalamada siyah göründüğü için çeviriler altyazının üstüne değil hemen yanına alınır. Bu durumda ekran
+     * yansıtmada (Smart View) çeviriler görünmez; kullanıcıya "tek uygulama" seçmesi söylenir.
+     */
+    private fun switchToHiddenOverlay() {
+        hideFromCapture = true
+        coverText.value = false
+        for (i in 0 until MAX_AREAS) translations[i] = null
+        stabilizers.forEach { it.reset() }
+        applyWindowFlags()
+        android.widget.Toast.makeText(
+            overlayContext,
+            "Çeviriler altyazının yanında gösterilecek. Tam üstünde ve ekran yansıtmada görmek için ekran paylaşımında \"Tek uygulama\" seçin.",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+    }
+
+    private fun overlayFlags(editing: Boolean): Int {
+        var flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        // Oyun sırasında dokunulmaz: dokunuşlar oyuna gider
+        if (!editing) flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        if (hideFromCapture) flags = flags or WindowManager.LayoutParams.FLAG_SECURE
+        // Katman telefonun ekranındaysa telefonun ekranını açık tutar (bkz. keepPhoneScreenOn)
+        if (overlayContext === this) flags = flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+        return flags
+    }
+
+    private fun bubbleFlags(): Int {
+        var flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+        if (hideFromCapture) flags = flags or WindowManager.LayoutParams.FLAG_SECURE
+        return flags
+    }
+
+    private fun applyWindowFlags() {
+        overlayParams?.let { params ->
+            params.flags = overlayFlags(isEditing.value)
+            overlayView?.let { runCatching { windowManager.updateViewLayout(it, params) } }
+        }
+        bubbleParams?.let { params ->
+            params.flags = bubbleFlags()
+            bubbleView?.let { runCatching { windowManager.updateViewLayout(it, params) } }
         }
     }
 
@@ -398,18 +581,46 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         else @Suppress("DEPRECATION") WindowManager.LayoutParams.TYPE_PHONE
 
     private fun composeView(content: @androidx.compose.runtime.Composable () -> Unit): ComposeView =
-        ComposeView(this).apply {
+        ComposeView(overlayContext).apply {
             setViewTreeLifecycleOwner(this@PhoneScreenService)
             setViewTreeSavedStateRegistryOwner(this@PhoneScreenService)
             setContent(content)
         }
+
+    /**
+     * Telefonun ekranı kapanınca Android ekran paylaşımını duraklatıyor (logda: görüntü gelmesi duruyor, çeviri
+     * kesiliyor; DeX'te telefonun ışığı sönünce de). Mod çalıştığı sürece telefonun ekranı açık tutulur. Katman telefonun
+     * ekranındaysa onun bayrağı yeter; DeX'te katman TV'deyken telefonun ekranına görünmez 1x1 bir pencere konur.
+     * Güç düğmesiyle elle kapatılan ekran engellenemez.
+     */
+    private fun keepPhoneScreenOn() {
+        if (overlayContext === this) {
+            overlayParams?.let { params ->
+                params.flags = params.flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
+                overlayView?.let { runCatching { windowManager.updateViewLayout(it, params) } }
+            }
+            return
+        }
+        val phoneWindows = getSystemService(WINDOW_SERVICE) as WindowManager
+        val view = android.view.View(this)
+        val params = WindowManager.LayoutParams(
+            1, 1, overlayType(),
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+            PixelFormat.TRANSLUCENT
+        ).apply { gravity = Gravity.TOP or Gravity.START }
+        runCatching {
+            phoneWindows.addView(view, params)
+            keepAwakeView = view
+        }
+    }
 
     private fun showOverlay() {
         val params = WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             overlayType(),
-            OVERLAY_PASSIVE_FLAGS,
+            overlayFlags(editing = false),
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -428,8 +639,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.WRAP_CONTENT,
             overlayType(),
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_SECURE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            bubbleFlags(),
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
@@ -486,10 +696,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     fun setEditing(editing: Boolean) {
         isEditing.value = editing
         if (editing) for (i in 0 until MAX_AREAS) translations[i] = null
-        val params = overlayParams ?: return
-        val view = overlayView ?: return
-        params.flags = if (editing) OVERLAY_EDIT_FLAGS else OVERLAY_PASSIVE_FLAGS
-        runCatching { windowManager.updateViewLayout(view, params) }
+        applyWindowFlags()
         if (!editing) stabilizers.forEach { it.reset() }
     }
 
@@ -506,7 +713,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         settings.savePhoneAreaRect(index, landscape, rect.left, rect.top, rect.right, rect.bottom)
     }
 
-    fun minFontSize(): Float = settings.getSubtitleFontSizeScreen()
+    fun minFontSize(): Float = settings.getPhoneMinFontSize()
 
     fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
@@ -520,7 +727,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Telefon ekranı çevirisi", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, "Ekran Çevirisi", NotificationManager.IMPORTANCE_LOW)
             )
         }
         val stopIntent = PendingIntent.getService(
@@ -531,7 +738,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         else @Suppress("DEPRECATION") Notification.Builder(this)
         val notification = builder
             .setSmallIcon(android.R.drawable.ic_menu_view)
-            .setContentTitle("Telefon ekranı çevriliyor")
+            .setContentTitle("Ekran Çevirisi çalışıyor")
             .setContentText("Ekrandaki altyazılar okunup çevriliyor.")
             .setOngoing(true)
             .addAction(Notification.Action.Builder(null, "Durdur", stopIntent).build())
@@ -548,21 +755,15 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val MAX_AREAS = 3
         private const val FRAME_INTERVAL_MS = 350L
         private const val HIDE_AFTER_MS = 5000L
+        private const val STALL_LOG_MS = 10_000L
         private const val CHANNEL_ID = "phone_screen_translation"
         private const val NOTIFICATION_ID = 7301
         private const val EXTRA_RESULT_CODE = "result_code"
         private const val EXTRA_RESULT_DATA = "result_data"
+        private const val EXTRA_DISPLAY_ID = "display_id"
         private const val ACTION_STOP = "com.example.cameratranslator.STOP_PHONE_SCREEN"
         private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
 
-        // Çeviri katmanı: dokunulmaz (oyun oynanır), ekran yakalamada görünmez (OCR kendi çevirisini okumaz)
-        private const val OVERLAY_PASSIVE_FLAGS = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or WindowManager.LayoutParams.FLAG_SECURE
-        // Alan düzenlerken: dokunulabilir
-        private const val OVERLAY_EDIT_FLAGS = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-            WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-            WindowManager.LayoutParams.FLAG_SECURE
 
         private val _running = MutableStateFlow(false)
         /** Telefon ekranı modu çalışıyor mu (ana ekrandaki Başlat/Durdur için) */
@@ -573,10 +774,12 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
         fun canDrawOverlays(context: Context): Boolean = Settings.canDrawOverlays(context)
 
-        fun start(context: Context, resultCode: Int, data: Intent) {
+        /** [displayId]: Başlat'a basılan ekran; çeviriler orada gösterilir (DeX'te TV) */
+        fun start(context: Context, resultCode: Int, data: Intent, displayId: Int) {
             val intent = Intent(context, PhoneScreenService::class.java)
                 .putExtra(EXTRA_RESULT_CODE, resultCode)
                 .putExtra(EXTRA_RESULT_DATA, data)
+                .putExtra(EXTRA_DISPLAY_ID, displayId)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
             else context.startService(intent)
         }
