@@ -215,6 +215,7 @@ fun MainOverlay(
     var focusBounds by remember { mutableStateOf<Rect?>(null) }
     var directionBounds by remember { mutableStateOf<Rect?>(null) }
     var engineBounds by remember { mutableStateOf<Rect?>(null) }
+    var modeBounds by remember { mutableStateOf<Rect?>(null) }
     var sunButtonCenterY by remember { mutableStateOf<Float?>(null) }
     var focusButtonCenterY by remember { mutableStateOf<Float?>(null) }
 
@@ -669,7 +670,7 @@ fun MainOverlay(
             if (showDisplayModeQuickSwitch && !isStealthMode) {
                 IconButton(
                     onClick = onToggleDisplayMode,
-                    modifier = Modifier.size(44.dp)
+                    modifier = Modifier.size(44.dp).onGloballyPositioned { modeBounds = it.boundsInRoot() }
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Cached,
@@ -900,6 +901,7 @@ fun MainOverlay(
                 GuideTarget.FOCUS -> focusBounds?.translate(-offset)
                 GuideTarget.DIRECTION -> directionBounds?.translate(-offset)
                 GuideTarget.ENGINE -> engineBounds?.translate(-offset)
+                GuideTarget.MODE -> if (showDisplayModeQuickSwitch) modeBounds?.translate(-offset) else null
             }
             OnboardingGuide(
                 step = guideStep,

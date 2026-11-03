@@ -136,12 +136,13 @@ class MainActivity : ComponentActivity() {
         OcrDebugDumper.init(this)
         OfflineModelDownloader.init(this)
         OcrTextFixer.init(this)
-        // Rehber, görmemiş herkese bir kez: yeni yükleyene ve rehberin ilk geldiği 1.0.7'ye güncelleyene.
-        // Sonraki güncellemelerde (rehber zaten görülmüş) yalnızca "Yenilikler" penceresi çıkar.
-        // Yenilikler yalnızca güncelleyene: yeni yükleyen için bu sürüm görülmüş sayılır. İstisna: 1.0.7 büyük
-        // yenilenme sürümü olduğu için onu yeni yükleyen de yenilikleri görür.
+        // Yeni yükleyen: rehberi görür, yenilikleri görmez (istisna: büyük yenilenme sürümü 1.0.7).
+        // Güncelleyen: yalnızca "Yenilikler" penceresini görür, rehber çıkmaz (istisna: rehberin ilk geldiği 1.0.7).
         val info = runCatching { packageManager.getPackageInfo(packageName, 0) }.getOrNull()
         val isUpdate = info != null && info.firstInstallTime != info.lastUpdateTime
+        if (isUpdate && !settingsManager.isGuideSeen() && BuildConfig.VERSION_NAME !in GUIDE_ON_UPDATE) {
+            settingsManager.saveGuideSeen(true)
+        }
         if (settingsManager.getLastSeenVersion() == null && !isUpdate &&
             BuildConfig.VERSION_NAME !in WHATS_NEW_ON_FRESH_INSTALL
         ) {
@@ -1117,6 +1118,8 @@ class MainActivity : ComponentActivity() {
         private const val SCREEN_BOX_HIDE_MS = 5000L
         /** Yeni yükleyene de "Yenilikler" penceresinin gösterildiği sürümler (büyük yenilenmeler) */
         private val WHATS_NEW_ON_FRESH_INSTALL = setOf("1.0.7")
+        /** Güncelleyene de rehberin gösterildiği sürümler (rehberin ilk geldiği sürüm) */
+        private val GUIDE_ON_UPDATE = setOf("1.0.7")
         /** İngilizcede olmayan Türkçe harfler */
         private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
         private var hasShownAppLaunchSplash = false

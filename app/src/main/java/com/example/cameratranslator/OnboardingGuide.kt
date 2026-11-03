@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /** İlk açılış rehberinin hedefleri: her adım ana ekranda neyi parlak gösterecek. */
-enum class GuideTarget { NONE, ZOOM, SUN, FOCUS, OCR_AREA, DIRECTION, ENGINE, START, EYE, MENU }
+enum class GuideTarget { NONE, ZOOM, SUN, FOCUS, OCR_AREA, DIRECTION, ENGINE, START, EYE, MODE, MENU }
 
 private data class GuideStep(val title: String, val text: String, val target: GuideTarget)
 
@@ -95,6 +95,13 @@ private val STEPS = listOf(
         "Göz modu",
         "Göz simgesine basarsanız düğmeler gizlenir, ekranda yalnızca çeviri kalır. Tekrar basınca geri gelir.",
         GuideTarget.EYE
+    ),
+    GuideStep(
+        "Görünüm modu",
+        "Bu düğmeyle görünüm modları arasında geçiş yaparsınız; her dokunuşta seçilen modun adı kısaca görünür. " +
+            "Sinematik Altyazı'da çeviri iri yazıyla OCR alanının yanında çıkar ve geçmiş çeviriler akar; Yerinde Çeviri'de " +
+            "çeviri TV'deki yazının tam üstüne oturur. Modların ne işe yaradığını Ayarlar > Görünüm Modu'nda okuyabilirsiniz.",
+        GuideTarget.MODE
     ),
     GuideStep(
         "Ayarlar",
