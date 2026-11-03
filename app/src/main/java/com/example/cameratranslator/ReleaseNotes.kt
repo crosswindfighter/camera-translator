@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.sp
 object ReleaseNotes {
     private val NOTES = mapOf(
         "1.0.8" to listOf(
-            "Yeni Ekran Çevirisi modu: kamera kullanmadan telefonun kendi ekranını okur. Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açın: oyun büyük ekranda çok net görünür, Türkçe çeviriler anında altyazının üstüne gelir; oyunu televizyonda sanki orijinal Türkçe altyazılıymış gibi oynarsınız.",
+            "Yeni Ekran Çevirisi modu: kamera kullanmadan telefonun kendi ekranını okur. Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız.",
             "Oyunu oynarken dokunmayı engellemeyen çeviri katmanı ve kenardaki yüzen balon: OCR alanlarını oyunun içinden yerleştirin, uygulamaya dönün ya da durdurun.",
             "Görünüm modları yeniden adlandırıldı: Sinematik Altyazı, Yerinde Çeviri (eski adıyla Ekran Çevirisi) ve Ekran Çevirisi. Sağdaki mod düğmesi üçü arasında geçer ve artık varsayılan olarak açık.",
             "Ayarlar'da her modun ne işe yaradığını anlatan açıklamalar.",
