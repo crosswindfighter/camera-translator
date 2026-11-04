@@ -816,19 +816,19 @@ class MainActivity : ComponentActivity() {
 
                 // OPUS modundayken model yoksa (duraklatılmış ekranda) kullanıcıyı yönlendir
                 val offlineModelState by OfflineModelDownloader.state.collectAsStateWithLifecycle()
-                val opusModelHint = if (isPaused && translationMode == TranslationMode.OFFLINE && !isTrToEn) {
+                // "Daha sonra" denince panel bir daha çıkmaz; Ayarlar'dan indirilirse ilerleme yine görünür
+                var opusNoticeDismissed by remember { mutableStateOf(settingsManager.getOpusNoticeDismissed()) }
+                val opusNotice: OpusNotice? = if (isPaused && !isPhoneSource && translationMode == TranslationMode.OFFLINE && !isTrToEn) {
                     when (val m = offlineModelState) {
-                        is OfflineModelDownloader.State.Installed -> ""
-                        is OfflineModelDownloader.State.Downloading ->
-                            "OPUS modeli indiriliyor… %${(m.progress * 100).toInt()}"
-                        is OfflineModelDownloader.State.Verifying -> "OPUS modeli doğrulanıyor…"
-                        else -> "OPUS çeviri motoru henüz indirilmedi.\n" +
-                            "Dilerseniz Ayarlar'dan tek seferlik indirebilirsiniz (355 MB). " +
-                            "O zamana kadar standart çevrimdışı motor kullanılır."
+                        is OfflineModelDownloader.State.Installed -> null
+                        is OfflineModelDownloader.State.Downloading -> OpusNotice.Downloading(m.progress)
+                        is OfflineModelDownloader.State.Verifying -> OpusNotice.Verifying
+                        is OfflineModelDownloader.State.Failed -> if (opusNoticeDismissed) null else OpusNotice.NotInstalled(m.message)
+                        else -> if (opusNoticeDismissed) null else OpusNotice.NotInstalled()
                     }
-                } else ""
+                } else null
 
-                val statusText = if (opusModelHint.isNotEmpty()) opusModelHint else when (val s = translationStatus) {
+                val statusText = when (val s = translationStatus) {
                     is TranslationStatus.DownloadingModel -> ""
                     is TranslationStatus.Ready -> if (isPaused) "Çeviriye Hazır" else ""
                     is TranslationStatus.Error -> if (isPaused) s.message else ""
@@ -838,14 +838,9 @@ class MainActivity : ComponentActivity() {
                 val isBusy by translationManager.isBusy.collectAsStateWithLifecycle()
 
                 val displayResult = when {
-                    isPhoneSource -> if (phoneRunning) {
-                        "📱 Ekran Çevirisi çalışıyor.\nOyununuza dönün; OCR alanlarını düzenlemek ya da durdurmak için ekranın kenarındaki yüzen düğmeye dokunun."
-                    } else {
-                        "📱 Ekran Çevirisi\nKamera kullanmadan telefonun ekranındaki oyunu çevirir. " +
-                            "Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. " +
-                            "(Kablosuz DeX bu modla çalışmaz.) Başlat'a basın, ekran paylaşımında \"Tek uygulama\" seçip oyunu seçin; " +
-                            "OCR alanlarını oyunun içinden, yüzen balonla yerleştirin."
-                    }
+                    // Ekran Çevirisi'nin ana ekranı: PhoneModeIntro kendi içeriğini gösterir
+                    isPhoneSource -> ""
+                    opusNotice != null -> ""
                     statusText.isNotEmpty() -> statusText
                     isPaused -> ""
                     currentTranslation.isNotEmpty() -> currentTranslation
@@ -859,15 +854,28 @@ class MainActivity : ComponentActivity() {
 
                 MainOverlay(
                     currentTranslation = displayResult,
-                    // Küçük/ince yazı yalnızca OPUS indirme notunda; "Çeviriye Hazır" gibi durumlar eskisi gibi
-                    isStatusMessage = opusModelHint.isNotEmpty() || isPhoneSource,
+                    opusNotice = opusNotice,
+                    opusNoticeActions = OpusNoticeActions(
+                        onDownload = { OfflineModelDownloader.start() },
+                        onCancel = { OfflineModelDownloader.cancel() },
+                        onLater = {
+                            opusNoticeDismissed = true
+                            settingsManager.saveOpusNoticeDismissed()
+                            Toast.makeText(
+                                context,
+                                "Şimdilik standart çevrimdışı motor kullanılacak. OPUS'u istediğiniz zaman Ayarlar'dan indirebilirsiniz.",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    ),
+                    isStatusMessage = isPhoneSource,
                     isPhoneMode = isPhoneSource,
                     screenTextBounds = if (isPaused || currentTranslation.isEmpty()) null else screenTextBounds,
                     screenTextLineHeight = screenTextLineHeight,
                     extraAreas = if (displayMode == DisplayMode.DEFAULT) emptyList() else List(extraAreaCount) { i ->
                         ExtraAreaUi(
-                            initialPortrait = settingsManager.getExtraOcrRect(i, landscape = false),
-                            initialLandscape = settingsManager.getExtraOcrRect(i, landscape = true),
+                            initialPortrait = { settingsManager.getExtraOcrRect(i, landscape = false) },
+                            initialLandscape = { settingsManager.getExtraOcrRect(i, landscape = true) },
                             translation = if (isPaused) "" else extraTranslations[i],
                             bounds = if (isPaused) null else extraBounds[i],
                             lineHeight = extraLineHeights[i]
@@ -899,7 +907,8 @@ class MainActivity : ComponentActivity() {
                     zoomLevel = zoomLevel,
                     translationMode = translationMode,
                     isOfflinePlusActive = isOfflinePlusActive,
-                    isStealthMode = isStealthMode,
+                    // Ekran Çevirisi'nde göz simgesi yok: göz modu açıkken geçilirse düğmeler gizli kalmasın
+                    isStealthMode = isStealthMode && !isPhoneSource,
                     onToggleStealthMode = { isStealthMode = !isStealthMode },
                     onCycleTranslationMode = {
                         // OPUS → Google Translate → (Ayarlar'dan açıldıysa) Google Cloud → OPUS
@@ -985,10 +994,10 @@ class MainActivity : ComponentActivity() {
                     maxZoom = zoomRange?.endInclusive ?: ZOOM_SLIDER_MAX,
                     // Her seferinde ayarlardan taze okunur: eskiden ekran açılışında bir kez okunup saklandığı için
                     // görünüm modu düğmesiyle geçince OCR alanı son ayarlanan yerine değil eski yerine dönüyordu
-                    initialOcrRectDefaultPortrait = settingsManager.getOcrRectDefaultPortrait(),
-                    initialOcrRectDefaultLandscape = settingsManager.getOcrRectDefaultLandscape(),
-                    initialOcrRectScreenPortrait = settingsManager.getOcrRectScreenPortrait(),
-                    initialOcrRectScreenLandscape = settingsManager.getOcrRectScreenLandscape(),
+                    initialOcrRectDefaultPortrait = { settingsManager.getOcrRectDefaultPortrait() },
+                    initialOcrRectDefaultLandscape = { settingsManager.getOcrRectDefaultLandscape() },
+                    initialOcrRectScreenPortrait = { settingsManager.getOcrRectScreenPortrait() },
+                    initialOcrRectScreenLandscape = { settingsManager.getOcrRectScreenLandscape() },
                     onOcrRectSaveDefaultPortrait = { left, top, right, bottom ->
                         settingsManager.saveOcrRectDefaultPortrait(left, top, right, bottom)
                     },

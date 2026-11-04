@@ -37,8 +37,9 @@ import kotlin.math.roundToInt
 
 /** Ekran çevirisinde ek OCR alanı (2. ve 3. alan) için ekranda gösterilecek bilgiler. */
 data class ExtraAreaUi(
-    val initialPortrait: FloatArray,
-    val initialLandscape: FloatArray,
+    // Telefon dönünce o anki kayıttan okunur
+    val initialPortrait: () -> FloatArray,
+    val initialLandscape: () -> FloatArray,
     val translation: String,
     /** Çevrilen İngilizce yazının alan içindeki yeri (0..1); null = kutu gizli */
     val bounds: RectF?,
@@ -162,7 +163,7 @@ fun ExtraOcrArea(
     onRectSave: (landscape: Boolean, rect: RectF) -> Unit
 ) {
     val density = LocalDensity.current
-    val initial = if (isLandscape) area.initialLandscape else area.initialPortrait
+    val initial = remember(number, isLandscape) { if (isLandscape) area.initialLandscape() else area.initialPortrait() }
     // rememberSaveable değil: telefon dönünce eski yönün konumu yeni yönün kaydına yazılıyordu
     var left by remember(number, isLandscape) { mutableFloatStateOf(initial[0]) }
     var top by remember(number, isLandscape) { mutableFloatStateOf(initial[1]) }
@@ -191,7 +192,7 @@ fun ExtraOcrArea(
             .size(with(density) { rect.width.toDp() }, with(density) { rect.height.toDp() })
             .border(1.dp, AREA_COLOR.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
             .pointerInput(containerSize, isLandscape) {
-                detectDragGestures(onDragEnd = { save() }) { change, drag ->
+                detectDragGestures(onDragEnd = { save() }, onDragCancel = { save() }) { change, drag ->
                     change.consume()
                     val width = right - left
                     val height = bottom - top
@@ -216,7 +217,7 @@ fun ExtraOcrArea(
                 .size(40.dp)
                 .align(Alignment.BottomEnd)
                 .pointerInput(containerSize, isLandscape) {
-                    detectDragGestures(onDragEnd = { save() }) { change, drag ->
+                    detectDragGestures(onDragEnd = { save() }, onDragCancel = { save() }) { change, drag ->
                         change.consume()
                         right = clampSafe(right + drag.x / containerSize.width, left + 0.05f, 1f)
                         bottom = clampSafe(bottom + drag.y / containerSize.height, top + 0.02f, 1f)

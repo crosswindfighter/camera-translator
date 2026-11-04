@@ -77,6 +77,9 @@ fun MainOverlay(
     currentTranslation: String,
     /** Ekrandaki metin çeviri değil bilgi notu ("OPUS indirilmedi" gibi): küçük ve ince yazılır */
     isStatusMessage: Boolean = false,
+    /** OPUS motoru henüz hazır değilse duraklatılmış ekranda gösterilen tanıtım; null = gösterilmez */
+    opusNotice: OpusNotice? = null,
+    opusNoticeActions: OpusNoticeActions = OpusNoticeActions(),
     /** Ekran çevirisi: çevrilen İngilizce yazının OCR alanı içindeki yeri (0..1); null = kutu gösterilmez */
     screenTextBounds: RectF? = null,
     /** İngilizce satırın yüksekliği (OCR alanına oranla); Türkçe yazı bu boyutta başlar, sığmazsa küçülür */
@@ -132,10 +135,11 @@ fun MainOverlay(
     isMuted: Boolean = false,
     onToggleMute: () -> Unit = {},
     subtitleFontSize: Float = 40f,
-    initialOcrRectDefaultPortrait: FloatArray = floatArrayOf(0.1f, 0.7f, 0.9f, 0.85f),
-    initialOcrRectDefaultLandscape: FloatArray = floatArrayOf(0.15f, 0.7f, 0.85f, 0.88f),
-    initialOcrRectScreenPortrait: FloatArray = floatArrayOf(0.1f, 0.75f, 0.9f, 0.88f),
-    initialOcrRectScreenLandscape: FloatArray = floatArrayOf(0.15f, 0.75f, 0.85f, 0.90f),
+    // Her seferinde kayıttan okunur: uygulama dönünce yeniden başlamadığı için değer olarak verilse eski konum gelebilirdi
+    initialOcrRectDefaultPortrait: () -> FloatArray = { floatArrayOf(0.1f, 0.7f, 0.9f, 0.85f) },
+    initialOcrRectDefaultLandscape: () -> FloatArray = { floatArrayOf(0.15f, 0.7f, 0.85f, 0.88f) },
+    initialOcrRectScreenPortrait: () -> FloatArray = { floatArrayOf(0.1f, 0.75f, 0.9f, 0.88f) },
+    initialOcrRectScreenLandscape: () -> FloatArray = { floatArrayOf(0.15f, 0.75f, 0.85f, 0.90f) },
     onOcrRectSaveDefaultPortrait: (Float, Float, Float, Float) -> Unit = { _, _, _, _ -> },
     onOcrRectSaveDefaultLandscape: (Float, Float, Float, Float) -> Unit = { _, _, _, _ -> },
     onOcrRectSaveScreenPortrait: (Float, Float, Float, Float) -> Unit = { _, _, _, _ -> },
@@ -145,8 +149,8 @@ fun MainOverlay(
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val activeOcrPortrait = if (displayMode == DisplayMode.DEFAULT) initialOcrRectDefaultPortrait else initialOcrRectScreenPortrait
-    val activeOcrLandscape = if (displayMode == DisplayMode.DEFAULT) initialOcrRectDefaultLandscape else initialOcrRectScreenLandscape
+    val activeOcrPortrait = if (displayMode == DisplayMode.DEFAULT) initialOcrRectDefaultPortrait() else initialOcrRectScreenPortrait()
+    val activeOcrLandscape = if (displayMode == DisplayMode.DEFAULT) initialOcrRectDefaultLandscape() else initialOcrRectScreenLandscape()
 
     // Konum her mod (sinematik/ekran) ve yön (dikey/yatay) için ayrı kayıttan okunur. rememberSaveable değil:
     // telefon dönünce ekran yeniden kurulurken eski yönün konumunu geri getirip yeni yönün kaydına yazıyordu.
@@ -318,7 +322,11 @@ fun MainOverlay(
                     }
                 }
 
-                if (isStatusMessage) {
+                if (isPhoneMode) {
+                    PhoneModeIntro()
+                } else if (opusNotice != null) {
+                    OpusNoticeClearOfOcr(opusNotice, opusNoticeActions, ocrRect, areaTop = subtitleTop)
+                } else if (isStatusMessage) {
                     // Bilgi notu (OPUS indirme notu) eskisi gibi ortada
                     AutoFitText(
                         text = currentTranslation,
@@ -420,7 +428,13 @@ fun MainOverlay(
                     )
                 }
             }
-            // Durum yazıları (OPUS indirme notu gibi) eskisi gibi alanın tamamında
+            // OPUS tanıtımı Sinematik'tekiyle aynı: ortada, yan düğmelere ve üst/alt çubuğa binmeden
+            if (opusNotice != null) {
+                Box(modifier = Modifier.fillMaxSize().padding(horizontal = 72.dp, vertical = 60.dp)) {
+                    OpusNoticeClearOfOcr(opusNotice, opusNoticeActions, ocrRect, areaTop = 60.dp)
+                }
+            }
+            // Durum yazıları eskisi gibi alanın tamamında
             if (screenTextBounds == null && isStatusMessage && currentTranslation.isNotEmpty() && containerSize != Size.Zero) {
                 Box(
                     modifier = Modifier
@@ -478,7 +492,7 @@ fun MainOverlay(
                     .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
                     .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
                     .pointerInput(containerSize, displayMode, isLandscape) {
-                        detectDragGestures(onDragEnd = { saveOcrRect() }) { change, dragAmount ->
+                        detectDragGestures(onDragEnd = { saveOcrRect() }, onDragCancel = { saveOcrRect() }) { change, dragAmount ->
                             change.consume()
                             val deltaX = dragAmount.x / containerSize.width
                             val deltaY = dragAmount.y / containerSize.height
@@ -509,7 +523,7 @@ fun MainOverlay(
                         .size(40.dp)
                         .align(Alignment.BottomEnd)
                         .pointerInput(containerSize, displayMode, isLandscape) {
-                            detectDragGestures(onDragEnd = { saveOcrRect() }) { change, dragAmount ->
+                            detectDragGestures(onDragEnd = { saveOcrRect() }, onDragCancel = { saveOcrRect() }) { change, dragAmount ->
                                 change.consume()
                                 val deltaX = dragAmount.x / containerSize.width
                                 val deltaY = dragAmount.y / containerSize.height
@@ -697,7 +711,8 @@ fun MainOverlay(
             }
 
             // 3. Stealth Mode Eye Button (ALWAYS VISIBLE so user can toggle back!)
-            IconButton(
+            // Ekran Çevirisi'nde gizlenecek kamera arayüzü olmadığı için göz simgesi yok
+            if (!isPhoneMode) IconButton(
                 onClick = onToggleStealthMode,
                 // Arayüz gizliyken göz simgesi karanlık ekranda dikkat çekmesin: yarı saydam (dokunma alanı aynı)
                 modifier = Modifier

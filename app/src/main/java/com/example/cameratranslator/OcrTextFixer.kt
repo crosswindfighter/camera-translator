@@ -22,6 +22,7 @@ object OcrTextFixer {
     @Volatile private var bigrams: BigramModel? = null
     @Volatile private var lowerWords: Set<String> = emptySet()
     @Volatile private var casedWords: Set<String> = emptySet()
+    @Volatile private var dictionaryWords: Set<String> = emptySet()
 
     /** Uygulama açılışında bir kez çağrılır; sözlük arka planda yüklenir (~50 ms). */
     fun init(context: Context) {
@@ -45,6 +46,11 @@ object OcrTextFixer {
                 }
                 lowerWords = scores.keys
                 casedWords = cased
+                dictionaryWords = HashSet<String>(scores.size + cased.size + realWords.size).apply {
+                    addAll(scores.keys)
+                    cased.forEach { add(it.lowercase()) }
+                    realWords.forEach { add(it.lowercase()) }
+                }
                 corrector = OcrWordCorrector(scores, cased, realWords)
                 Log.d(TAG, "Loaded ${scores.size} words, ${cased.size} names, ${realWords.size} extra words")
                 // Kelime çifti tablosu (~9 MB) ayrı yüklenir; gelmezse düzeltici bağlamsız çalışmaya devam eder
@@ -68,4 +74,10 @@ object OcrTextFixer {
 
     /** Kelime sözlükte tek parça olarak var mı (stabilizer'ın "temiz okuma" kontrolü için). */
     fun isKnownWord(word: String): Boolean = word in lowerWords || word in casedWords
+
+    /** Küçük harfli kelime herhangi bir sözlükte var mı (isimler ve OPUS'un bilmediği kelimeler dahil). */
+    fun isDictionaryWord(word: String): Boolean = word in dictionaryWords
+
+    /** Sözlük yüklendi mi? Yüklenmediyse "bozuk okuma" kararı verilmez. */
+    val isDictionaryLoaded: Boolean get() = dictionaryWords.isNotEmpty()
 }

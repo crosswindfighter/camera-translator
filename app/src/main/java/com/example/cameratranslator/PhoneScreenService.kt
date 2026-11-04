@@ -41,6 +41,7 @@ import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -69,7 +70,7 @@ import kotlinx.coroutines.withContext
 class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     /** Ekranda gösterilen bir alanın çevirisi; [textRect] İngilizce yazının ekrandaki yeri (0..1) */
-    data class AreaTranslation(val text: String, val textRect: RectF, val lineHeight: Float, val shownAt: Long)
+    data class AreaTranslation(val text: String, val textRect: RectF, val lineHeight: Float, val shownAt: Long, val source: String = "")
 
     private val lifecycleRegistry = LifecycleRegistry(this)
     private val savedStateController = SavedStateRegistryController.create(this)
@@ -124,6 +125,10 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val lastSeenAt = LongArray(MAX_AREAS)
     private val lastTextRect = arrayOfNulls<RectF>(MAX_AREAS)
     private val lastLineHeight = FloatArray(MAX_AREAS)
+    /** Son okumaların metni ve yeri: kutu, onaylanan metne en uygun okumanın yerine konur */
+    private val recentReads = List(MAX_AREAS) { ArrayDeque<PlacedRead>() }
+    /** Sürmekte olan çeviri: yeni altyazı gelince iptal edilir, eski çeviri geç gelip yeni yazının üstüne binmez */
+    private val translateJobs = arrayOfNulls<Job>(MAX_AREAS)
     private val emptyReads = IntArray(MAX_AREAS)
     private val lastLoggedRead = arrayOfNulls<String>(MAX_AREAS)
     private val stabilizers by lazy {
@@ -360,6 +365,90 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
+    /**
+     * 1. alan (altyazı) "Sadece ortadaki altyazıyı oku" açıksa kamera modundaki gibi yalnızca ortadaki kelime
+     * gruplarını alır: alanın kenarındaki harita, görev ve arayüz yazıları atılır. Diğer alanlar tümünü okur.
+     */
+    private suspend fun recognizeLines(input: Bitmap, index: Int): List<ReadLine> {
+        val result = recognizer.process(InputImage.fromBitmap(input, 0)).await()
+        val centerOnly = index == 0 && OcrTuning.centerOnlyEnabled
+        val readLines = result.textBlocks.flatMap { it.lines }
+            .filter { line -> line.text.count { it.isLetter() } >= 2 }
+            .mapNotNull { line -> if (centerOnly) centeredLine(line, input.width) else ReadLine(line.text.trim(), line.boundingBox, line.confidence) }
+            // Araç/tabela yazısı ("PARK RANGER"): tamamı büyük harf ve noktalamasız
+            .filter { !TextRecognitionAnalyzer.isCapsDecal(it.text) }
+        // Altyazıya ait olmayan satırlar ("oBEY" arması, haritadaki "Adanas") ne metne ne kutunun boyutuna girsin
+        return if (index == 0) dropStrayLines(readLines) else readLines
+    }
+
+    /** Metnin kelimeleri (en az 2 harfli) ve sözlükte bulunanların sayısı */
+    private fun dictionaryScore(text: String): Pair<Int, Int> {
+        val cores = text.split(' ').map { word -> word.trim { !it.isLetter() && it != '\'' }.lowercase() }.filter { it.length >= 2 }
+        val known = cores.count { OcrTextFixer.isDictionaryWord(it) || OcrTextFixer.isDictionaryWord(it.substringBefore('\'')) }
+        return known to cores.size
+    }
+
+    private fun dictionaryRatio(text: String): Float {
+        val (known, total) = dictionaryScore(text)
+        return if (total == 0) 0f else known.toFloat() / total
+    }
+
+    /** Okuma bozuk görünüyor mu, ya da açık renkli alanda hiç yazı bulunamadı mı? */
+    private fun shouldReadAgain(text: String, crop: Bitmap): Boolean {
+        if (translationManager.isTrToEn || !OcrTextFixer.isDictionaryLoaded) return false
+        if (text.isBlank()) return isBrightArea(crop)
+        val (known, total) = dictionaryScore(text)
+        return total >= 4 && known < total * READ_AGAIN_RATIO
+    }
+
+    /** Görüntünün ortalama parlaklığı yüksek mi (seyrek örnekleme) */
+    private fun isBrightArea(bitmap: Bitmap): Boolean {
+        var sum = 0L
+        var count = 0
+        for (gy in 0 until 8) {
+            val y = bitmap.height * (gy * 2 + 1) / 16
+            for (gx in 0 until 24) {
+                val pixel = bitmap.getPixel(bitmap.width * (gx * 2 + 1) / 48, y)
+                sum += ((pixel shr 16 and 0xFF) + (pixel shr 8 and 0xFF) + (pixel and 0xFF)) / 3
+                count++
+            }
+        }
+        return sum / count >= BRIGHT_AREA_LEVEL
+    }
+
+    /**
+     * Beyaz yazıyı açık zeminden ayırır: her pikselin en düşük rengi alınır (krem beton düşük, gerçek beyaz yüksek kalır),
+     * en parlak kısım dışındaki her şey siyaha çekilir. Eşik görüntüye göre seçilir; sonuç siyah üstüne beyaz yazıdır.
+     */
+    private fun boostBrightText(source: Bitmap): Bitmap {
+        val width = source.width
+        val height = source.height
+        val pixels = IntArray(width * height)
+        source.getPixels(pixels, 0, width, 0, 0, width, height)
+        val histogram = IntArray(256)
+        for (i in pixels.indices) {
+            val pixel = pixels[i]
+            val lowest = minOf(pixel shr 16 and 0xFF, pixel shr 8 and 0xFF, pixel and 0xFF)
+            pixels[i] = lowest
+            histogram[lowest]++
+        }
+        val brightestAllowed = pixels.size * BOOST_KEEP_RATIO
+        var seen = 0
+        var threshold = 255
+        while (threshold > 0 && seen + histogram[threshold] < brightestAllowed) {
+            seen += histogram[threshold]
+            threshold--
+        }
+        threshold = threshold.coerceIn(170, 235)
+        for (i in pixels.indices) {
+            val level = ((pixels[i] - threshold) * 255 / (255 - threshold)).coerceIn(0, 255)
+            pixels[i] = (0xFF shl 24) or (level shl 16) or (level shl 8) or level
+        }
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            it.setPixels(pixels, 0, width, 0, 0, width, height)
+        }
+    }
+
     private suspend fun readArea(index: Int, frame: Bitmap, area: FloatArray) {
         val left = (area[0] * frame.width).toInt().coerceIn(0, frame.width - 1)
         val top = (area[1] * frame.height).toInt().coerceIn(0, frame.height - 1)
@@ -374,19 +463,44 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         // Geliştirici modu: OCR'ın gördüğü görüntü (ör. satır sonu kesiliyor mu diye bakmak için)
         if (index == 0) OcrDebugDumper.maybeSaveFrames(++dumpFrameId, ocrInput, null)
         try {
-            val result = recognizer.process(InputImage.fromBitmap(ocrInput, 0)).await()
-            // 1. alan (altyazı) "Sadece ortadaki altyazıyı oku" açıksa kamera modundaki gibi yalnızca ortadaki kelime
-            // gruplarını alır: alanın kenarındaki harita, görev ve arayüz yazıları atılır. Diğer alanlar tümünü okur.
-            val centerOnly = index == 0 && OcrTuning.centerOnlyEnabled
-            val lines = result.textBlocks.flatMap { it.lines }
-                .filter { line -> line.text.count { it.isLetter() } >= 2 }
-                .mapNotNull { line -> if (centerOnly) centeredLine(line, ocrInput.width) else ReadLine(line.text.trim(), line.boundingBox, line.confidence) }
-                // Araç/tabela yazısı ("PARK RANGER"): tamamı büyük harf ve noktalamasız
-                .filter { !TextRecognitionAnalyzer.isCapsDecal(it.text) }
+            var lines = recognizeLines(ocrInput, index)
             // Kamera modundaki gürültü filtresi: harf-rakam karışığı ve anlamsız kelimeler atılır
-            val text = TextRecognitionAnalyzer.filterOcrNoise(lines.joinToString(" ") { it.text })
+            var text = TextRecognitionAnalyzer.filterOcrNoise(lines.joinToString(" ") { it.text })
+            // Açık zeminde beyaz yazı: normal okuma bozuk ya da boşsa aynı kare işlenip bir daha okunur; daha çok gerçek
+            // kelime içeren okuma seçilir. Normal okuma temizse bu adımlar hiç çalışmaz.
+            suspend fun readEnhanced(label: String, image: Bitmap) {
+                try {
+                    OcrDebugDumper.maybeSaveFrames(++dumpFrameId, ocrInput, image)
+                    val retryLines = recognizeLines(image, index)
+                    val retryText = TextRecognitionAnalyzer.filterOcrNoise(retryLines.joinToString(" ") { it.text })
+                    if (retryText.isNotBlank()) {
+                        // Oran değil gerçek kelime sayısı: oran, yarım kalan okumayı ("Fly to") tam okumaya tercih ediyordu.
+                        // Belirgin kısalan okuma alınmaz: işlem renkli kelimeleri siliyor ("Tail the architect and..." -> "Tail the and...")
+                        val keepsText = retryText.count { it.isLetter() } >= text.count { it.isLetter() } * MIN_RETRY_LETTER_RATIO
+                        val better = text.isBlank() || (keepsText && dictionaryScore(retryText).first > dictionaryScore(text).first)
+                        OcrDebugDumper.logPipeline(
+                            "Telefon $label", "${if (better) "SEÇİLDİ" else "seçilmedi"}: \"$text\" / \"$retryText\""
+                        )
+                        if (better) {
+                            lines = retryLines
+                            text = retryText
+                        }
+                    }
+                } finally {
+                    image.recycle()
+                }
+            }
+            if (index == 0 && shouldReadAgain(text, crop)) {
+                // Önce beyaz altyazı filtresi (koyu kenar çizgisine de bakar); görüntü uygun değilse null döner
+                if (OcrTuning.textMaskEnabled) {
+                    withContext(Dispatchers.Default) { SubtitleTextMask.apply(ocrInput) }?.let { readEnhanced("filtre okuma", it) }
+                }
+                // Hâlâ zayıfsa en parlak kısmı öne çıkaran ikinci okuma
+                if (shouldReadAgain(text, crop)) {
+                    readEnhanced("ikinci okuma", withContext(Dispatchers.Default) { boostBrightText(ocrInput) })
+                }
+            }
             if (text.isBlank()) {
-                detectBlackedOutCover(index, frame)
                 emptyReads[index]++
                 if (emptyReads[index] >= 3) stabilizers[index].notifyEmpty()
                 return
@@ -415,12 +529,13 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                     (top + boxes.maxOf { it.bottom }).toFloat() / frame.height
                 )
                 lastLineHeight[index] = boxes.map { it.height() }.average().toFloat() / frame.height
+                rememberRead(index, text)
             }
             lastSeenAt[index] = System.currentTimeMillis()
             val confidence = lines.map { it.confidence }.average().toFloat().coerceIn(0f, 1f)
             // Okunan yazı ekrandaki kendi çevirimizse "tüm ekran" paylaşılıyor: katmanı yakalamadan gizle
             val shown = translations[index]
-            if (!hideFromCapture && shown != null && looksLikeOurs(text, shown.text)) {
+            if (!hideFromCapture && shown != null && looksLikeOurs(text, shown.text, shown.source)) {
                 OcrDebugDumper.logPipeline("Telefon ekranı", "Kendi çevirisi okundu, yanına alınıyor: \"$text\" / \"${shown.text}\"", endOfEntry = true)
                 switchToHiddenOverlay()
                 return
@@ -451,9 +566,24 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Yeterli gerçek kelime yok, çevrilmedi: $text", endOfEntry = true)
             return
         }
-        scope.launch {
+        // Çoğu anlamsız kelimeyse (parlak zeminde bozuk okuma) "İVAR güvenlik ligi" gibi çeviri göstermek yerine
+        // daha temiz okuma beklenir. Tam sözlükle bakılır: isKnownWord "clockwork", "Mikey" gibi kelimeleri bilmiyor,
+        // temiz cümleleri de engelliyordu. Sözlük yüklenmediyse uygulanmaz.
+        val (dictionaryCount, wordCount) = dictionaryScore(text)
+        if (!isTrToEn && OcrTextFixer.isDictionaryLoaded && wordCount >= 4 && dictionaryCount < wordCount * MIN_REAL_WORD_RATIO) {
+            OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Bozuk okuma, çevrilmedi ($dictionaryCount/$wordCount): $text", endOfEntry = true)
+            // Kilitli kalmasın: aynı altyazının daha temiz okuması onaylanabilsin
+            stabilizers[index].reset()
+            return
+        }
+        // Kutu, çeviri hazır olduğu andaki okumaya değil bu metnin okumasına göre konur
+        val placed = findRead(index, text)
+        translateJobs[index]?.cancel()
+        translateJobs[index] = scope.launch {
             val translated = try {
                 withContext(Dispatchers.IO) { translationManager.translate(text) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Log.w(TAG, "Translation failed", e)
                 ""
@@ -462,51 +592,90 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Çeviri boş geldi: $text", endOfEntry = true)
                 return@launch
             }
-            val rect = lastTextRect[index] ?: return@launch
-            translations[index] = AreaTranslation(translated, rect, lastLineHeight[index], System.currentTimeMillis())
+            val rect = placed?.rect ?: lastTextRect[index] ?: return@launch
+            translations[index] = AreaTranslation(translated, rect, placed?.lineHeight ?: lastLineHeight[index], System.currentTimeMillis(), source = text)
+            OcrDebugDumper.logPipeline("Telefon kutu ${index + 1}", "$rect")
             TranslationHistory.add(text, translated, area = index + 1)
             OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "$text → $translated", endOfEntry = true)
         }
     }
 
-    /**
-     * Çeviri yazının üstündeyken alan boş okunduysa ve yazının yeri yakalamada simsiyahsa (gerçek oyun görüntüsü
-     * neredeyse hiç tam 0,0,0 olmaz) kutumuz yakalamada görünüyor demektir: "tüm ekran" paylaşılıyor. O zaman
-     * çeviriler yazının yanına alınır ve kullanıcıya bir kez nasıl üstüne getirileceği söylenir.
-     */
-    private fun detectBlackedOutCover(index: Int, frame: Bitmap) {
-        if (!coverText.value) return
-        val shown = translations[index] ?: return
-        // Yalnızca çeviri yeni gösterilmişken: altyazı bitince sinematik siyah bantlar yanlış alarm vermesin
-        if (System.currentTimeMillis() - shown.shownAt > 1500) return
-        val rect = shown.textRect
-        val left = (rect.left * frame.width).toInt().coerceIn(0, frame.width - 1)
-        val right = (rect.right * frame.width).toInt().coerceIn(left + 1, frame.width)
-        val top = (rect.top * frame.height).toInt().coerceIn(0, frame.height - 1)
-        val bottom = (rect.bottom * frame.height).toInt().coerceIn(top + 1, frame.height)
-        var black = 0
-        var total = 0
-        for (gy in 0 until 6) {
-            val y = top + (bottom - top) * (gy * 2 + 1) / 12
-            for (gx in 0 until 20) {
-                val x = left + (right - left) * (gx * 2 + 1) / 40
-                if ((frame.getPixel(x, y) and 0xFFFFFF) == 0) black++
-                total++
-            }
-        }
-        if (total > 0 && black >= total * 0.95f) {
-            OcrDebugDumper.logPipeline("Telefon ekranı", "Yazının yeri yakalamada siyah, çeviri yanına alınıyor", endOfEntry = true)
-            coverText.value = false
-            android.widget.Toast.makeText(
-                this,
-                "Çeviriler altyazının yanında gösterilecek. Tam üstünde görmek için ekran paylaşımında \"Tek uygulama\" seçin.",
-                android.widget.Toast.LENGTH_LONG
-            ).show()
+    /** OCR'ın okuduğu satır (ortadaki kelimeler ayıklandıysa yalnızca onların metni ve yeri) */
+    private class ReadLine(val text: String, val box: android.graphics.Rect?, val confidence: Float)
+
+    /** Bir okumanın metni ve ekrandaki yeri */
+    private class PlacedRead(val text: String, val rect: RectF, val lineHeight: Float)
+
+    private fun rememberRead(index: Int, text: String) {
+        val rect = lastTextRect[index] ?: return
+        val reads = recentReads[index]
+        synchronized(reads) {
+            reads.addLast(PlacedRead(text, RectF(rect), lastLineHeight[index]))
+            while (reads.size > RECENT_READS) reads.removeFirst()
         }
     }
 
-    /** OCR'ın okuduğu satır (ortadaki kelimeler ayıklandıysa yalnızca onların metni ve yeri) */
-    private class ReadLine(val text: String, val box: android.graphics.Rect?, val confidence: Float)
+    /**
+     * Onaylanan metinle en çok ortak kelimesi olan okuma; eşitlikte en yenisi. Böylece tek satırı okunmuş bir kare ya da
+     * sonraki altyazı kutunun yerini bozmaz.
+     */
+    private fun findRead(index: Int, text: String): PlacedRead? {
+        val wanted = text.lowercase().split(' ').toSet()
+        val reads = recentReads[index]
+        return synchronized(reads) {
+            reads.asReversed()
+                .maxByOrNull { read -> read.text.lowercase().split(' ').count { it in wanted } }
+                ?.takeIf { read -> read.text.lowercase().split(' ').any { it in wanted } }
+        }
+    }
+
+    /**
+     * Altyazıya ait olmayan satırları atar. En uzun satır altyazı sayılır; diğerleri ondan belirgin küçükse (araç arması,
+     * tabela) ya da hem kısa hem de hizasız ise (haritadaki yer adı) atılır. İkinci satırı kısa altyazılar ("clap.")
+     * ortalı ya da sola hizalı olduğu için kalır. Gürültü filtresinin tamamen sileceği satırlar ve altyazıdan dikey olarak
+     * kopuk satırlar (karanlık sahnede ceketteki logo) da atılır; yoksa metinde görünmeseler bile kutuyu yukarı uzatıyorlardı.
+     */
+    private fun dropStrayLines(lines: List<ReadLine>): List<ReadLine> {
+        if (lines.size < 2) return lines
+        val readable = lines.associateWith { TextRecognitionAnalyzer.filterOcrNoise(it.text) }.filterValues { it.isNotBlank() }
+        val main = readable.keys.filter { it.box != null }.maxByOrNull { readable.getValue(it).length } ?: return readable.keys.toList()
+        val mainBox = main.box ?: return readable.keys.toList()
+        val aligned = readable.keys.filter { line ->
+            val box = line.box
+            if (line === main || box == null) return@filter true
+            if (box.height() < mainBox.height() * 0.7f) return@filter false
+            val isLong = line.text.length >= main.text.length * 0.4f
+            val isCentered = kotlin.math.abs(box.centerX() - mainBox.centerX()) <= mainBox.width() * 0.15f
+            val isLeftAligned = kotlin.math.abs(box.left - mainBox.left) <= mainBox.width() * 0.05f
+            isLong || isCentered || isLeftAligned
+        }
+        return keepConnectedLines(aligned, main)
+    }
+
+    /**
+     * Ana satırdan yukarı ve aşağı doğru yürür, araya en fazla bir satırlık boşluk girene kadarki satırları tutar (ortadaki
+     * satırı okunamamış altyazı da böylece bölünmez). Konumu bilinmeyen satırlar kalır. Satır sırası korunur.
+     */
+    private fun keepConnectedLines(lines: List<ReadLine>, main: ReadLine): List<ReadLine> {
+        val mainBox = main.box ?: return lines
+        val maxGap = mainBox.height() * MAX_LINE_GAP_RATIO
+        val located = lines.filter { it.box != null }.sortedBy { it.box!!.top }
+        val mainIndex = located.indexOf(main)
+        val connected = hashSetOf(main)
+        var edge = mainBox.top
+        for (i in mainIndex - 1 downTo 0) {
+            if (edge - located[i].box!!.bottom > maxGap) break
+            connected += located[i]
+            edge = located[i].box!!.top
+        }
+        edge = mainBox.bottom
+        for (i in mainIndex + 1 until located.size) {
+            if (located[i].box!!.top - edge > maxGap) break
+            connected += located[i]
+            edge = located[i].box!!.bottom
+        }
+        return lines.filter { it.box == null || it in connected }
+    }
 
     /** Satırın yalnızca ortadaki kelime gruplarını tutar; ortada bir şey yoksa null. Konum bilgisi yoksa satır aynen kalır. */
     private fun centeredLine(line: com.google.mlkit.vision.text.Text.Line, imageWidth: Int): ReadLine? {
@@ -531,15 +700,17 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     /**
      * Okunan yazı ekrandaki kendi Türkçe çevirimiz mi? İsimler (büyük harfle başlayan kelimeler) iki dilde aynı
      * olduğu için sayılmaz: "John, Dutch wants you" ile "John, Dutch seni istiyor" yanlışlıkla eşleşiyordu.
-     * Okunan küçük harfli kelimelerin büyük çoğunluğu çeviride geçiyorsa (ve en az 2 tane) bizimkidir.
+     * Okunan küçük harfli kelimelerin büyük çoğunluğu çeviride geçiyorsa (ve en az 2 tane) bizimkidir. İngilizce metinde de
+     * olan kelimeler sayılmaz: motor bir cümleyi çevirmeden aynen döndürünce ("Eenie meenie miney mo.") altyazının kendisi
+     * "kendi çevirimiz" sanılıyor, kutu oturum boyunca altyazının üstüne taşınıyordu.
      */
-    private fun looksLikeOurs(read: String, translation: String): Boolean {
+    private fun looksLikeOurs(read: String, translation: String, source: String): Boolean {
         fun words(text: String) = text.split(' ', '\n')
             .map { word -> word.filter { it.isLetter() } }
             .filter { it.length >= 3 && it[0].isLowerCase() }
             .toSet()
         val readWords = words(read)
-        val ours = words(translation)
+        val ours = words(translation) - words(source)
         if (readWords.size < 2 || ours.isEmpty()) return false
         return readWords.count { it in ours } >= readWords.size * 0.8f
     }
@@ -742,6 +913,9 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     fun minFontSize(): Float = settings.getPhoneMinFontSize()
 
+    /** Çevirinin geçiş süresi; yumuşak geçiş kapalıysa 0 (hemen çıkar). */
+    fun transitionMs(): Int = if (settings.getPhoneSoftTransition()) settings.getPhoneTransitionMs() else 0
+
     fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
@@ -783,6 +957,19 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         /** Okumalar arası bekleme. 350 ms iken okuma başına ~0,5 sn, yazıdan çeviriye ~1,1 sn gidiyordu (logdan) */
         private const val FRAME_INTERVAL_MS = 120L
         private const val HIDE_AFTER_MS = 5000L
+        private const val RECENT_READS = 12
+        /** Kelimelerin bu orandan azı gerçek kelimeyse okuma bozuk sayılır (en az 4 kelimede) */
+        private const val MIN_REAL_WORD_RATIO = 0.6f
+        /** Altyazının ana satırıyla arasında bundan fazla boşluk olan satır altyazıya ait sayılmaz (satır yüksekliğine oran) */
+        private const val MAX_LINE_GAP_RATIO = 1.5f
+        /** İkinci okuma normal okumanın harflerinin en az bu kadarını içermeli */
+        private const val MIN_RETRY_LETTER_RATIO = 0.8f
+        /** Bu orandan az sözlük kelimesi varsa aynı kare, yazı öne çıkarılıp ikinci kez okunur */
+        private const val READ_AGAIN_RATIO = 0.75f
+        /** Yazı bulunamayan alanın ikinci okuma için en düşük ortalama parlaklığı (0-255) */
+        private const val BRIGHT_AREA_LEVEL = 150L
+        /** İkinci okumada görüntünün en parlak bu kadarı korunur: iki satır altyazı yaklaşık %3-6 yer kaplar */
+        private const val BOOST_KEEP_RATIO = 0.08f
         private const val STALL_LOG_MS = 10_000L
         private const val CHANNEL_ID = "phone_screen_translation"
         private const val NOTIFICATION_ID = 7301

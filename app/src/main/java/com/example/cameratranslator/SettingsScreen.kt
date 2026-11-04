@@ -140,6 +140,8 @@ private fun PhoneScreenSection() {
     val context = LocalContext.current
     val settings = remember { SettingsManager(context) }
     var size by remember { mutableFloatStateOf(settings.getPhoneMinFontSize()) }
+    var softTransition by remember { mutableStateOf(settings.getPhoneSoftTransition()) }
+    var transitionMs by remember { mutableIntStateOf(settings.getPhoneTransitionMs()) }
 
     Text("📱 Ekran Çevirisi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
     Row(
@@ -166,6 +168,54 @@ private fun PhoneScreenSection() {
         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text("Yumuşak geçiş", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+        Switch(
+            checked = softTransition,
+            onCheckedChange = {
+                softTransition = it
+                settings.savePhoneSoftTransition(it)
+            }
+        )
+    }
+    if (softTransition) {
+        Text("Geçiş hızı", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            listOf(SettingsManager.PHONE_TRANSITION_SLOW_MS to "Yavaş", SettingsManager.PHONE_TRANSITION_FAST_MS to "Hızlı").forEach { (durationMs, label) ->
+                val isSelected = durationMs == transitionMs
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                        .clickable {
+                            transitionMs = durationMs
+                            settings.savePhoneTransitionMs(durationMs)
+                        },
+                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = label,
+                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
 
 /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği. */
@@ -810,7 +860,7 @@ fun SettingsScreen(
                     }
                     Text(
                         if (useZoomSlider) {
-                            "Parmağınızla yukarı/aşağı kaydırın. Kaydırıcının sınırları telefonunuzun kamerasına göre kendiliğinden ayarlanır: en yüksek yakınlaştırma telefona göre değişir, geniş açı da yalnızca telefon bu uygulamaya sunuyorsa görünür. Kaydırıcı 1x'e ve sık kullanılan değerlere hafifçe yapışır."
+                            "Parmağınızla yukarı/aşağı kaydırın. Kaydırıcının sınırları telefonunuzun kamerasına göre kendiliğinden ayarlanır: en yüksek yakınlaştırma telefona göre değişir, geniş açı da yalnızca telefon bu uygulamaya sunuyorsa görünür."
                         } else {
                             "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
                         },
@@ -1317,7 +1367,7 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                             Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             Text(
-                                "Arka planı (siyah kutusu) olmayan beyaz altyazılarda kelimeler bozuk veya hatalı okunuyorsa açmanız önerilir. Yalnızca beyaz altyazılarda etkilidir.",
+                                "Arka planı (siyah kutusu) olmayan beyaz altyazılarda, okuma zayıf kaldığında yazıyı öne çıkarıp yeniden okur. Tüm modlarda çalışır; yalnızca beyaz altyazılarda etkilidir.",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

@@ -22,6 +22,19 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     private val NOTES = mapOf(
+        "1.0.9" to listOf(
+            "Ekran Çevirisi daha hızlı: yazılar daha sık okunuyor, çeviri ekrana daha çabuk geliyor.",
+            "Ekran Çevirisi'ne yumuşak geçiş: çeviri hafifçe kayarak belirir ve yumuşakça kaybolur. Ayarlar'dan kapatabilir, hızını Yavaş veya Hızlı yapabilirsiniz.",
+            "Ekran Çevirisi'nin ana ekranı yenilendi: daha şık görünüm ve adım adım anlatım.",
+            "Açık renkli zeminlerde (beton, asfalt, gökyüzü) beyaz altyazılar daha iyi okunuyor. Beyaz altyazı filtresi artık tüm modlarda çalışıyor ve varsayılan olarak açık.",
+            "Çeviri kutusu sahnedeki başka yazılar (ceketteki logo gibi) yüzünden büyümüyor ve kaymıyor; çevrilmeden dönen bir cümle yüzünden çeviri altyazının üstünden ayrılmıyor.",
+            "OPUS indirme ekranı yenilendi: OCR alanının üzerine binmiyor, \"Daha sonra\" seçeneğiyle kapatılabiliyor.",
+            "Telefon döndürüldüğünde OCR alanının yeri doğru geri geliyor.",
+            "OCR satırın son harflerini kaçırdığında çeviri, yazının tamamı görülünce düzeltiliyor.",
+            "Yapışık okunan kelimeler ayrılıyor, yanlış çevrilen sık kalıplar düzeltildi.",
+            "Google Translate'in kısa cümlelerdeki hataları giderildi: \"Tamam aşkım\" yerine \"Tamam\", \"Beklemek\" yerine \"Bekle\".",
+            "Zoom açıklamaları tüm telefonlara uyacak şekilde yeniden yazıldı."
+        ),
         "1.0.8" to listOf(
             "Yeni Ekran Çevirisi modu: kamera kullanmadan telefonun kendi ekranını okur. Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız.",
             "Oyunu oynarken dokunmayı engellemeyen çeviri katmanı ve kenardaki yüzen balon: OCR alanlarını oyunun içinden yerleştirin, uygulamaya dönün ya da durdurun.",

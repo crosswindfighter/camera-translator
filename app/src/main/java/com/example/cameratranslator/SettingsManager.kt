@@ -31,6 +31,12 @@ val DisplayMode.label: String
     }
 
 class SettingsManager(context: Context) {
+    companion object {
+        /** Ekran Çevirisi geçiş hızları (ms). Yavaş rahatsız etmeyecek kadar kısa tutuldu. */
+        const val PHONE_TRANSITION_SLOW_MS = 280
+        const val PHONE_TRANSITION_FAST_MS = 120
+    }
+
     private val prefs: SharedPreferences = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
 
     fun saveApiKey(key: String) {
@@ -89,7 +95,7 @@ class SettingsManager(context: Context) {
     }
 
     fun getOcrTextMaskEnabled(): Boolean {
-        return prefs.getBoolean("ocr_text_mask_enabled", false)
+        return prefs.getBoolean("ocr_text_mask_enabled", true)
     }
 
     fun saveOcrCenterOnlyEnabled(enabled: Boolean) {
@@ -350,6 +356,29 @@ class SettingsManager(context: Context) {
 
     fun savePhoneMinFontSize(size: Float) {
         prefs.edit().putFloat("phone_min_font_size", size.coerceIn(12f, 48f)).apply()
+    }
+
+    /** OPUS tanıtım panelinde "Daha sonra" dendi mi: bir daha gösterilmez, indirme Ayarlar'dan yapılabilir */
+    fun getOpusNoticeDismissed(): Boolean = prefs.getBoolean("opus_notice_dismissed", false)
+
+    fun saveOpusNoticeDismissed() {
+        prefs.edit().putBoolean("opus_notice_dismissed", true).apply()
+    }
+
+    /** Ekran Çevirisi: çeviri yumuşak geçişle mi gelsin, yoksa hemen mi çıksın */
+    fun getPhoneSoftTransition(): Boolean = prefs.getBoolean("phone_soft_transition", true)
+
+    fun savePhoneSoftTransition(enabled: Boolean) {
+        prefs.edit().putBoolean("phone_soft_transition", enabled).apply()
+    }
+
+    /** Ekran Çevirisi: yumuşak geçişin süresi (ms) */
+    fun getPhoneTransitionMs(): Int =
+        if (prefs.getInt("phone_transition_ms", PHONE_TRANSITION_FAST_MS) <= PHONE_TRANSITION_FAST_MS) PHONE_TRANSITION_FAST_MS
+        else PHONE_TRANSITION_SLOW_MS
+
+    fun savePhoneTransitionMs(durationMs: Int) {
+        prefs.edit().putInt("phone_transition_ms", durationMs).apply()
     }
 
     /** Telefon ekranı modundaki OCR alanı sayısı (1–3) */
