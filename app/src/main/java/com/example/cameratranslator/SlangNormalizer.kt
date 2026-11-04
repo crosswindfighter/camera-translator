@@ -38,7 +38,12 @@ object SlangNormalizer {
         "\\bMrs\\.(?=\\s+[A-Z])" to "Mrs",
         "\\bMr\\.(?=\\s+[A-Z])" to "Mr",
         "\\bDr\\.(?=\\s+[A-Z])" to "Dr",
+        // "Bunu anladım" çıkıyordu; "I got this covered" gibi devamı olanlara dokunmaz
+        "\\bI got this(?=[,.!?]*$)" to "I can handle this",
+        // "Çatlayan ne" çıkıyordu
+        "\\bwhat's crack(?:ing|in)\\b'?" to "what's up",
         // Sık OCR hataları
+        "'ern\\b" to "'em",
         "\\byou'l\\b" to "you'll",
         "\\bthey'l\\b" to "they'll",
         "\\bwe'l\\b" to "we'll",
@@ -85,6 +90,8 @@ object SlangNormalizer {
         "\\by'all\\b" to "you all",
         "\\bain't got\\b" to "don't have",
         "\\bokey[- ]doke(y)?\\b" to "okay",
+        // "Seni tutan ne?" çıkıyordu
+        "\\bwhat kept (?:ya|you)\\b" to "what took you so long",
         // "casing the joint" -> "esrarı kovalamıyorduk" çıkıyordu
         "\\bcasing the (joint|place)\\b" to "scouting the place",
         "\\bcased the (joint|place)\\b" to "scouted the place",
@@ -120,4 +127,39 @@ object SlangNormalizer {
     /** "Dog" -> "Dude", "dog" -> "dude": cümle başı büyük harf korunsun. */
     private fun keepCase(original: String, replacement: String): String =
         if (original.firstOrNull()?.isUpperCase() == true) replacement.replaceFirstChar { it.uppercaseChar() } else replacement
+}
+
+/**
+ * Google'ın bağlamsız kısa cümlelerde yaptığı Türkçe hataları (testlerde tekrar eden, yalnızca kesin olanlar):
+ * "Okay" -> "Tamam aşkım", "No." -> "HAYIR.", "Wait." -> "Beklemek." Komut düzeltmeleri yalnızca İngilizcede de o komut
+ * tek başına bir cümleyse ve Türkçede de tek başına çıktıysa uygulanır.
+ */
+object GoogleTurkishFixer {
+    private val OKAY = Regex("\\bTamam aşkım\\b")
+    private val NO_CAPS = Regex("(?<!\\p{L})HAYIR(?!\\p{L})")
+    private val COMMANDS = listOf(
+        Triple("wait", "Beklemek", "Bekle"),
+        Triple("stay", "Kalmak", "Kal"),
+        Triple("clear", "Temizlemek", "Temiz"),
+        Triple("move", "Taşınmak", "Yürü"),
+        Triple("move it", "Hareket ettir", "Yürü"),
+        Triple("steady", "Sabit durmak", "Sakin ol"),
+        Triple("easy does it", "Kolay mı", "Yavaş ol"),
+        Triple("easy now", "Şimdi kolay", "Yavaş ol")
+    ).map { (english, wrong, right) ->
+        Triple(
+            // Ardından noktalama + yeni cümle ya da metin sonu gelmeli: "Wait for me" eşleşmez
+            Regex("(?:^|[.!?]\\s+)$english(?:[.!?]+(?:\\s|$)|$)", RegexOption.IGNORE_CASE),
+            Regex("(?:^|(?<=[.!?]\\s))$wrong(?=[.!?]|$)"),
+            right
+        )
+    }
+
+    fun fix(source: String, translated: String): String {
+        var result = NO_CAPS.replace(OKAY.replace(translated, "Tamam"), "Hayır")
+        for ((english, wrong, right) in COMMANDS) {
+            if (english.containsMatchIn(source)) result = wrong.replace(result, right)
+        }
+        return result
+    }
 }

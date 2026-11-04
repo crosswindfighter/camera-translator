@@ -368,6 +368,18 @@ class TextRecognitionAnalyzer(
 
 
     companion object {
+        /**
+         * Yazı Türkçe mi (konsol/mağaza bildirimi)? OCR İngilizcede de tek tük "ı" okuyor ("Swirı across the bay",
+         * "you tad your savinıgs") ve altyazı çöpe gidiyordu: en az iki kelimede Türkçe harf aranır, biri kesin Türkçe olmalı.
+         */
+        internal fun looksTurkish(text: String): Boolean {
+            val words = text.split(SPACES_REGEX).filter { word -> word.any { it in TURKISH_LETTERS } }
+            return words.size >= 2 && words.any { word -> word.any { it in TURKISH_ONLY_LETTERS } }
+        }
+
+        private const val TURKISH_LETTERS = "şŞğĞıİçÇöÖüÜ"
+        private const val TURKISH_ONLY_LETTERS = "şŞğĞıİ"
+
         // Telefon ekranı modu da kullanır (PhoneScreenService): kamera modundaki gürültü, HUD ve tuş ipucu filtreleri
         internal fun upscaleForOcr(source: Bitmap): Bitmap {
             val scaleWidth = 800f / source.width.toFloat()

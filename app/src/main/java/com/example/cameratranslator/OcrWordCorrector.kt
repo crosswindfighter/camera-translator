@@ -430,6 +430,8 @@ class OcrWordCorrector(
             // Küçük harfle başlayan kelimede büyük/küçük hali aynı görünen harfler büyük okunmuş:
             // "diseuSS" -> diseuss (sonra discuss), "crosS-cOuntry" -> cross-country
             val lowered = LOOKALIKE_CAPS.replace(text) { it.value.lowercase() }
+                // Virgülden sonraki boşluk okunmamış: "Yeah,wel" tek kelime sanılıp düzeltilemiyordu
+                .replace(GLUED_COMMA, ", ")
             if ('|' !in lowered) return lowered
             return lowered
                 // Kelimenin ortasında "|" ise l'dir: "Mo|lis" -> Mollis
@@ -441,6 +443,7 @@ class OcrWordCorrector(
 
         // "|'m", "|-| demand" (kekeleme: I-I demand)
         private val PIPE_APOSTROPHE = Regex("(?<![\\p{L}\\d])\\|(?=['’-])|(?<=-)\\|(?![\\p{L}\\d])")
+        private val GLUED_COMMA = Regex("(?<=\\p{L}),(?=\\p{L})")
         private val LOOKALIKE_CAPS = Regex("\\b(?=[a-z])(?=[a-zCOSUVWXZ]{4,}\\b)[a-z]*[COSUVWXZ][a-zCOSUVWXZ]*\\b")
         private val PIPE_IN_WORD = Regex("(?<=\\p{Ll})\\|(?=\\p{Ll})")
         private val PIPE_WORD = Regex("(?<![\\p{L}\\d])\\|(\\p{Ll}+)")
@@ -498,13 +501,19 @@ class OcrWordCorrector(
         )
         /** OCR'ın I yerine okuduğu harfler */
         private const val I_LOOKALIKES = "IlTJ|1f"
-        private val SHORT_FIXES = mapOf("ls" to "is", "lt" to "it", "lf" to "if", "ln" to "in", "lts" to "its", "Lts" to "Its")
+        private val SHORT_FIXES = mapOf(
+            "ls" to "is", "lt" to "it", "lf" to "if", "ln" to "in", "lts" to "its", "Lts" to "Its",
+            // Sonuna yapışmış I ("ifl could" -> if I could) ve testlerde sık görülen bozuk okumalar
+            "ifl" to "if I", "whatl" to "what I", "thatl" to "that I", "whenl" to "when I", "andl" to "and I", "butl" to "but I",
+            "iot" to "not", "yean" to "yeah", "wel" to "well",
+            "thatshit" to "that shit", "Thatshit" to "That shit", "fuckoff" to "fuck off", "Fuckoff" to "Fuck off"
+        )
         /** "I"dan sonra sık gelen kelimeler: Tdon't, Jhave gibi yapışık okumaları ayırmak için */
         private val I_VERBS = setOf(
             "know", "don't", "didn't", "did", "do", "have", "had", "got", "think", "thought", "was", "said", "can",
             "can't", "could", "will", "won't", "just", "need", "want", "mean", "guess", "wonder", "hate", "love",
             "like", "told", "saw", "am", "never", "ever", "really", "swear", "promise", "bet", "gotta", "gonna",
-            "wanna", "should", "would"
+            "wanna", "should", "would", "ain't"
         )
         private val MID_SENTENCE_CAPS = setOf("It", "If", "In", "Is", "It's")
         /** Bağlam düzeltmesinde aday, mevcut sonuçtan en az 30 kat olası olmalı (ln 30) */
@@ -531,7 +540,7 @@ class OcrWordCorrector(
         )
         /** (doğru, OCR'ın okuduğu) */
         private val CONFUSIONS = listOf(
-            "m" to "rn", "m" to "rm", "m" to "ri", "n" to "ri", "h" to "li", "d" to "cl", "w" to "vv",
+            "m" to "rn", "m" to "rm", "m" to "ri", "m" to "rri", "n" to "ri", "h" to "li", "d" to "cl", "d" to "dl", "w" to "vv",
             "u" to "ii", "n" to "rn", "d" to "c",
             "tt" to "t", "ll" to "l", "ss" to "s", "ee" to "e", "oo" to "o", "pp" to "p", "ff" to "f", "rr" to "r",
             "v" to "y", "y" to "v", "i" to "l", "l" to "i", "o" to "0", "g" to "9",

@@ -54,8 +54,8 @@ private val STEPS = listOf(
     ),
     GuideStep(
         "Yakınlaştırma",
-        "Buradan yakınlaştırın. Altyazı ekranda büyük ve net görünene kadar yaklaşın; 1x, 3x gibi gerçek lens " +
-            "değerlerinde görüntü en nettir. Kaydırıcı yerine sabit düğmeler isterseniz Ayarlar'dan değiştirebilirsiniz.",
+        "Buradan yakınlaştırın. Altyazı ekranda büyük ve net görünene kadar yaklaşın; sınırlar telefonunuzun kamerasına göre " +
+            "ayarlanır. Kaydırıcı yerine sabit düğmeler isterseniz Ayarlar'dan değiştirebilirsiniz.",
         GuideTarget.ZOOM
     ),
     GuideStep(

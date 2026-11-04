@@ -534,10 +534,10 @@ class CompositeTranslationEngine(
         val forGoogle = if (isTrToEn) ocrFixed else SlangNormalizer.normalizeShared(ocrFixed)
         val result = when (mode) {
             TranslationMode.CLOUD -> {
-                google.translate(forGoogle)
+                google.translate(forGoogle).let { if (isTrToEn) it else GoogleTurkishFixer.fix(forGoogle, it) }
             }
             TranslationMode.FREE -> {
-                free.translate(forGoogle)
+                free.translate(forGoogle).let { if (isTrToEn) it else GoogleTurkishFixer.fix(forGoogle, it) }
             }
             TranslationMode.OFFLINE -> {
                 val plus = offlinePlus

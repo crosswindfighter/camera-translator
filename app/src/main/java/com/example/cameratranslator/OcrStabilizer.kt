@@ -69,12 +69,21 @@ class OcrStabilizer(
         var candidate: String? = null
         synchronized(lock) {
             val currentConfirmed = confirmed
-            if (currentConfirmed != null && (similar(text, currentConfirmed) || isFadingPrefix(text, currentConfirmed))) {
+            // OCR satır sonunu bazı karelerde düşürüyor ("...windbreaker" / "...windbreakers."). Kısa hali onaylandıysa
+            // tamamı görülünce düzeltilir; kısa okuma sonra yine gelse de geri dönülmez.
+            if (currentConfirmed != null && completesEnding(currentConfirmed, text)) {
+                confirmed = text
+                recent.clear()
+                approved = text
+                Log.d(TAG, "Confirmed ending completed: \"$text\"")
+            } else if (currentConfirmed != null && (similar(text, currentConfirmed) || isFadingPrefix(text, currentConfirmed))) {
                 // OCR readings that fluctuate slightly while a subtitle remains visible
                 // belong to the already confirmed subtitle. Keep it locked.
                 recent.clear()
                 return
             }
+
+            if (approved != null) return@synchronized
 
             val now = System.currentTimeMillis()
             while (recent.isNotEmpty() && now - recent.first().at > WINDOW_MS) recent.removeFirst()
@@ -97,6 +106,17 @@ class OcrStabilizer(
 
         candidate?.let { onLikelyCandidate(it) }
         approved?.let { onConfirmed(it) }
+    }
+
+    /** [longer], [shorter]ın son kelimesini en fazla 3 karakterle tamamlıyor ve tamamlanan kelime gerçek bir kelime mi? */
+    private fun completesEnding(shorter: String, longer: String): Boolean {
+        val base = shorter.trimEnd('.', ',', '!', '?')
+        // Kısa metinlerde ("No" / "Now") bu ayrı bir altyazı olabilir; dokunma
+        if (base.length < 4 || !longer.startsWith(base)) return false
+        val added = longer.substring(base.length)
+        if (added.isEmpty() || added.length > 3 || !added[0].isLetter() || added.any { it == ' ' }) return false
+        val lastWord = longer.substringAfterLast(' ').lowercase().trim('.', ',', '!', '?')
+        return isKnownWord(lastWord)
     }
 
     /**

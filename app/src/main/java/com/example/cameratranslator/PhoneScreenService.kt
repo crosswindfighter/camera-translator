@@ -96,6 +96,9 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var captureThread: HandlerThread? = null
     private var captureJob: Job? = null
     private var overlayView: ComposeView? = null
+    /** Android'in bildirdiği yakalanan içerik boyutu (yalnızca log için) */
+    private var contentSize: Pair<Int, Int>? = null
+    private var dumpFrameId = 0L
     private var bubbleView: ComposeView? = null
     private var bubbleParams: WindowManager.LayoutParams? = null
     private var overlayParams: WindowManager.LayoutParams? = null
@@ -127,7 +130,13 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         List(MAX_AREAS) { index ->
             OcrStabilizer(
                 isCleanReading = { CleanReading.isClean(it, translationManager::isKnownWord) },
-                isKnownWord = translationManager::isKnownWord
+                isKnownWord = translationManager::isKnownWord,
+                // Kamera modundaki gibi: onay beklenirken en olası metin önceden çevrilir, onayda sonuç hazırdır
+                onLikelyCandidate = { candidate ->
+                    if (!translationManager.isTrToEn && translationManager.canPretranslate && !translationManager.isBusy.value) {
+                        scope.launch { translationManager.translate(candidate) }
+                    }
+                }
             ) { confirmed -> onConfirmed(index, confirmed) }
         }
     }
@@ -176,6 +185,11 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 // Kullanıcı bildirimden ya da sistemden paylaşımı durdurdu
                 scope.launch { stopSelf() }
             }
+
+            // Android 14+: yakalanan içeriğin boyutu (geliştirici logu; çevirinin yeri kayarsa sebebi buradan görülür)
+            override fun onCapturedContentResize(width: Int, height: Int) {
+                scope.launch { onContentResized(width, height) }
+            }
         }, Handler(mainLooper))
         startCapture()
         showOverlay()
@@ -195,6 +209,17 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         for (i in 0 until MAX_AREAS) translations[i] = null
         stabilizers.forEach { it.reset() }
         restartCapture()
+    }
+
+    /**
+     * Yalnızca değiştiğinde loga yazılır. Yakalama burada yeniden boyutlandırılmaz: boyutlandırma aynı bildirimi
+     * tekrar tetikliyor, dönen döngü ekran paylaşımını düşürüyordu.
+     */
+    private fun onContentResized(width: Int, height: Int) {
+        if (contentSize == width to height) return
+        contentSize = width to height
+        val (screenWidth, screenHeight) = screenSize()
+        OcrDebugDumper.logPipeline("Telefon ekranı", "Yakalanan içerik ${width}x$height, ekran ${screenWidth}x$screenHeight", endOfEntry = true)
     }
 
     override fun onDestroy() {
@@ -346,6 +371,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         // ("clorit kriow what tie fuck"). Kutuların yeri büyütme oranıyla geri ölçeklenir.
         val ocrInput = TextRecognitionAnalyzer.upscaleForOcr(crop)
         val scale = ocrInput.width.toFloat() / crop.width
+        // Geliştirici modu: OCR'ın gördüğü görüntü (ör. satır sonu kesiliyor mu diye bakmak için)
+        if (index == 0) OcrDebugDumper.maybeSaveFrames(++dumpFrameId, ocrInput, null)
         try {
             val result = recognizer.process(InputImage.fromBitmap(ocrInput, 0)).await()
             // 1. alan (altyazı) "Sadece ortadaki altyazıyı oku" açıksa kamera modundaki gibi yalnızca ortadaki kelime
@@ -409,7 +436,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     private fun onConfirmed(index: Int, text: String) {
         val isTrToEn = translationManager.isTrToEn
-        if (!isTrToEn && TURKISH_LETTERS.containsMatchIn(text)) {
+        if (!isTrToEn && TextRecognitionAnalyzer.looksTurkish(text)) {
             OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Türkçe yazı, çevrilmedi: $text", endOfEntry = true)
             return
         }
@@ -753,7 +780,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     companion object {
         private const val TAG = "PhoneScreenService"
         const val MAX_AREAS = 3
-        private const val FRAME_INTERVAL_MS = 350L
+        /** Okumalar arası bekleme. 350 ms iken okuma başına ~0,5 sn, yazıdan çeviriye ~1,1 sn gidiyordu (logdan) */
+        private const val FRAME_INTERVAL_MS = 120L
         private const val HIDE_AFTER_MS = 5000L
         private const val STALL_LOG_MS = 10_000L
         private const val CHANNEL_ID = "phone_screen_translation"
@@ -762,7 +790,6 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         private const val EXTRA_RESULT_DATA = "result_data"
         private const val EXTRA_DISPLAY_ID = "display_id"
         private const val ACTION_STOP = "com.example.cameratranslator.STOP_PHONE_SCREEN"
-        private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
 
 
         private val _running = MutableStateFlow(false)

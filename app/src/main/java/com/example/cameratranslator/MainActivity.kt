@@ -569,7 +569,7 @@ class MainActivity : ComponentActivity() {
             ) { confirmedText ->
                 val now = System.currentTimeMillis()
                 // EN -> TR'de Türkçe yazı oyunun değil konsolun bildirimi ("Bu konsol 5 dakika içinde…"): çevrilmez
-                if (!isTrToEnRef.value && TURKISH_LETTERS.containsMatchIn(confirmedText)) return@OcrStabilizer
+                if (!isTrToEnRef.value && TextRecognitionAnalyzer.looksTurkish(confirmedText)) return@OcrStabilizer
 
                 // QUOTA SHIELD: Is this OCR text duplicate/similar to recent API calls in last 10s or < 1.5s interval?
                 if (isApiCallDuplicateOrSimilar(confirmedText, now)) {
@@ -647,7 +647,7 @@ class MainActivity : ComponentActivity() {
                     isCleanReading = { CleanReading.isClean(it, translationManager::isKnownWord) },
                     isKnownWord = translationManager::isKnownWord
                 ) { confirmedText ->
-                    if (!isTrToEnRef.value && TURKISH_LETTERS.containsMatchIn(confirmedText)) return@OcrStabilizer
+                    if (!isTrToEnRef.value && TextRecognitionAnalyzer.looksTurkish(confirmedText)) return@OcrStabilizer
                     // Ek alanlarda orta filtresi yok: harita, para, mesafe gibi yazılar ("$1,250", "0.4 mi")
                     // çevrilmesin; en az 2 gerçek kelime gerekir
                     val realWords = confirmedText.split(' ').count { word ->
@@ -1121,8 +1121,6 @@ class MainActivity : ComponentActivity() {
         private val WHATS_NEW_ON_FRESH_INSTALL = setOf("1.0.7")
         /** Güncelleyene de rehberin gösterildiği sürümler (rehberin ilk geldiği sürüm) */
         private val GUIDE_ON_UPDATE = setOf("1.0.7")
-        /** İngilizcede olmayan Türkçe harfler */
-        private val TURKISH_LETTERS = Regex("[şŞğĞıİ]")
         private var hasShownAppLaunchSplash = false
     }
 }

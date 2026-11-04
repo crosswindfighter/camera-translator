@@ -810,7 +810,7 @@ fun SettingsScreen(
                     }
                     Text(
                         if (useZoomSlider) {
-                            "Parmağınızla yukarı/aşağı kaydırın: 1x'in altı geniş açı, en üstü telefonun kamerasının izin verdiği en yüksek yakınlaştırma. Kaydırıcı gerçek lenslere (1x, 3x, 10x) hafifçe yapışır; görüntü en net bu değerlerdedir."
+                            "Parmağınızla yukarı/aşağı kaydırın. Kaydırıcının sınırları telefonunuzun kamerasına göre kendiliğinden ayarlanır: en yüksek yakınlaştırma telefona göre değişir, geniş açı da yalnızca telefon bu uygulamaya sunuyorsa görünür. Kaydırıcı 1x'e ve sık kullanılan değerlere hafifçe yapışır."
                         } else {
                             "Sol tarafta 1x–5x arası sabit yakınlaştırma düğmeleri."
                         },

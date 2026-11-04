@@ -60,7 +60,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 ### 💡 Akıllı Kamera & Oyun İpuçları
 - **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır. Kaydırıcının alt kısmındaki mor bölge ekstra karartmadır.
 - **Hayalet / Göz Modu (👁️‍🗨️):** Ekrandaki tüm araç çubuklarını ve çerçeveleri gizler.
-- **Zoom Kontrolü:** Telefonun kamerasının izin verdiği aralıkta kaydırıcı (gerçek lens değerlerine hafifçe yapışır) ya da 1x–5x sabit düğmeler; televizyona yaklaşmadan koltuktan rahat kullanım.
+- **Zoom Kontrolü:** Sınırları telefonun kamerasına göre kendiliğinden ayarlanan kaydırıcı ya da 1x–5x sabit düğmeler; televizyona yaklaşmadan koltuktan rahat kullanım.
 - **Manuel Odak + AUTO:** Uzaktaki TV'de yazı bulanıksa odak kaydırıcısıyla netliği elle ayarlayın; AUTO ile tek dokunuşta otomatik odağa dönün.
 - **Beyaz Altyazı Filtresi:** Arka planı olmayan beyaz altyazılarda dokulu sahnelerin (ör. araba sürerken yol) okumayı bozmasını azaltır.
 - **Bağımsız Mod Hafızası:** Dikey ve yatay ekran pozisyonları ile yazı boyutları her mod için bağımsız olarak saklanır.

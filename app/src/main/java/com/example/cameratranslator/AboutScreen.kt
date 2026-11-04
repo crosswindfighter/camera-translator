@@ -463,7 +463,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Koltukta otururken televizyona yaklaşmadan yakınlaştırma yapabilirsiniz. Soldaki kaydırıcı telefonun kamerasının izin verdiği aralıkta çalışır ve gerçek lens değerlerine (1x, 3x, 10x) hafifçe yapışır; isterseniz Ayarlar'dan 1x–5x sabit düğmelerine geçebilirsiniz.",
+                        text = "Koltukta otururken televizyona yaklaşmadan yakınlaştırma yapabilirsiniz. Soldaki kaydırıcının sınırları telefonunuzun kamerasına göre kendiliğinden ayarlanır: en yüksek yakınlaştırma telefona göre değişir, geniş açı da yalnızca telefon bu uygulamaya sunuyorsa görünür. İsterseniz Ayarlar'dan 1x–5x sabit düğmelerine geçebilirsiniz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
