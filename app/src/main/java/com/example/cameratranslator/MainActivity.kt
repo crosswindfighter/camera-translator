@@ -58,7 +58,25 @@ enum class Screen {
     CAMERA, SETTINGS, ABOUT, HISTORY
 }
 
+private const val MODE_TOAST_MS = 900L
+
 class MainActivity : ComponentActivity() {
+
+    private var modeToast: Toast? = null
+    private var modeToastHideJob: Job? = null
+
+    /** Mod adını kısa gösterir; hızlı geçişte eski yazı sıraya girmez, hemen yenisi gelir. */
+    private fun showModeToast(label: String) {
+        modeToastHideJob?.cancel()
+        modeToast?.cancel()
+        val toast = Toast.makeText(this, label, Toast.LENGTH_SHORT)
+        modeToast = toast
+        toast.show()
+        modeToastHideJob = lifecycleScope.launch {
+            delay(MODE_TOAST_MS)
+            toast.cancel()
+        }
+    }
 
     // Telefon ekranı modu: Android'in ekran paylaşımı onayı; onaylanınca hizmet başlar ve uygulama arka plana geçer
     private val screenCaptureLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -278,7 +296,7 @@ class MainActivity : ComponentActivity() {
                                     if (displayMode != DisplayMode.PHONE_SCREEN && PhoneScreenService.running.value) {
                                         PhoneScreenService.stop(this@MainActivity)
                                     }
-                                    Toast.makeText(this@MainActivity, displayMode.label, Toast.LENGTH_SHORT).show()
+                                    showModeToast(displayMode.label)
                                 },
                                 onToggleDirection = {
                                     isTrToEn = !isTrToEn
