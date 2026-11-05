@@ -139,7 +139,17 @@ object SlangNormalizer {
         "\\bclap(?= (?:me|him|her|them|us|your|some|that|this)\\b)(?! (?:your|them|those|some) hands\\b)" to "shoot",
         "\\bclapping(?= (?:me|him|her|them|us|your|some|that|this)\\b)(?! (?:your|them|those|some) hands\\b)" to "shooting",
         "(?<=\\bto )clap(?=[,.!?]*$)" to "shoot",
-        "(?<=\\b(?:got|get|getting|wasn't|was|be) )clapped\\b" to "shot",
+        "(?<=\\b(?:want|wants|wanted|got|get|getting|wasn't|was|be) (?:him |her |me |you |them |'em )?)clapped\\b" to "shot",
+        // "He clapped Stretch": ardından özel ad gelince
+        "\\bclapped(?= (?-i:[A-Z]))" to "shot",
+        // "your crib" -> "beşiğin" çıkıyordu; "the crib" (bebek beşiği) etkilenmez
+        "(?<=\\b(?:my|your|our) )crib\\b" to "place",
+        "\\bfoot ?path\\b" to "walkway",
+        "\\bthe go[- ]ahead\\b" to "permission",
+        // Görev metni: "Take out the juror" -> "Jüriyi dışarı çıkar" çıkıyordu
+        "(?:^|(?<=[.!?]\\s))take out(?= the\\b(?! (?:trash|garbage)\\b)| (?-i:[A-Z]))" to "Eliminate",
+        // "Sup, dog?" -> "Sup, dostum?" çıkıyordu
+        "(?:^|(?<=[.!?]\\s))'?sup\\b" to "What's up",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
     /** Kekeleme: "p-p-pretend", "A-A-And", "M-M-M-Mrs." -> pretend, And, Mrs. (OPUS döngüye giriyordu) */

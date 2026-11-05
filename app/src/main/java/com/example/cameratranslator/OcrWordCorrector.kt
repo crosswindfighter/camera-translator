@@ -476,6 +476,8 @@ class OcrWordCorrector(
 
         /** OPUS sözlüğünde tek parça olmayan ama altyazılarda sık geçen kelimeler (düzeltilmez). */
         private val EXTRA_WORDS = setOf(
+            // Düzeltici bozuyordu: rapel -> rape, Ballas -> Dallas, pube -> pure, mentorship -> mentor ship
+            "rapel", "ballas", "pube", "mentorship",
             "oh", "ohh", "uh", "uhh", "um", "hmm", "ah", "ahh", "huh", "whoa", "wow", "ok", "okay",
             "nah", "yep", "yup", "hey", "shh", "ugh", "yo", "ya", "homie", "homies", "dawg", "bro", "cuz", "fam",
             "argh", "aargh", "ew", "eww", "yikes", "nope", "gee", "jeez", "damn", "dammit", "goddamn", "puke",
@@ -518,6 +520,10 @@ class OcrWordCorrector(
             // Sonuna yapışmış I ("ifl could" -> if I could) ve testlerde sık görülen bozuk okumalar
             "ifl" to "if I", "whatl" to "what I", "thatl" to "that I", "whenl" to "when I", "andl" to "and I", "butl" to "but I",
             "iot" to "not", "yean" to "yeah", "wel" to "well",
+            // Sözlük düzelticisi bunları başka kelimeye çeviriyordu (horrnie -> home, Yknow -> Know, tearn -> san)
+            "horrnie" to "homie", "hormie" to "homie", "hormje" to "homie", "homjie" to "homie", "iomie" to "homie",
+            "Yall" to "Y'all", "yall" to "y'all", "Yknow" to "Y'know", "yknow" to "y'know", "vknow" to "y'know",
+            "tearn" to "team", "payrol" to "payroll",
             "thatshit" to "that shit", "Thatshit" to "That shit", "fuckoff" to "fuck off", "Fuckoff" to "Fuck off"
         )
         /** "I"dan sonra sık gelen kelimeler: Tdon't, Jhave gibi yapışık okumaları ayırmak için */
@@ -550,7 +556,8 @@ class OcrWordCorrector(
         /** Bunlardan biri gelirse yapışık okunuş "I'm a" değil argo "I'ma" (I'm gonna) */
         private val I_MA_VERBS = setOf(
             "go", "get", "be", "do", "kill", "tell", "make", "take", "show", "see", "have", "give", "put", "let", "find",
-            "try", "call", "come", "say", "need", "bust", "beat", "shoot"
+            "try", "call", "come", "say", "need", "bust", "beat", "shoot", "speak", "talk", "drop", "head", "hit", "pull",
+            "wait", "bring", "ride", "handle", "meet", "stay", "start", "leave", "hold", "check", "grab"
         )
         /** Bunlardan sonra gelen "1" aslında "I" ("Did 1", "What if 1") */
         private val AUX_BEFORE_I = setOf(
