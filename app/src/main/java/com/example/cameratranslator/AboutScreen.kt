@@ -519,7 +519,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         lineHeight = 22.sp
                     )
                     Text(
-                        text = "Daha iyi sonuç için: OCR alanını yalnızca altyazıyı kapsayacak şekilde daraltın, parlaklığı (☀️) biraz düşürün, gerekirse manuel odak kullanın ve arka planı olmayan beyaz altyazılarda Ayarlar'daki \"Beyaz altyazı filtresi\"ni açık tutun. Oyununuz destekliyorsa altyazı arka planını (siyah kutu) açmak doğruluğu en çok artıran ayardır.",
+                        text = "Daha iyi sonuç için: OCR alanını yalnızca altyazıyı kapsayacak şekilde daraltın, parlaklığı (☀️) biraz düşürün, gerekirse manuel odak kullanın ve arka planı olmayan beyaz altyazılarda Ayarlar'daki \"Beyaz altyazı filtresi\"ni açın. Oyununuz destekliyorsa altyazı arka planını (siyah kutu) açmak doğruluğu en çok artıran ayardır.",
                         fontSize = 13.sp,
                         lineHeight = 20.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant

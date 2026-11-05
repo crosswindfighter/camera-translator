@@ -74,7 +74,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.0.9.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.0.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
@@ -142,11 +142,11 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
 
-#### ⚡ v1.0.9: daha hızlı Ekran Çevirisi
+#### ⚡ v1.1.0: daha hızlı Ekran Çevirisi
 - Ekran Çevirisi'nde yazılar daha sık okunuyor ve çeviri önceden hazırlanıyor; çeviri ekrana daha çabuk geliyor.
 - Ekran Çevirisi'ne ayarlanabilir yumuşak geçiş: Ayarlar'dan açılıp kapatılır, hızı Yavaş veya Hızlı seçilir.
 - Ekran Çevirisi'nin ana ekranı yenilendi: daha şık görünüm ve adım adım anlatım.
-- Açık renkli zeminlerde beyaz altyazılar daha iyi okunuyor; beyaz altyazı filtresi tüm modlarda çalışıyor ve varsayılan olarak açık.
+- Açık renkli zeminlerde beyaz altyazılar daha iyi okunuyor; beyaz altyazı filtresi tüm modlarda çalışıyor, Ayarlar'dan açılabiliyor.
 - Çeviri kutusu sahnedeki başka yazılar yüzünden büyümüyor; çevrilmeden dönen bir cümle yüzünden çeviri altyazının üstünden ayrılmıyor.
 - OPUS indirme ekranı yenilendi: OCR alanının üzerine binmiyor, "Daha sonra" ile kapatılabiliyor.
 - Telefon döndürüldüğünde OCR alanının yeri doğru geri geliyor.

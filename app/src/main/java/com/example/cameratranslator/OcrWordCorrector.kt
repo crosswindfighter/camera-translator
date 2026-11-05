@@ -335,6 +335,10 @@ class OcrWordCorrector(
         if (word == "Nol" && nextToken?.lowercase()?.trimEnd(',', '.')?.let { it in I_VERBS } == true) return "No I"
         SHORT_FIXES[word]?.let { return it }
         if (word in I_LL && nextIsWord) return "I'll"
+        // "Ima producer" -> I'm a producer; fiilden önce argo: "Ima go" -> I'm gonna go
+        if (word in I_MA && nextIsWord) {
+            return if (nextToken?.lowercase()?.trimEnd(',', '.', '!', '?') in I_MA_VERBS) "I'm gonna" else "I'm a"
+        }
         // Baştaki I tamamen kaybolmuş: "ll go", "'m on my way", "ld say", "ve never done"
         I_FORMS[word]?.let { fixed ->
             if (!nextIsWord) return null
@@ -533,6 +537,13 @@ class OcrWordCorrector(
         private val TRAILING_WORDS = listOf("you", "the", "them", "him", "her", "me", "it", "to")
         /** I'll'ın okunuşları ("Next Il have", "lll just"); küçük harfli "ill" (hasta) değil */
         private val I_LL = setOf("Il", "Ill", "IIl", "lll", "rll", "Rll")
+        /** "I'm a"nın yapışık okunuşları */
+        private val I_MA = setOf("Ima", "lma", "I'ma", "l'ma")
+        /** Bunlardan biri gelirse yapışık okunuş "I'm a" değil argo "I'ma" (I'm gonna) */
+        private val I_MA_VERBS = setOf(
+            "go", "get", "be", "do", "kill", "tell", "make", "take", "show", "see", "have", "give", "put", "let", "find",
+            "try", "call", "come", "say", "need", "bust", "beat", "shoot"
+        )
         /** Bunlardan sonra gelen "1" aslında "I" ("Did 1", "What if 1") */
         private val AUX_BEFORE_I = setOf(
             "did", "do", "does", "can", "could", "would", "should", "will", "am", "was", "have", "had",

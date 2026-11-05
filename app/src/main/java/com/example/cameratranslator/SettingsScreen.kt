@@ -1367,7 +1367,7 @@ fun SettingsScreen(
                         Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
                             Text("Beyaz altyazı filtresi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                             Text(
-                                "Arka planı (siyah kutusu) olmayan beyaz altyazılarda, okuma zayıf kaldığında yazıyı öne çıkarıp yeniden okur. Tüm modlarda çalışır; yalnızca beyaz altyazılarda etkilidir.",
+                                "Arka planı (siyah kutusu) olmayan beyaz altyazılarda, okuma zayıf kaldığında yazıyı öne çıkarıp yeniden okur. Tüm modlarda çalışır; yalnızca beyaz altyazılarda etkilidir. Açıkken çeviri biraz gecikebilir.",
                                 fontSize = 12.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

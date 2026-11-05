@@ -22,11 +22,11 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     private val NOTES = mapOf(
-        "1.0.9" to listOf(
+        "1.1.0" to listOf(
             "Ekran Çevirisi daha hızlı: yazılar daha sık okunuyor, çeviri ekrana daha çabuk geliyor.",
             "Ekran Çevirisi'ne yumuşak geçiş: çeviri hafifçe kayarak belirir ve yumuşakça kaybolur. Ayarlar'dan kapatabilir, hızını Yavaş veya Hızlı yapabilirsiniz.",
             "Ekran Çevirisi'nin ana ekranı yenilendi: daha şık görünüm ve adım adım anlatım.",
-            "Açık renkli zeminlerde (beton, asfalt, gökyüzü) beyaz altyazılar daha iyi okunuyor. Beyaz altyazı filtresi artık tüm modlarda çalışıyor ve varsayılan olarak açık.",
+            "Açık renkli zeminlerde (beton, asfalt, gökyüzü) beyaz altyazılar daha iyi okunuyor. Beyaz altyazı filtresi artık tüm modlarda çalışıyor; isterseniz Ayarlar'dan açabilirsiniz.",
             "Çeviri kutusu sahnedeki başka yazılar (ceketteki logo gibi) yüzünden büyümüyor ve kaymıyor; çevrilmeden dönen bir cümle yüzünden çeviri altyazının üstünden ayrılmıyor.",
             "OPUS indirme ekranı yenilendi: OCR alanının üzerine binmiyor, \"Daha sonra\" seçeneğiyle kapatılabiliyor.",
             "Telefon döndürüldüğünde OCR alanının yeri doğru geri geliyor.",
