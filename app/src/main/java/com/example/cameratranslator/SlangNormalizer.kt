@@ -52,6 +52,22 @@ object SlangNormalizer {
         "(?<!\\bas )\\bwell(?= (talk|see|be|have|get|go|need|do|make|figure|find|meet|handle|take)\\b)" to "we'll",
         "(?<=\\b(?:we|you|they|I|he|she) )gpt\\b" to "got",
         "\\bsiting(?= (there|here|around)\\b)" to "sitting",
+        "\\bthere'[Il]\\b" to "there'll",
+        "\\bthat'[Il]\\b" to "that'll",
+        "\\bit'[Il]\\b" to "it'll",
+        "\\bshe'[Il]\\b" to "she'll",
+        "\\bhe'[Il]\\b" to "he'll",
+        // "T poured my heart" -> I poured (cümle başında ya da "and"den sonra); "T, you got" ve "Uncle T" etkilenmez
+        "(?:^|(?<=[.!?]\\s)|(?<=\\band\\s))(?-i:T)(?= [a-z])(?! (?:shirt|shirts|minus)\\b)" to "I",
+        // "Were taking a chopper" -> We're ("Were you" gibi gerçek kullanımlar etkilenmez)
+        "(?:^|(?<=[.!?]\\s))(?-i:Were)(?= (?!being\\b)[a-z]+ing\\b)" to "We're",
+        // "a team df agents" -> of ("my bf" etkilenmez)
+        "(?<!\\b(?:my|your|her|his|the|a) )\\b[bd]f(?= [a-z])" to "of",
+        // "I shouldn'ta asked" -> "Sormam gerekirdi" (ters anlam) çıkıyordu
+        "\\bshouldn'?ta\\b" to "shouldn't have",
+        "\\bwouldn'?ta\\b" to "wouldn't have",
+        "\\bcouldn'?ta\\b" to "couldn't have",
+        "\\bmy nig\\b" to "my brother",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
     /** Yalnızca OPUS için (Google bunları zaten doğru çeviriyor). */
@@ -102,6 +118,28 @@ object SlangNormalizer {
         // Telsizde "Roger" = anlaşıldı ("Roger November…" -> "Roger … tarafından yazıldı" çıkıyordu)
         "\\broger that\\b" to "understood",
         "^Roger(?=,?\\s+(November|Niner|Alpha|Bravo|Charlie|Delta|Echo|Foxtrot|Tango|Victor|Whiskey|Zulu)\\b|[.!]?$)" to "Understood",
+
+        // Oyun logundaki hatalar ("homies" -> "homolar", "rapel" -> "tecavüz" gibi). Bu grup OPUS modeliyle
+        // önce/sonra test edilmedi; modelin bildiği sade kelimelere çevirir.
+        "\\bhomies\\b" to "buddies",
+        "\\bstoolies\\b" to "snitches",
+        "\\bstoolie\\b" to "snitch",
+        "\\brap+elling\\b" to "climbing down",
+        "\\brap+el\\b" to "climb down",
+        "\\bget crackin[g']?" to "get moving",
+        "\\bhit me up\\b" to "call me",
+        "\\bblow this (?:joint|place)\\b" to "get out of here",
+        "\\bconversate\\b" to "talk",
+        "\\bjudgemental\\b" to "judgmental",
+        "\\bfire in the hole\\b" to "take cover",
+        "\\bfinna\\b|\\bfin'? to\\b" to "going to",
+        "\\byo'?self\\b" to "yourself",
+        "\\byo'(?=\\s)" to "your",
+        // Argoda clap = vurmak ("beni alkışlamak için" çıkıyordu); "clap your hands" etkilenmez
+        "\\bclap(?= (?:me|him|her|them|us|your|some|that|this)\\b)(?! (?:your|them|those|some) hands\\b)" to "shoot",
+        "\\bclapping(?= (?:me|him|her|them|us|your|some|that|this)\\b)(?! (?:your|them|those|some) hands\\b)" to "shooting",
+        "(?<=\\bto )clap(?=[,.!?]*$)" to "shoot",
+        "(?<=\\b(?:got|get|getting|wasn't|was|be) )clapped\\b" to "shot",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
     /** Kekeleme: "p-p-pretend", "A-A-And", "M-M-M-Mrs." -> pretend, And, Mrs. (OPUS döngüye giriyordu) */

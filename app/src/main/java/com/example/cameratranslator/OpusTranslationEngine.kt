@@ -107,6 +107,8 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
                     .joinToString(" ") { translateSentence(it) }
                     .replace(LANGUAGE_NOTE, "")
                     .trim()
+                    // Model bilmediği "Ballas" adını "Dallas" yapıyordu
+                    .let { if ("Ballas" in source && "Dallas" !in source) it.replace("Dallas", "Ballas") else it }
                 Log.d(TAG, "Translated in ${SystemClock.elapsedRealtime() - startedAt} ms")
                 result
             } catch (e: Exception) {

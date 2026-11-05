@@ -438,6 +438,10 @@ class OcrWordCorrector(
                 .replace(GLUED_COMMA, ", ")
             if ('|' !in lowered) return lowered
             return lowered
+                // "l|| come" -> I'll come ("I come" olup zaman bozuluyordu), "They'l|" / "There||" -> 'll
+                .replace(PIPE_I_LL, "I'll")
+                .replace(PIPE_CONTRACTED_LL, "'ll")
+                .replace(PIPE_PRONOUN_LL) { it.groupValues[1] + "'ll" }
                 // Kelimenin ortasında "|" ise l'dir: "Mo|lis" -> Mollis
                 .replace(PIPE_IN_WORD, "l")
                 .replace(PIPE_APOSTROPHE, "I")
@@ -445,6 +449,10 @@ class OcrWordCorrector(
                 .replace(STANDALONE_PIPE, "I")
         }
 
+        private val PIPE_I_LL = Regex("(?<![\\p{L}\\d'])(?:[lI1]\\|{1,2}|\\|\\|)(?=\\s+\\p{L})")
+        private val PIPE_CONTRACTED_LL = Regex("(?<=\\p{L})'(?:\\|\\||l\\||\\|l)(?![\\p{L}\\d])")
+        // "we||" (well), "he||" (hell), "a||" (all) belirsiz olduğu için listede yok
+        private val PIPE_PRONOUN_LL = Regex("\\b(there|they|you|she|it|that|this|who)\\|\\|(?![\\p{L}\\d])", RegexOption.IGNORE_CASE)
         // "|'m", "|-| demand" (kekeleme: I-I demand)
         private val PIPE_APOSTROPHE = Regex("(?<![\\p{L}\\d])\\|(?=['’-])|(?<=-)\\|(?![\\p{L}\\d])")
         private val GLUED_COMMA = Regex("(?<=\\p{L}),(?=\\p{L})")
