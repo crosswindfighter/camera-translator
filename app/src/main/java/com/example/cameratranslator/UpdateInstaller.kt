@@ -48,7 +48,24 @@ object UpdateInstaller {
         .readTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    private var cleanedThisProcess = false
+
     private fun apkFile(context: Context) = File(File(context.cacheDir, "updates").apply { mkdirs() }, APK_NAME)
+
+    /** İndirilen kurulum dosyasını siler. */
+    fun deleteDownloaded(context: Context) {
+        File(context.cacheDir, "updates").deleteRecursively()
+    }
+
+    /**
+     * Uygulama her başladığında bir kez çalışır: kurulum bitince Android uygulamayı yeniden başlattığı için
+     * kalan APK burada silinir. Süreç yeni başladığından o anda açık bir güncelleme penceresi olamaz.
+     */
+    fun cleanUpOnStart(context: Context) {
+        if (cleanedThisProcess) return
+        cleanedThisProcess = true
+        deleteDownloaded(context)
+    }
 
     /** APK'yı indirir; [onProgress] 0..1 (boyut bilinmiyorsa -1). İptal edilirse yarım dosya silinir. */
     suspend fun download(context: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
@@ -178,8 +195,14 @@ fun UpdateDialog(release: UpdateChecker.ReleaseInfo, onDismiss: () -> Unit) {
         }
     }
 
+    // Kurmadan kapatılırsa indirilen dosya telefonda kalmasın
+    fun close() {
+        UpdateInstaller.deleteDownloaded(context)
+        onDismiss()
+    }
+
     AlertDialog(
-        onDismissRequest = { if (step !is UpdateStep.Downloading) onDismiss() },
+        onDismissRequest = { if (step !is UpdateStep.Downloading) close() },
         title = { Text("🎉 Yeni sürüm mevcut") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -223,13 +246,13 @@ fun UpdateDialog(release: UpdateChecker.ReleaseInfo, onDismiss: () -> Unit) {
                 is UpdateStep.Ready -> TextButton(onClick = { install(s.apk) }) { Text("Kur") }
                 is UpdateStep.Failed -> TextButton(onClick = {
                     UpdateInstaller.openPage(context, release.pageUrl)
-                    onDismiss()
+                    close()
                 }) { Text("GitHub'da aç") }
             }
         },
         dismissButton = {
             if (step !is UpdateStep.Downloading) {
-                TextButton(onClick = onDismiss) { Text("Daha sonra") }
+                TextButton(onClick = { close() }) { Text("Daha sonra") }
             }
         }
     )

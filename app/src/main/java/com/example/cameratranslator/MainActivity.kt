@@ -165,6 +165,10 @@ class MainActivity : ComponentActivity() {
         val savedApiKey = settingsManager.getApiKey()
         translationManager.updateApiKey(savedApiKey)
 
+        lifecycleScope.launch(Dispatchers.IO) {
+            UpdateInstaller.cleanUpOnStart(applicationContext)
+        }
+
         lifecycleScope.launch {
             translationManager.prepare()
         }

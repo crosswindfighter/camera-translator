@@ -23,6 +23,11 @@ import androidx.compose.ui.unit.sp
 object ReleaseNotes {
     private val NOTES = mapOf(
         "1.1.0" to listOf(
+            "Yapışık okunan \"I'm a\" gibi kalıplar artık doğru çevriliyor.",
+            "Beyaz altyazı filtresi çeviriyi biraz geciktirebildiği için varsayılan olarak kapalı; isterseniz Ayarlar'dan açabilirsiniz.",
+            "Güncelleme kurulduktan sonra indirilen dosya telefondan otomatik siliniyor."
+        ),
+        "1.0.9" to listOf(
             "Ekran Çevirisi daha hızlı: yazılar daha sık okunuyor, çeviri ekrana daha çabuk geliyor.",
             "Ekran Çevirisi'ne yumuşak geçiş: çeviri hafifçe kayarak belirir ve yumuşakça kaybolur. Ayarlar'dan kapatabilir, hızını Yavaş veya Hızlı yapabilirsiniz.",
             "Ekran Çevirisi'nin ana ekranı yenilendi: daha şık görünüm ve adım adım anlatım.",
