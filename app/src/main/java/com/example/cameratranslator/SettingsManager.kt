@@ -323,7 +323,7 @@ class SettingsManager(context: Context) {
         return floatArrayOf(left, top, right, bottom)
     }
 
-    /** Sinematik altyazıda önceki çevirilerin akışı (varsayılan: yukarı, 5 satır) */
+    /** Sinematik altyazıda önceki çevirilerin akışı (varsayılan: akıllı akış, 10 satır) */
     fun getSubtitleFlow(): SubtitleFlow =
         runCatching { SubtitleFlow.valueOf(prefs.getString("subtitle_flow", null) ?: "UP") }.getOrDefault(SubtitleFlow.UP)
 
@@ -331,10 +331,10 @@ class SettingsManager(context: Context) {
         prefs.edit().putString("subtitle_flow", flow.name).apply()
     }
 
-    fun getFlowLines(): Int = prefs.getInt("subtitle_flow_lines", 5).coerceIn(1, 10)
+    fun getFlowLines(): Int = prefs.getInt("subtitle_flow_lines", 10).coerceIn(1, 20)
 
     fun saveFlowLines(lines: Int) {
-        prefs.edit().putInt("subtitle_flow_lines", lines.coerceIn(1, 10)).apply()
+        prefs.edit().putInt("subtitle_flow_lines", lines.coerceIn(1, 20)).apply()
     }
 
     /** "Yenilikler" penceresinin en son gösterildiği (ya da gerek görülmediği) sürüm; null = hiç kaydedilmedi */

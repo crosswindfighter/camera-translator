@@ -347,14 +347,12 @@ fun MainOverlay(
                     val ocrBottomInArea = with(density) { ocrRect.bottom.toDp() } - subtitleTop
                     val spaceAbove = (ocrTopInArea - 12.dp).coerceIn(0.dp, maxHeight)
                     val spaceBelow = (maxHeight - ocrBottomInArea - 12.dp).coerceIn(0.dp, maxHeight)
-                    // Ortadan akış: OCR'a bakılmaz; güncel çeviri ekranın ortasında durur, öncekiler yukarı akar
-                    val centered = subtitleFlow == SubtitleFlow.CENTER
+                    // Ortadan akış ve Kapalı: OCR'a bakılmaz; güncel çeviri ekranın ortasında durur (Ortadan akışta öncekiler yukarı akar)
+                    val centered = subtitleFlow != SubtitleFlow.UP
                     val flowUp = centered || spaceAbove >= spaceBelow
                     // İki taraf da çok darsa (OCR alanı ekranın neredeyse tamamı) bütün alan kullanılır
                     val flowHeight = when {
-                        centered -> (with(density) { (containerSize.height / 2f).toDp() } - subtitleTop + 36.dp)
-                            .coerceIn(72.dp, maxHeight)
-                        maxOf(spaceAbove, spaceBelow) < 72.dp -> maxHeight
+                        centered || maxOf(spaceAbove, spaceBelow) < 72.dp -> maxHeight
                         flowUp -> spaceAbove
                         else -> spaceBelow
                     }
@@ -370,6 +368,8 @@ fun MainOverlay(
                         lines = lines,
                         currentMaxFontSize = effectiveFontSize,
                         flowUp = flowUp,
+                        // Alan, ekranla aynı üst kenardan başlamıyor: ekran ortası alanın koordinatına çevrilir
+                        centerYPx = if (centered) containerSize.height / 2f - with(density) { subtitleTop.toPx() } else null,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(flowHeight)

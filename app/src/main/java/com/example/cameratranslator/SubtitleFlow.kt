@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Text
@@ -22,17 +23,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 
 /**
  * Sinematik altyazıda önceki çevirilerin akışı: akıllı akış (OCR aşağıdaysa yukarı, yukarıdaysa aşağı akar),
- * ortadan akış (OCR'ın yerinden bağımsız, ekranın ortasından yukarı akar) ya da kapalı.
+ * ortadan akış (OCR'ın yerinden bağımsız, ekranın ortasından yukarı akar) ya da kapalı (yalnızca son çeviri, ortada).
  * Kayıtlı ayarla uyum için akıllı akışın adı UP kaldı.
  */
 enum class SubtitleFlow { UP, CENTER, OFF }
@@ -44,10 +48,17 @@ private const val HISTORY_FONT_SIZE = 16f
  * Akan altyazı: [lines] eskiden yeniye sıralı, sonuncusu güncel çeviri. [flowUp] ise liste alttan dizilir
  * (güncel çeviri en altta, OCR alanının hemen üstünde), değilse üstten (güncel çeviri OCR alanının hemen altında).
  * Yeni çeviri OCR tarafından kayarak gelir; bir önceki çeviri aynı satır olarak kalır, küçülüp soluklaşarak
- * OCR'dan uzaklaşır. Eskidikçe daha da solar.
+ * OCR'dan uzaklaşır. Eskidikçe daha da solar. [centerYPx] verilirse güncel çevirinin ortası bu yüksekliğe oturur
+ * (satır sayısı ne olursa olsun); öncekiler onun üstünde akar.
  */
 @Composable
-fun FlowingSubtitles(lines: List<String>, currentMaxFontSize: Float, flowUp: Boolean, modifier: Modifier = Modifier) {
+fun FlowingSubtitles(
+    lines: List<String>,
+    currentMaxFontSize: Float,
+    flowUp: Boolean,
+    modifier: Modifier = Modifier,
+    centerYPx: Float? = null
+) {
     // Satırın kimliği metni (+ aynı metin kaçıncı kez geçiyor): güncel çeviri geçmişe geçince aynı satır kalır
     val keyed = remember(lines) {
         val seen = HashMap<String, Int>()
@@ -62,7 +73,9 @@ fun FlowingSubtitles(lines: List<String>, currentMaxFontSize: Float, flowUp: Boo
         val measurer = rememberTextMeasurer()
         val current = lines.lastOrNull().orEmpty()
         val widthPx = constraints.maxWidth
-        val maxCurrentHeight = if (constraints.hasBoundedHeight) constraints.maxHeight * 0.65f else Float.MAX_VALUE
+        // Ortalanınca alan bütün ekran: güncel çeviri yine üstte önceki satırlara yer bıraksın
+        val currentHeightShare = if (centerYPx != null) 0.4f else 0.65f
+        val maxCurrentHeight = if (constraints.hasBoundedHeight) constraints.maxHeight * currentHeightShare else Float.MAX_VALUE
         val currentFontSize = remember(current, currentMaxFontSize, widthPx, maxCurrentHeight) {
             var size = currentMaxFontSize
             if (widthPx > 0 && current.isNotEmpty()) {
@@ -82,8 +95,22 @@ fun FlowingSubtitles(lines: List<String>, currentMaxFontSize: Float, flowUp: Boo
         // Yükseklik sınırsız: Column satırları kalan yüksekliğe sığdırmaya çalışınca güncel çeviri kesiliyordu
         // (OCR alanının içine girmiş gibi). Fazlası OCR'ın öbür tarafından taşar ve dış kutunun solan kenarında kaybolur.
         val ordered = if (flowUp) keyed else keyed.reversed()
+        // Ortalama: Column alta dizili; güncel çevirinin ortası hedefe gelecek kadar yukarı kaydırılır
+        val verticalPaddingPx = with(LocalDensity.current) { 8.dp.toPx() }
+        val centerShift = remember(current, currentFontSize, widthPx, centerYPx, constraints.maxHeight) {
+            if (centerYPx == null || widthPx <= 0 || !constraints.hasBoundedHeight) 0f else {
+                val height = measurer.measure(
+                    text = current,
+                    style = flowStyle(currentFontSize, true),
+                    constraints = Constraints(maxWidth = widthPx)
+                ).size.height + verticalPaddingPx
+                centerYPx + height / 2f - constraints.maxHeight
+            }
+        }
+        val animatedShift by animateFloatAsState(centerShift, tween(FLOW_ANIMATION_MS), label = "flowCenter")
         Column(
             modifier = Modifier
+                .offset { IntOffset(0, animatedShift.roundToInt()) }
                 .fillMaxWidth()
                 .wrapContentHeight(align = if (flowUp) Alignment.Bottom else Alignment.Top, unbounded = true),
             verticalArrangement = if (flowUp) Arrangement.Bottom else Arrangement.Top,

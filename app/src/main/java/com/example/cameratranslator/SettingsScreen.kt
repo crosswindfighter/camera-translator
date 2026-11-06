@@ -273,8 +273,8 @@ private fun SubtitleFlowSection() {
                 lines = it.toInt()
                 settings.saveFlowLines(lines)
             },
-            valueRange = 1f..10f,
-            steps = 8,
+            valueRange = 1f..20f,
+            steps = 18,
             modifier = Modifier.fillMaxWidth()
         )
     }
@@ -285,7 +285,7 @@ private fun SubtitleFlowSection() {
                 "ekranın kenarında kaybolur ve hiçbir zaman altyazının üstüne binmez."
             SubtitleFlow.CENTER -> "OCR alanının yeri ne olursa olsun yeni çeviri ekranın ortasında belirir, öncekiler yukarı doğru akar. " +
                 "Öncekiler küçülerek ekranın kenarında kaybolur."
-            SubtitleFlow.OFF -> "Yalnızca son çeviri gösterilir. Kaçırdığınız altyazılara menüdeki \"Çeviri geçmişi\"nden bakabilirsiniz."
+            SubtitleFlow.OFF -> "Yalnızca son çeviri ekranın ortasında gösterilir. Kaçırdığınız altyazılara menüdeki \"Çeviri geçmişi\"nden bakabilirsiniz."
         },
         fontSize = 12.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -878,12 +878,16 @@ fun SettingsScreen(
                 // Diğer bölümler gibi okla açılır; açma/kapama anahtarı bölümün içinde
                 CollapsibleHeader(
                     title = "Sesli Okuma",
-                    subtitle = "Çevrilen altyazıları sesli okur; ekrana bakmadan oyunu takip edebilirsiniz.",
                     expanded = isTtsSectionExpanded,
                     onToggle = { isTtsSectionExpanded = !isTtsSectionExpanded },
                     badge = if (isTtsEnabled) "Açık" else "Kapalı"
                 )
                 if (isTtsSectionExpanded) {
+                    Text(
+                        "Çevrilen altyazıları sesli okur; ekrana bakmadan oyunu takip edebilirsiniz.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                     SettingsSubCard {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
