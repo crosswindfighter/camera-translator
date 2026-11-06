@@ -68,6 +68,8 @@ object SlangNormalizer {
         "\\bwouldn'?ta\\b" to "wouldn't have",
         "\\bcouldn'?ta\\b" to "couldn't have",
         "\\bmy nig\\b" to "my brother",
+        // "I love you" okunuşu: "Hove you" -> "seni kucaklıyorum" çıkıyordu
+        "\\b(?-i:Hove)(?= (?:you|ya|him|her|it|this|that)\\b)" to "I love",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }
 
     /** Yalnızca OPUS için (Google bunları zaten doğru çeviriyor). */
@@ -80,8 +82,8 @@ object SlangNormalizer {
         "\\bno cap\\b" to "no lie",
         "\\bfive-?o\\b|\\b5-0\\b" to "the cops",
         "\\brepo\\b" to "repossess",
-        // "You're strapped in" (kemer/emniyet) "Silahlısın" oluyordu: in/down/into ile gelince dokunma
-        "\\bstrapped\\b(?!\\s+(in|down|into|to)\\b)" to "armed",
+        // "You're strapped in" (kemer/emniyet) "Silahlısın", "strapped by the wrists" "bileklerinden silahlanmış" oluyordu
+        "\\bstrapped\\b(?!\\s+(in|down|into|to|by|with|on|onto|up|across|at|for|inside|under|together)\\b)" to "armed",
         "\\blet's bounce\\b" to "let's go",
         "\\bgat\\b" to "gun",
         "\\bmy whip\\b" to "my car",
@@ -148,6 +150,17 @@ object SlangNormalizer {
         "\\bthe go[- ]ahead\\b" to "permission",
         // Görev metni: "Take out the juror" -> "Jüriyi dışarı çıkar" çıkıyordu
         "(?:^|(?<=[.!?]\\s))take out(?= the\\b(?! (?:trash|garbage)\\b)| (?-i:[A-Z]))" to "Eliminate",
+        // Tek başına "Run" -> "Çalıştır" çıkıyordu
+        "^run(?=[.!]*$)" to "Run away",
+        "\\bcase board\\b" to "evidence board",
+        "\\bbellyaching\\b" to "complaining",
+        "\\bright up (?:your|my|his|her|our) alley\\b" to "perfect for you",
+        "\\bcracking it\\b" to "solving it",
+        "\\bbrothers in arms\\b" to "comrades",
+        "\\bwent off the deep end\\b" to "went crazy",
+        "\\bgot the boot\\b" to "got fired",
+        // "Deputy Mulligan" -> "Mulligan'ın yardımcısı" çıkıyordu
+        "\\bdeputy(?= (?-i:[A-Z]))" to "Officer",
         // "Sup, dog?" -> "Sup, dostum?" çıkıyordu
         "(?:^|(?<=[.!?]\\s))'?sup\\b" to "What's up",
     ).map { (pattern, replacement) -> Regex(pattern, RegexOption.IGNORE_CASE) to replacement }

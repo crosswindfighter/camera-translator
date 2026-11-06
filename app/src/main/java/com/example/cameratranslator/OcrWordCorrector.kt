@@ -523,7 +523,7 @@ class OcrWordCorrector(
             // Sözlük düzelticisi bunları başka kelimeye çeviriyordu (horrnie -> home, Yknow -> Know, tearn -> san)
             "horrnie" to "homie", "hormie" to "homie", "hormje" to "homie", "homjie" to "homie", "iomie" to "homie",
             "Yall" to "Y'all", "yall" to "y'all", "Yknow" to "Y'know", "yknow" to "y'know", "vknow" to "y'know",
-            "tearn" to "team", "payrol" to "payroll",
+            "tearn" to "team", "payrol" to "payroll", "Runl" to "Run!",
             "thatshit" to "that shit", "Thatshit" to "That shit", "fuckoff" to "fuck off", "Fuckoff" to "Fuck off"
         )
         /** "I"dan sonra sık gelen kelimeler: Tdon't, Jhave gibi yapışık okumaları ayırmak için */

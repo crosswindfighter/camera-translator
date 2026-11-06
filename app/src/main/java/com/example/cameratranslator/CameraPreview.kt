@@ -225,12 +225,32 @@ fun CameraPreview(
         }
     }
 
+    // Ekstra karartmada periyodik netleme yok; okumalar üst üste bozulursa bir kez yeniden netle (normal parlaklıkta zaten 20 sn'de bir netleniyor)
+    LaunchedEffect(cameraInstance, autoFocus) {
+        val camera = cameraInstance ?: return@LaunchedEffect
+        if (!autoFocus) return@LaunchedEffect
+        var lastBlurRefocusAt = 0L
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            OcrBlurWatch.refocusRequests.collect {
+                val darkStep = darkStepFor(camera, currentExposureIndex)
+                val now = SystemClock.elapsedRealtime()
+                if (darkStep > 0 && now - lastBlurRefocusAt >= BLUR_REFOCUS_COOLDOWN_MS) {
+                    lastBlurRefocusAt = now
+                    OcrDebugDumper.logPipeline("Odak", "okumalar bozuk, yeniden netleniyor", endOfEntry = true)
+                    refocusCenter(camera, darkStep)
+                }
+            }
+        }
+    }
+
     AndroidView(
         factory = { previewView },
         modifier = modifier
     )
 }
 
+/** Bozuk okuma yüzünden yeniden netlemeler arasında en az bu kadar beklenir (görüntü sürekli aydınlanıp kararmasın). */
+private const val BLUR_REFOCUS_COOLDOWN_MS = 30_000L
 private const val REFOCUS_AFTER_ZOOM_MS = 400L
 /** Oto odağa geçtikten / uygulamaya döndükten sonra ilk odaklama (ayarların kameraya ulaşması için kısa bekleme). */
 private const val AUTO_REFOCUS_DELAY_MS = 300L

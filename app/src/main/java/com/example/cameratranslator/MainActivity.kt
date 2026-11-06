@@ -608,6 +608,7 @@ class MainActivity : ComponentActivity() {
 
                 lastTranslatedSource = confirmedText
                 OcrDebugDumper.logPipeline("Onaylanan", confirmedText)
+                OcrBlurWatch.onConfirmed(confirmedText)
                 val timestamp = System.currentTimeMillis()
                 lastTranslationTimestamp.set(timestamp)
 
