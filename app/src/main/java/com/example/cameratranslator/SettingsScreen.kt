@@ -234,7 +234,7 @@ private fun SubtitleFlowSection() {
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        listOf(SubtitleFlow.UP to "Akıllı akış", SubtitleFlow.OFF to "Kapalı").forEach { (option, label) ->
+        listOf(SubtitleFlow.UP to "Akıllı akış", SubtitleFlow.CENTER to "Ortadan akış", SubtitleFlow.OFF to "Kapalı").forEach { (option, label) ->
             val isSelected = option == flow
             Surface(
                 modifier = Modifier
@@ -283,6 +283,8 @@ private fun SubtitleFlowSection() {
             SubtitleFlow.UP -> "OCR alanı aşağıdaysa yeni çeviri onun hemen üstünde belirir, öncekiler yukarı doğru akar; " +
                 "OCR alanı yukarıdaysa yeni çeviri hemen altında belirir, öncekiler aşağı doğru akar. Öncekiler küçülerek " +
                 "ekranın kenarında kaybolur ve hiçbir zaman altyazının üstüne binmez."
+            SubtitleFlow.CENTER -> "OCR alanının yeri ne olursa olsun yeni çeviri ekranın ortasında belirir, öncekiler yukarı doğru akar. " +
+                "Öncekiler küçülerek ekranın kenarında kaybolur."
             SubtitleFlow.OFF -> "Yalnızca son çeviri gösterilir. Kaçırdığınız altyazılara menüdeki \"Çeviri geçmişi\"nden bakabilirsiniz."
         },
         fontSize = 12.sp,

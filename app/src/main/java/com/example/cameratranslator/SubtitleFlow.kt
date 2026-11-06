@@ -31,10 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * Sinematik altyazıda önceki çevirilerin akışı: açık (akıllı akış: OCR aşağıdaysa yukarı, yukarıdaysa aşağı akar)
- * ya da kapalı. Kayıtlı ayarla uyum için açık hâlin adı UP kaldı.
+ * Sinematik altyazıda önceki çevirilerin akışı: akıllı akış (OCR aşağıdaysa yukarı, yukarıdaysa aşağı akar),
+ * ortadan akış (OCR'ın yerinden bağımsız, ekranın ortasından yukarı akar) ya da kapalı.
+ * Kayıtlı ayarla uyum için akıllı akışın adı UP kaldı.
  */
-enum class SubtitleFlow { UP, OFF }
+enum class SubtitleFlow { UP, CENTER, OFF }
 
 private const val FLOW_ANIMATION_MS = 400
 private const val HISTORY_FONT_SIZE = 16f
