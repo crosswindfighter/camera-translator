@@ -43,6 +43,9 @@ enum class SubtitleFlow { UP, CENTER, OFF }
 
 private const val FLOW_ANIMATION_MS = 400
 private const val HISTORY_FONT_SIZE = 16f
+private const val MIN_FIT_FONT_SIZE = 14
+/** Dolu ekran yazıda tavan: "Hadi." gibi kısa yazılar dev olmasın. */
+private const val FILL_MAX_FONT_SIZE = 140
 
 /**
  * Akan altyazı: [lines] eskiden yeniye sıralı, sonuncusu güncel çeviri. [flowUp] ise liste alttan dizilir
@@ -57,7 +60,9 @@ fun FlowingSubtitles(
     currentMaxFontSize: Float,
     flowUp: Boolean,
     modifier: Modifier = Modifier,
-    centerYPx: Float? = null
+    centerYPx: Float? = null,
+    /** Kapalı + göz modu: yazı boyutu ayarı yerine alana sığan en büyük boyut seçilir ([FILL_MAX_FONT_SIZE]'a kadar). */
+    fillArea: Boolean = false
 ) {
     // Satırın kimliği metni (+ aynı metin kaçıncı kez geçiyor): güncel çeviri geçmişe geçince aynı satır kalır
     val keyed = remember(lines) {
@@ -74,9 +79,25 @@ fun FlowingSubtitles(
         val current = lines.lastOrNull().orEmpty()
         val widthPx = constraints.maxWidth
         // Ortalanınca alan bütün ekran: güncel çeviri yine üstte önceki satırlara yer bıraksın
-        val currentHeightShare = if (centerYPx != null) 0.4f else 0.65f
+        val currentHeightShare = if (fillArea) 0.97f else if (centerYPx != null) 0.4f else 0.65f
         val maxCurrentHeight = if (constraints.hasBoundedHeight) constraints.maxHeight * currentHeightShare else Float.MAX_VALUE
-        val currentFontSize = remember(current, currentMaxFontSize, widthPx, maxCurrentHeight) {
+        val currentFontSize = remember(current, currentMaxFontSize, widthPx, maxCurrentHeight, fillArea) {
+            if (fillArea && widthPx > 0 && current.isNotEmpty()) {
+                // Her çeviride çalışır: ana iş parçacığını yormamak için ikili arama. En uzun kelime de genişliğe
+                // sığmalı, yoksa kelimenin ortasından bölünürdü.
+                val longestWord = current.split(' ').maxByOrNull { it.length }.orEmpty()
+                var low = MIN_FIT_FONT_SIZE
+                var high = FILL_MAX_FONT_SIZE
+                while (low < high) {
+                    val mid = (low + high + 1) / 2
+                    val style = flowStyle(mid.toFloat(), true)
+                    val fits = measurer.measure(text = longestWord, style = style).size.width <= widthPx &&
+                        measurer.measure(text = current, style = style, constraints = Constraints(maxWidth = widthPx))
+                            .size.height <= maxCurrentHeight
+                    if (fits) low = mid else high = mid - 1
+                }
+                return@remember low.toFloat()
+            }
             var size = currentMaxFontSize
             if (widthPx > 0 && current.isNotEmpty()) {
                 while (size > 14f) {

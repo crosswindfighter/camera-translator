@@ -285,7 +285,7 @@ private fun SubtitleFlowSection() {
                 "ekranın kenarında kaybolur ve hiçbir zaman altyazının üstüne binmez."
             SubtitleFlow.CENTER -> "OCR alanının yeri ne olursa olsun yeni çeviri ekranın ortasında belirir, öncekiler yukarı doğru akar. " +
                 "Öncekiler küçülerek ekranın kenarında kaybolur."
-            SubtitleFlow.OFF -> "Yalnızca son çeviri ekranın ortasında gösterilir. Kaçırdığınız altyazılara menüdeki \"Çeviri geçmişi\"nden bakabilirsiniz."
+            SubtitleFlow.OFF -> "Yalnızca son çeviri ekranın ortasında gösterilir. Göz modunda yazı, ekrana sığan en büyük boyuta çıkar. Kaçırdığınız altyazılara menüdeki \"Çeviri geçmişi\"nden bakabilirsiniz."
         },
         fontSize = 12.sp,
         color = MaterialTheme.colorScheme.onSurfaceVariant

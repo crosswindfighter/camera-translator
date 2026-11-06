@@ -364,12 +364,20 @@ fun MainOverlay(
                     }
                     // OCR'dan uzak kenara gelen satırlar kararıp kaybolur (başlat çubuğuna/kamera deliğine değmeden)
                     val fadePx = with(density) { 56.dp.toPx() }
+                    // Kapalı + göz modu: tek çeviri bütün alanı doldurur (taşmadan, kamera deliğine binmeden)
+                    val fillScreen = subtitleFlow == SubtitleFlow.OFF && isStealthMode
                     FlowingSubtitles(
                         lines = lines,
                         currentMaxFontSize = effectiveFontSize,
                         flowUp = flowUp,
-                        // Alan, ekranla aynı üst kenardan başlamıyor: ekran ortası alanın koordinatına çevrilir
-                        centerYPx = if (centered) containerSize.height / 2f - with(density) { subtitleTop.toPx() } else null,
+                        // Alan, ekranla aynı üst kenardan başlamıyor: ekran ortası alanın koordinatına çevrilir.
+                        // Dolu ekranda yazı alanın ortasına oturur; delik yüzünden alan ortalı değilse kesilmesin.
+                        centerYPx = when {
+                            fillScreen -> with(density) { maxHeight.toPx() } / 2f
+                            centered -> containerSize.height / 2f - with(density) { subtitleTop.toPx() }
+                            else -> null
+                        },
+                        fillArea = fillScreen,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(flowHeight)
@@ -378,6 +386,8 @@ fun MainOverlay(
                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
                             .drawWithContent {
                                 drawContent()
+                                // Dolu ekranda üst satırlar solmasın
+                                if (fillScreen) return@drawWithContent
                                 val fade = (fadePx / size.height).coerceIn(0.01f, 0.5f)
                                 drawRect(
                                     brush = if (flowUp) {
