@@ -112,8 +112,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         if (remaining <= 0) {
                             versionTapCount = 0
                             val enabled = !OcrTuning.debugDumpEnabled
-                            if (enabled) OcrDebugDumper.clear()
-                            OcrTuning.debugDumpEnabled = enabled
+                            OcrDebugDumper.setEnabled(enabled)
                             isDevModeEnabled = enabled
                             devToast?.cancel()
                             devToast = Toast.makeText(
@@ -141,7 +140,7 @@ fun AboutScreen(onBack: () -> Unit) {
 
             if (isDevModeEnabled) {
                 Text(
-                    text = "🛠 Geliştirici modu açık: OCR görüntüleri, okunan metin ve çeviriler kaydediliyor (son 600 kare ≈ 7 dk, ~180 MB).\nKonum: Android/data/com.example.cameratranslator/files/ocr_debug\nUygulama kapanınca kendiliğinden kapanır.",
+                    text = "🛠 Geliştirici modu açık: OCR görüntüleri, okunan metin ve çeviriler kaydediliyor (son 600 kare ≈ 7 dk, ~180 MB).\nKonum: Android/data/com.example.cameratranslator/files/ocr_debug\nUygulama kapansa da açık kalır. Kapatmak için sürüm yazısına 7 kez dokun; yeniden açınca eski kayıtlar silinir.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.tertiary,
                     textAlign = TextAlign.Center,
@@ -188,7 +187,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Uygulamanın ana çeviri motoru. Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT modeliyle (opus-mt-tc-big-en-tr) çeviri tamamen telefonunuzun içinde yapılır. Bir kez indirilir; sonrasında internet bağlantısı, API anahtarı, kota veya ücret olmadan hızlıca çeviri yapar. Uçak modunda bile çalışır.\n\nGünlük diyaloglarda çoğunlukla anlaşılır çeviriler verir; ancak argo, deyimler ve OCR'ın hatalı okuduğu metinlerde hata yapabilir. Daha doğru çeviri istediğinizde Google Translate modunu kullanabilirsiniz.",
+                        text = "Uygulamanın ana çeviri motoru. Helsinki Üniversitesi'nin açık kaynaklı OPUS-MT modeli (opus-mt-tc-big-en-tr) temel alınarak altyazı verisiyle yeniden eğitilen bu modelle çeviri tamamen telefonunuzun içinde yapılır. Bir kez indirilir; sonrasında internet bağlantısı, API anahtarı, kota veya ücret olmadan hızlıca çeviri yapar. Uçak modunda bile çalışır.\n\nGünlük diyaloglarda çoğunlukla anlaşılır çeviriler verir; ancak argo, deyimler ve OCR'ın hatalı okuduğu metinlerde hata yapabilir. Daha doğru çeviri istediğinizde Google Translate modunu kullanabilirsiniz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -313,7 +312,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) Ayarlar > Görünüm Modu'ndan seçilir, akış kapatılabilir. OCR alanı yeşil bir çerçeve ve sağ alt köşesindeki yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
+                        text = "Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. İsterseniz Ortadan akış seçilebilir: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar. Görünen satır sayısı (1–20) Ayarlar > Görünüm Modu'ndan seçilir, akış kapatılabilir. OCR alanı yeşil bir çerçeve ve sağ alt köşesindeki yeşil boyutlandırma okuyla (⇲) kontrol edilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

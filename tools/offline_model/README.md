@@ -23,8 +23,9 @@ cp onnx_fp32/vocab.json onnx_int8/
 venv/Scripts/python verify_onnx.py onnx_int8 onnx_int8/vocab.json
 ```
 
-Dosyalar değişirse `OfflineModelDownloader.kt` içindeki boyut ve SHA-256 değerleri ile
-GitHub Release etiketini (`offline-model-v1`) güncelleyin.
+Dosyalar değişirse `OfflineModelDownloader.kt` içindeki boyut, SHA-256 ve `CURRENT_VERSION` değerleri ile
+GitHub Release etiketini (şu an `offline-model-v2`) güncelleyin. Yeni etiket "latest" olarak işaretlenmemeli,
+eski etiketler de silinmemeli: yayındaki uygulama sürümleri onlardan indiriyor.
 
 Önemli iki ayrıntı (Kotlin motoru bunlara göre yazıldı):
 - Birleşik decoder'ın önbellek kolu encoder K/V çıktısını geri vermez; encoder K/V ilk adımdan saklanmalı.

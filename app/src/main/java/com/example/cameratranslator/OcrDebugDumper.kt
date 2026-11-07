@@ -1,6 +1,7 @@
 package com.example.cameratranslator
 
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.os.SystemClock
 import android.util.Log
@@ -40,12 +41,45 @@ object OcrDebugDumper {
     @Volatile private var lastSavedAt = 0L
     @Volatile private var lastSavedFrameId = -1L
 
+    private const val PREFS_NAME = "ocr_debug"
+    private const val PREF_ENABLED = "enabled"
+    private const val JPEG_SUFFIX = ".jpg"
+
+    private var prefs: SharedPreferences? = null
+
     fun init(context: Context) {
         directory = context.getExternalFilesDir("ocr_debug")
+        // Aktivite yeniden kurulsa da süreç başına bir kez çalışır
+        if (prefs != null) return
+        val stored = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        prefs = stored
+        if (stored.getBoolean(PREF_ENABLED, false)) {
+            OcrTuning.debugDumpEnabled = true
+            resumeAfterRestart()
+        }
+    }
+
+    /** Kayıt, kullanıcı kapatana kadar açık kalır; uygulama kapanıp açılsa da sürer. */
+    fun setEnabled(enabled: Boolean) {
+        if (enabled) clear()
+        OcrTuning.debugDumpEnabled = enabled
+        prefs?.edit()?.putBoolean(PREF_ENABLED, enabled)?.apply()
+    }
+
+    /**
+     * Metin kayıtları korunur, araya ayraç satırı girer. Kare numaraları süreçle birlikte
+     * sıfırlandığı için eski kareler silinir; yoksa üzerlerine yazılır ve 600 kare sınırı işlemez.
+     */
+    private fun resumeAfterRestart() {
+        val dir = directory ?: return
+        scope.launch {
+            dir.listFiles { file -> file.name.endsWith(JPEG_SUFFIX) }?.forEach { it.delete() }
+        }
+        logPipeline("Uygulama yeniden açıldı, kayıt sürüyor", "", endOfEntry = true)
     }
 
     /** Debug kaydı açıldığında eski kayıtları temizler. */
-    fun clear() {
+    private fun clear() {
         val dir = directory ?: return
         scope.launch {
             dir.listFiles()?.forEach { it.delete() }

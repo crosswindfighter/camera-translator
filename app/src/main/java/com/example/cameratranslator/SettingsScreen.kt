@@ -358,6 +358,8 @@ private fun OfflineModelSection(
     val totalMb = OfflineModelDownloader.totalBytes / 1_000_000
     var showMeteredDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    val updateAvailable by OfflineModelDownloader.updateAvailable.collectAsState()
+    val updateError by OfflineModelDownloader.updateError.collectAsState()
 
     val startDownload: () -> Unit = {
         if (OfflineModelDownloader.isOnMeteredNetwork(context)) {
@@ -408,38 +410,27 @@ private fun OfflineModelSection(
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
             Text("Dosyalar doğrulanıyor...", fontSize = 13.sp)
         }
-        is OfflineModelDownloader.State.Installed -> Unit // durum başlıkta ("İndirildi"); Sil açılınca
+        // Durum başlıkta ("İndirildi"); burada yalnızca varsa model güncellemesi gösterilir
+        is OfflineModelDownloader.State.Installed -> if (updateAvailable) {
+            SettingsSubCard {
+                Text("Yeni OPUS modeli hazır", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Günlük konuşmaları ve argoyu daha doğal çeviriyor. İndirme bitene kadar mevcut model çalışmaya devam eder.",
+                    fontSize = 12.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                updateError?.let {
+                    Text("⚠️ $it", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
+                }
+                Button(onClick = startDownload, modifier = Modifier.fillMaxWidth()) {
+                    Text("Güncelle (${OfflineModelDownloader.updateBytes / 1_000_000} MB)")
+                }
+            }
+        }
         is OfflineModelDownloader.State.Failed -> {
             Text("⚠️ ${state.message}", fontSize = 13.sp, color = MaterialTheme.colorScheme.error)
             Button(onClick = startDownload, modifier = Modifier.fillMaxWidth()) {
                 Text("Tekrar dene (kaldığı yerden devam eder)")
-            }
-        }
-    }
-
-    if (isInfoExpanded && isInstalled) {
-        // Dikkatli çeviri (beam search): daha doğal ama biraz daha yavaş; bilerek bu açılır bölümde
-        var careful by remember { mutableStateOf(OcrTuning.opusCarefulEnabled) }
-        SettingsSubCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Açıklama metni anahtara değmesin
-                Column(modifier = Modifier.weight(1f).padding(end = 12.dp)) {
-                    Text("Dikkatli çeviri", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Her altyazıda birkaç çeviri seçeneğini deneyip en iyisini seçer. Çeviriler daha doğal olur, ancak biraz daha geç gelir. " +
-                            "Kapalıyken de yarım kalan ya da bozuk görünen çevirilerde kendiliğinden devreye girer.",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                Switch(checked = careful, onCheckedChange = {
-                    careful = it
-                    OcrTuning.opusCarefulEnabled = it
-                    SettingsManager(context).saveOpusCarefulEnabled(it)
-                })
             }
         }
     }
@@ -450,7 +441,7 @@ private fun OfflineModelSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr), CC-BY 4.0",
+                "Model: Helsinki-NLP OPUS-MT (opus-mt-tc-big-en-tr) temel alınarak altyazı verisiyle yeniden eğitildi, CC-BY 4.0",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.weight(1f)

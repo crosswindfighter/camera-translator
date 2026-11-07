@@ -67,10 +67,20 @@ object UpdateInstaller {
         deleteDownloaded(context)
     }
 
-    /** APK'yı indirir; [onProgress] 0..1 (boyut bilinmiyorsa -1). İptal edilirse yarım dosya silinir. */
-    suspend fun download(context: Context, url: String, onProgress: (Float) -> Unit): File = withContext(Dispatchers.IO) {
+    /**
+     * APK'yı indirir; [onProgress] 0..1 (boyut bilinmiyorsa -1). İptal edilirse yarım dosya silinir.
+     * Eksik ya da bozuk inen dosya kurulum penceresine hiç gitmez; yoksa Android "paket ayrıştırma" hatası verir.
+     */
+    suspend fun download(
+        context: Context,
+        url: String,
+        expectedSize: Long,
+        expectedSha256: String?,
+        onProgress: (Float) -> Unit
+    ): File = withContext(Dispatchers.IO) {
         val target = apkFile(context)
         val partial = File(target.parentFile, "$APK_NAME.part")
+        val digest = java.security.MessageDigest.getInstance("SHA-256")
         try {
             val request = Request.Builder().url(url).header("User-Agent", "CameraTranslator/${UpdateChecker.currentVersion}").build()
             client.newCall(request).execute().use { response ->
@@ -87,6 +97,7 @@ object UpdateInstaller {
                             val read = input.read(buffer)
                             if (read < 0) break
                             output.write(buffer, 0, read)
+                            digest.update(buffer, 0, read)
                             done += read
                             val percent = if (total > 0) (done * 100 / total).toInt() else -1
                             if (percent != lastReported) {
@@ -96,6 +107,13 @@ object UpdateInstaller {
                         }
                     }
                 }
+            }
+            if (expectedSize > 0 && partial.length() != expectedSize) {
+                throw IllegalStateException("Eksik indi: ${partial.length()} / $expectedSize bayt")
+            }
+            val sha256 = digest.digest().joinToString("") { "%02x".format(it) }
+            if (expectedSha256 != null && !sha256.equals(expectedSha256, ignoreCase = true)) {
+                throw IllegalStateException("Dosya doğrulanamadı")
             }
             if (!partial.renameTo(target)) {
                 partial.copyTo(target, overwrite = true)
@@ -173,7 +191,9 @@ fun UpdateDialog(release: UpdateChecker.ReleaseInfo, onDismiss: () -> Unit) {
         step = UpdateStep.Downloading(0f)
         job = scope.launch {
             step = try {
-                UpdateStep.Ready(UpdateInstaller.download(context, url) { step = UpdateStep.Downloading(it) })
+                UpdateStep.Ready(
+                    UpdateInstaller.download(context, url, release.apkSize, release.apkSha256) { step = UpdateStep.Downloading(it) }
+                )
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e
             } catch (e: Exception) {

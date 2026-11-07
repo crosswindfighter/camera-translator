@@ -123,7 +123,6 @@ class OpusTranslationEngine(context: Context) : ITranslationEngine {
     private fun translateSentence(sentence: String): String {
         // Tek başına "Hey!" OPUS'ta "Merhaba!" oluyordu (oyunda hep seslenme)
         if (STANDALONE_HEY.matches(sentence)) return sentence
-        if (OcrTuning.opusCarefulEnabled) return beamSentence(sentence)
         val fast = greedySentence(sentence)
         // Kendini denetleme: çeviri şüpheliyse (cümle yarım, İngilizce kelime kalmış, tekrar, uydurma kalıp)
         // aynı cümle dikkatli yöntemle bir kez daha çevrilir; daha az şüpheli olan gösterilir

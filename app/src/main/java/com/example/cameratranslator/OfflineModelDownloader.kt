@@ -26,6 +26,8 @@ import kotlin.coroutines.coroutineContext
  * - Dosyalar tek tek iner; yarıda kalan indirme ".part" dosyasından kaldığı yerden devam eder.
  * - Her dosya SHA-256 ile doğrulanır; bozuk dosya silinir.
  * - Uygulama ekranından bağımsız çalışır (Ayarlar'dan çıkınca indirme durmaz).
+ * - Eski ve yeni modelin boyutları aynı, sürüm ayrı bir dosyada tutulur. Eski modeli olan kullanıcı
+ *   güncellemeyi kendi başlatır; yeni dosyaların hepsi doğrulanana kadar eski model çalışmaya devam eder.
  */
 object OfflineModelDownloader {
 
@@ -43,15 +45,22 @@ object OfflineModelDownloader {
 
     private const val TAG = "ModelDownloader"
     private const val BASE_URL =
-        "https://github.com/crosswindfighter/camera-translator/releases/download/offline-model-v1/"
+        "https://github.com/crosswindfighter/camera-translator/releases/download/offline-model-v2/"
+    private const val VERSION_FILE = "model_version.txt"
+    private const val CURRENT_VERSION = "2"
+    private const val OLD_VERSION = "1"
 
+    private val ENCODER = ModelFile("encoder_model.onnx", 135_438_293L, "e39d3994c41b8ab1ab5834af8d921444e9893fca7a70fdf71628ed68cc461409")
+    private val DECODER = ModelFile("decoder_model_merged.onnx", 219_934_409L, "26be24f5830aa9df384d2bb326a35a4a90ded44ff122f19e8fc8031e9eb1aa9c")
     private val FILES = listOf(
         ModelFile("source_pieces.tsv", 966_111L, "463da3a6d9eef5762efe111de0f2e28222c1ec6f40dd0b128c4487d03e4c80f8"),
         ModelFile("vocab.json", 1_558_348L, "6a41bb921b88e5b0d7991cfdc7adbefde24b4ab00613389506e3c605cc092101"),
-        ModelFile("encoder_model.onnx", 135_438_293L, "8c63bfc09b08e0b1156f9fcc430ef9cca5b28cc07e4b162a22d88f6da1d82a40"),
-        ModelFile("decoder_model_merged.onnx", 219_934_409L, "28c173d33b0068e7a1b31bccaeba65f2b9aa1a964d122567b966cfe963d078db"),
+        ENCODER,
+        DECODER,
     )
     val totalBytes: Long = FILES.sumOf { it.size }
+    /** Güncellemede yalnızca bu iki dosya değişiyor. */
+    val updateBytes: Long = ENCODER.size + DECODER.size
 
     private val client = OkHttpClient.Builder()
         .connectTimeout(15, TimeUnit.SECONDS)
@@ -67,6 +76,14 @@ object OfflineModelDownloader {
     private val _state = MutableStateFlow<State>(State.NotInstalled)
     val state: StateFlow<State> = _state
 
+    private val _updateAvailable = MutableStateFlow(false)
+    /** Eski model yüklü ve yenisi indirilebilir. */
+    val updateAvailable: StateFlow<Boolean> = _updateAvailable
+
+    private val _updateError = MutableStateFlow<String?>(null)
+    /** Güncelleme başarısız olduysa nedeni; eski model bu sırada çalışmaya devam eder. */
+    val updateError: StateFlow<String?> = _updateError
+
     /** Uygulamanın özel alanı: başka uygulamalar model dosyalarını okuyamaz/değiştiremez. */
     fun modelDirectory(context: Context): File = File(context.filesDir, OpusTranslationEngine.MODEL_DIR_NAME)
 
@@ -78,9 +95,32 @@ object OfflineModelDownloader {
             isInstalled(directory) -> {
                 _state.value = State.Installed
                 legacyDirectory?.deleteRecursively()
+                checkModelVersion()
             }
             isInstalled(legacyDirectory) -> migrateFromLegacy()
             else -> _state.value = State.NotInstalled
+        }
+    }
+
+    /**
+     * Sürüm dosyası yoksa model bu kontrolden önce kurulmuştur: hangisi olduğu özetinden anlaşılır ve
+     * sonuç yazılır, böylece büyük dosyalar yalnızca bir kez okunur.
+     */
+    private fun checkModelVersion() {
+        val dir = directory ?: return
+        val marker = File(dir, VERSION_FILE)
+        if (marker.isFile) {
+            _updateAvailable.value = marker.readText().trim() != CURRENT_VERSION
+            return
+        }
+        job = scope.launch {
+            try {
+                val current = FILES.all { sha256(File(dir, it.name)).equals(it.sha256, ignoreCase = true) }
+                marker.writeText(if (current) CURRENT_VERSION else OLD_VERSION)
+                _updateAvailable.value = !current
+            } catch (e: Exception) {
+                Log.e(TAG, "Model version check failed", e)
+            }
         }
     }
 
@@ -111,10 +151,13 @@ object OfflineModelDownloader {
                     if (!part.renameTo(File(dir, file.name))) throw IllegalStateException("${file.name} taşınamadı")
                 }
                 legacy.deleteRecursively()
+                File(dir, VERSION_FILE).writeText(CURRENT_VERSION)
                 _state.value = State.Installed
             } catch (e: Exception) {
                 Log.e(TAG, "Legacy model migration failed", e)
                 dir.listFiles()?.forEach { it.delete() }
+                // Eski konumdaki model doğrulanamıyorsa her açılışta 355 MB yeniden kopyalanmasın
+                legacy.deleteRecursively()
                 _state.value = State.NotInstalled
             }
         }
@@ -131,16 +174,25 @@ object OfflineModelDownloader {
             _state.value = State.Failed("Depolama alanına erişilemiyor")
             return
         }
+        _updateError.value = null
         job = scope.launch {
             try {
                 download(dir)
+                _updateAvailable.value = false
                 _state.value = State.Installed
             } catch (e: CancellationException) {
                 _state.value = if (isInstalled()) State.Installed else State.NotInstalled
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Download failed", e)
-                _state.value = State.Failed(e.message ?: "İndirme başarısız")
+                val message = e.message ?: "İndirme başarısız"
+                if (isInstalled()) {
+                    // Güncelleme başarısız: eski model hâlâ yerinde ve çalışıyor
+                    _updateError.value = message
+                    _state.value = State.Installed
+                } else {
+                    _state.value = State.Failed(message)
+                }
             }
         }
     }
@@ -154,19 +206,22 @@ object OfflineModelDownloader {
         job?.cancel()
         directory?.listFiles()?.forEach { it.delete() }
         legacyDirectory?.deleteRecursively()
+        _updateAvailable.value = false
+        _updateError.value = null
         _state.value = State.NotInstalled
     }
 
     private suspend fun download(dir: File) {
         dir.mkdirs()
         var completedBytes = 0L
+        val verified = ArrayList<Pair<File, File>>()
         for (file in FILES) {
             val target = File(dir, file.name)
-            if (target.isFile && target.length() == file.size) {
+            // Boyut yetmez: eski ve yeni model aynı boyutta
+            if (target.isFile && target.length() == file.size && sha256(target).equals(file.sha256, ignoreCase = true)) {
                 completedBytes += file.size
                 continue
             }
-            target.delete()
             val part = File(dir, file.name + ".part")
             downloadFile(file, part, completedBytes)
 
@@ -175,9 +230,15 @@ object OfflineModelDownloader {
                 part.delete()
                 throw IllegalStateException("${file.name} bozuk indi, tekrar deneyin")
             }
-            if (!part.renameTo(target)) throw IllegalStateException("${file.name} kaydedilemedi")
+            verified += part to target
             completedBytes += file.size
         }
+        // Eski ve yeni kodlayıcı/çözücü birlikte çalışmaz: hepsi inmeden hiçbiri yerine geçmez
+        for ((part, target) in verified) {
+            target.delete()
+            if (!part.renameTo(target)) throw IllegalStateException("${target.name} kaydedilemedi")
+        }
+        File(dir, VERSION_FILE).writeText(CURRENT_VERSION)
     }
 
     private suspend fun downloadFile(file: ModelFile, part: File, completedBefore: Long) {

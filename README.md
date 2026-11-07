@@ -10,7 +10,7 @@
 
 ## ⚡ OPUS: Ücretsiz, İnternetsiz Çeviri Motoru
 
-Camera Translator'ın varsayılan çeviri motoru **OPUS**'tur. Helsinki Üniversitesi'nin açık kaynaklı [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) modeli, telefonda çalışacak şekilde sıkıştırılarak uygulamaya entegre edildi.
+Camera Translator'ın varsayılan çeviri motoru **OPUS**'tur. Helsinki Üniversitesi'nin açık kaynaklı [OPUS-MT](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) modeli temel alınarak altyazı verisiyle yeniden eğitildi ve telefonda çalışacak şekilde sıkıştırılarak uygulamaya entegre edildi.
 
 - 📶 **İnternet gerekmez:** Çeviri tamamen telefonunuzun içinde yapılır; uçak modunda bile çalışır.
 - 🔑 **API anahtarı, kota ve ücret yok:** Sınırsız ve tamamen ücretsiz.
@@ -35,7 +35,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 - **Seslendirme Ayarları:** Her iki modda da seslendirmenin geride kalmaması için ayarlanabilir ses hızı.
 
 ### 📺 3 Farklı Çeviri Görünüm Modu
-- 🎬 **Sinematik Altyazı:** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. Görünen satır sayısı (1–10) ayarlanabilir.
+- 🎬 **Sinematik Altyazı:** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. İsterseniz Ortadan akış seçilebilir: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar. Görünen satır sayısı (1–20) ayarlanabilir; geçmiş çeviriler kapalıyken göz modunda yazı, ekrana sığan en büyük boyuta çıkar.
 - 📺 **Yerinde Çeviri:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır (Ayarlar'dan en küçük boyut seçilebilir); uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
 - 📱 **Ekran Çevirisi:** Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında "Tek uygulama" seçip oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez.
 
@@ -56,9 +56,22 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.0.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.1.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
+
+### 🛠️ APK Kurulmuyorsa ("Paket ayrıştırılamadı", "Dosya bozuk", "Paket geçersiz")
+
+Bu hatanın en sık nedeni dosyanın eksik inmesidir. Sırayla şunları deneyin:
+
+1. **Dosya boyutuna bakın.** İndirdiğiniz dosya, Releases sayfasında yazan boyuttan belirgin şekilde küçükse indirme yarım kalmıştır. Telefonlar boyutu birkaç MB farklı gösterebilir (ör. 112 MB yerine 117 MB), bu normaldir.
+2. **Eski dosyayı silip Chrome ile yeniden indirin.** Bağlantıyı YouTube gibi bir uygulamanın kendi tarayıcısında açmak yerine kopyalayıp Chrome'a yapıştırın.
+3. **Telefonunuzun desteklendiğinden emin olun.** Android 7 veya üstü ve ARM işlemci gerekir; Intel/x86 işlemcili cihazlar ve bazı bilgisayar emülatörleri desteklenmez.
+4. **Boş alanı kontrol edin.** Kurulum için APK boyutunun en az iki katı kadar boş alan bırakın.
+5. **Kurulum izinlerine bakın.** Tarayıcınızın ya da dosya yöneticinizin bilinmeyen uygulama yükleme izni açık olmalı. Samsung'da Otomatik Engelleyici açıksa kurulumu engelleyebilir.
+6. **Uygulama içi güncelleme başarısız olursa** yeni sürümün APK'sını Releases sayfasından indirip kurun.
+
+Sorun sürerse telefon modelinizi, Android sürümünüzü, dosya boyutunu ve hata mesajını [Issues](https://github.com/crosswindfighter/camera-translator/issues) bölümüne yazın.
 
 ---
 
@@ -124,6 +137,14 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
 
+#### 🧠 v1.1.1: yeniden eğitilen OPUS
+- OPUS modeli OpenSubtitles altyazı çiftleriyle yeniden eğitildi: günlük konuşmaları ve argoyu daha doğal çeviriyor. Boyutu (355 MB) ve hızı değişmedi.
+- OPUS'u daha önce indirenler Ayarlar'dan güncelleyebiliyor; yeni dosyaların hepsi doğrulanana kadar mevcut model çalışmaya devam ediyor.
+- Sinematik Altyazı'ya Ortadan akış; geçmiş çeviriler kapalıyken göz modunda ekrana sığan en büyük yazı; 20 satıra kadar geçmiş.
+- Daha fazla OCR ve argo düzeltmesi; doğru okunan bazı kelimelerin yanlışlıkla değiştirilmesi önlendi.
+- Dikkatli çeviri ayarı kaldırıldı; şüpheli çeviriler yine kendiliğinden yeniden deneniyor.
+- Uygulama içi güncellemede indirilen dosya kurulumdan önce doğrulanıyor.
+
 #### ⚡ v1.1.0: daha hızlı Ekran Çevirisi
 - Ekran Çevirisi'nde yazılar daha sık okunuyor ve çeviri önceden hazırlanıyor; çeviri ekrana daha çabuk geliyor.
 - Ekran Çevirisi'ne ayarlanabilir yumuşak geçiş: Ayarlar'dan açılıp kapatılır, hızı Yavaş veya Hızlı seçilir.
@@ -164,4 +185,4 @@ Lisansın tam metni için [LICENSE.md](LICENSE.md) dosyasına bakabilirsiniz.
 
 Üçüncü taraf kütüphaneler, model ve hizmetler kendi lisans ve kullanım koşullarına tabidir; tam liste ve atıflar için [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) dosyasına bakın.
 
-**OPUS çeviri motoru (model):** [Helsinki-NLP/opus-mt-tc-big-en-tr](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) (Tiedemann & Thottingal, OPUS-MT / Tatoeba Challenge), [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) lisansıyla. Uygulamanın indirdiği dosyalar bu modelin ONNX formatına çevrilmiş ve 8-bit sıkıştırılmış halidir; dönüştürme betikleri [tools/offline_model](tools/offline_model) klasöründedir. Model, [ONNX Runtime](https://onnxruntime.ai/) (MIT) ile çalıştırılır.
+**OPUS çeviri motoru (model):** [Helsinki-NLP/opus-mt-tc-big-en-tr](https://huggingface.co/Helsinki-NLP/opus-mt-tc-big-en-tr) (Tiedemann & Thottingal, OPUS-MT / Tatoeba Challenge), [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/) lisansıyla. Uygulamanın indirdiği dosyalar bu modelin OpenSubtitles altyazı çiftleriyle yeniden eğitilmiş, ONNX formatına çevrilmiş ve 8-bit sıkıştırılmış halidir; dönüştürme betikleri [tools/offline_model](tools/offline_model) klasöründedir. Model, [ONNX Runtime](https://onnxruntime.ai/) (MIT) ile çalıştırılır.

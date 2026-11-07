@@ -167,7 +167,6 @@ class MainActivity : ComponentActivity() {
             settingsManager.saveLastSeenVersion(BuildConfig.VERSION_NAME)
         }
         OcrTuning.textMaskEnabled = settingsManager.getOcrTextMaskEnabled()
-        OcrTuning.opusCarefulEnabled = settingsManager.getOpusCarefulEnabled()
         OcrTuning.centerOnlyEnabled = settingsManager.getOcrCenterOnlyEnabled()
         speechManager = SpeechManager(this)
         speechManager.setEnabled(settingsManager.getTtsEnabled())

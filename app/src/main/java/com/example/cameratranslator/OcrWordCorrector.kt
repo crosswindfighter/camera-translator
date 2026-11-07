@@ -138,6 +138,7 @@ class OcrWordCorrector(
                 return pre + (if (word[0].isUpperCase()) fixed.replaceFirstChar { it.uppercaseChar() } else fixed) + post
             }
         }
+        fixExclamationL(word, post, nextToken)?.let { return pre + it + post }
         val stem = word.substringBefore('\'')
         val letters = word.filter { it.isLetter() }
         val allCaps = letters.isNotEmpty() && letters.all { it.isUpperCase() }
@@ -217,6 +218,24 @@ class OcrWordCorrector(
         var fixed = correctWord(normalized, commonOnly = capitalized, noShortening = vocative) ?: return token
         if (word[0].isUpperCase()) fixed = fixed.replaceFirstChar { it.uppercaseChar() }
         return pre + fixed + post
+    }
+
+    /**
+     * Cümle sonundaki "!" kelimeye yapışıp "l" okunmuş: "so lamel" -> lame! ("label" oluyordu),
+     * "Bool Boo!" -> Boo!, "help mel" -> me!. Yalnızca satır sonunda ya da büyük harften önce;
+     * "skil" -> skill gibi harf düşmesi olabilecekler normal düzeltmeye bırakılır.
+     */
+    private fun fixExclamationL(word: String, post: String, nextToken: String?): String? {
+        if (post.isNotEmpty() || word.length < 3 || word.last() != 'l' || word in casedWords) return null
+        if (nextToken?.firstOrNull()?.isUpperCase() == false) return null
+        val stem = word.dropLast(1)
+        if (!stem.all { it.isLetter() } || stem.drop(1).any { it.isUpperCase() }) return null
+        val lower = stem.lowercase()
+        val exclaimed = lower in EXCLAIMED_SHORT_WORDS || (
+            lower.length >= 3 && isKnown(lower) && rankOf(lower) < COMMON_RANK &&
+                !isKnown(lower + "l") && !isKnown(lower + "ll") && !isKnown(lower + "ly")
+            )
+        return if (exclaimed) "$stem!" else null
     }
 
     private fun correctWord(word: String, commonOnly: Boolean, noShortening: Boolean): String? {
@@ -452,7 +471,7 @@ class OcrWordCorrector(
         private val PIPE_I_LL = Regex("(?<![\\p{L}\\d'])(?:[lI1]\\|{1,2}|\\|\\|)(?=\\s+\\p{L})")
         private val PIPE_CONTRACTED_LL = Regex("(?<=\\p{L})'(?:\\|\\||l\\||\\|l)(?![\\p{L}\\d])")
         // "we||" (well), "he||" (hell), "a||" (all) belirsiz olduğu için listede yok
-        private val PIPE_PRONOUN_LL = Regex("\\b(there|they|you|she|it|that|this|who)\\|\\|(?![\\p{L}\\d])", RegexOption.IGNORE_CASE)
+        private val PIPE_PRONOUN_LL = Regex("\\b(there|they|you|she|it|that|this|who)(?:\\|\\||l\\||\\|l)(?![\\p{L}\\d])", RegexOption.IGNORE_CASE)
         // "|'m", "|-| demand" (kekeleme: I-I demand)
         private val PIPE_APOSTROPHE = Regex("(?<![\\p{L}\\d])\\|(?=['’-])|(?<=-)\\|(?![\\p{L}\\d])")
         private val GLUED_COMMA = Regex("(?<=\\p{L}),(?=\\p{L})")
@@ -476,8 +495,9 @@ class OcrWordCorrector(
 
         /** OPUS sözlüğünde tek parça olmayan ama altyazılarda sık geçen kelimeler (düzeltilmez). */
         private val EXTRA_WORDS = setOf(
-            // Düzeltici bozuyordu: rapel -> rape, Ballas -> Dallas, pube -> pure, mentorship -> mentor ship
-            "rapel", "ballas", "pube", "mentorship",
+            // Düzeltici bozuyordu: rapel -> rape, Ballas -> Dallas, pube -> pure, mentorship -> mentor ship,
+            // recommence -> recommend, carat -> car at, reformat -> reform at, lockup -> lock up, iFruit -> i fruit
+            "rapel", "ballas", "pube", "mentorship", "recommence", "carat", "reformat", "lockup", "ifruit",
             "oh", "ohh", "uh", "uhh", "um", "hmm", "ah", "ahh", "huh", "whoa", "wow", "ok", "okay",
             "nah", "yep", "yup", "hey", "shh", "ugh", "yo", "ya", "homie", "homies", "dawg", "bro", "cuz", "fam",
             "argh", "aargh", "ew", "eww", "yikes", "nope", "gee", "jeez", "damn", "dammit", "goddamn", "puke",
@@ -524,6 +544,10 @@ class OcrWordCorrector(
             "horrnie" to "homie", "hormie" to "homie", "hormje" to "homie", "homjie" to "homie", "iomie" to "homie",
             "Yall" to "Y'all", "yall" to "y'all", "Yknow" to "Y'know", "yknow" to "y'know", "vknow" to "y'know",
             "tearn" to "team", "payrol" to "payroll", "Runl" to "Run!",
+            // Sözlük düzelticisi başka kelimeye çeviriyordu ya da hiç düzeltemiyordu (wari -> war, rrakes -> brakes)
+            "wari" to "want", "rrakes" to "makes", "I'rrn" to "I'm", "arnidiot" to "an idiot", "thathpuse" to "that house",
+            "Iook" to "look", "qot" to "got", "qo" to "go", "Sr" to "Sir", "mne" to "me", "ypdr" to "your", "withiher" to "with her",
+            "Bhit" to "shit", "hOUBe" to "house", "agp" to "go", "fuly" to "fully", "dolknow" to "do I know", "VWaar" to "What",
             "thatshit" to "that shit", "Thatshit" to "That shit", "fuckoff" to "fuck off", "Fuckoff" to "Fuck off"
         )
         /** "I"dan sonra sık gelen kelimeler: Tdon't, Jhave gibi yapışık okumaları ayırmak için */
@@ -534,6 +558,8 @@ class OcrWordCorrector(
             "wanna", "should", "would", "ain't"
         )
         private val MID_SENTENCE_CAPS = setOf("It", "If", "In", "Is", "It's")
+        /** Sonuna ünlem yapışınca sözlükte başka bir şeye (mel, nol, usl) benzeyen kısa kelimeler */
+        private val EXCLAIMED_SHORT_WORDS = setOf("me", "no", "us", "up", "go")
         /** Bağlam düzeltmesinde aday, mevcut sonuçtan en az 30 kat olası olmalı (ln 30) */
         private val CONTEXT_MARGIN = kotlin.math.ln(30.0)
         private const val MIN_PAIR_COUNT = 2

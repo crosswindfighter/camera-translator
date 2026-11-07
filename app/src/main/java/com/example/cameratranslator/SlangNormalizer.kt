@@ -25,6 +25,8 @@ object SlangNormalizer {
      * kalıplar (gonna, no shit, strapped…) burada bilerek yok.
      */
     private val SHARED_RULES: List<Pair<Regex, String>> = listOf(
+        // Boşluk yerine nokta okunmuş: "gonna.make it" cümleyi bölüp anlamı bozuyordu (web adresleri hariç)
+        "(?<=(?-i:[a-z]{2}))\\.(?=(?-i:[a-z]{2}))(?!(?:com|net|org|info|edu|gov)\\b)" to " ",
         // Hitaplar (köpek, kuzen, zenci gibi düz çevrilmesin)
         "(?<=,\\s)(dog|dawg)$VOCATIVE_END" to "dude",
         "(?<=,\\s)(homes|holmes)$VOCATIVE_END" to "buddy",
@@ -43,6 +45,15 @@ object SlangNormalizer {
         // "Çatlayan ne" çıkıyordu
         "\\bwhat's crack(?:ing|in)\\b'?" to "what's up",
         // Sık OCR hataları
+        // Gerçek bir kelimeye dönüştüğü için sözlük düzelticisinin görmediği okumalar
+        "(?<=\\b(?:I|you|we|they) (?:don't|didn't) )now\\b" to "know",
+        "(?<=\\bgive )ne\\b" to "me",
+        "(?<=\\b(?:do|did|does|can|could|should|would) )I'll\\b" to "I",
+        // Kısa kelimede tek harf büyük okunmuş: "yoU", "gO", cümle başında "SO perhaps"
+        "\\b(?-i:yOu|yoU|YoU)\\b" to "you",
+        "\\b(?-i:gO)\\b" to "go",
+        "\\b(?-i:sO)\\b" to "so",
+        "(?:^|(?<=[.!?]\\s))(?-i:SO)(?= (?-i:[a-z]))" to "So",
         "'ern\\b" to "'em",
         "\\byou'l\\b" to "you'll",
         "\\bthey'l\\b" to "they'll",
@@ -86,7 +97,7 @@ object SlangNormalizer {
         "\\bstrapped\\b(?!\\s+(in|down|into|to|by|with|on|onto|up|across|at|for|inside|under|together)\\b)" to "armed",
         "\\blet's bounce\\b" to "let's go",
         "\\bgat\\b" to "gun",
-        "\\bmy whip\\b" to "my car",
+        "(?<=\\b(?:my|this|that|your|his|her) )whip\\b" to "car",
         "\\bnice ride\\b" to "nice car",
         "\\bthe hood\\b" to "the neighborhood",
         "\\blet's bail\\b" to "let's leave",
@@ -95,6 +106,62 @@ object SlangNormalizer {
         "\\bwon't be cool\\b" to "won't be happy",
         // GTA görev metni: "Lose the Cops." -> "Polisleri bırakın" çıkıyordu
         "\\blose the (cops|police)\\b" to "escape the cops",
+
+        // Yeni modelde düz çevrilen kalıplar. Her biri modelle önce/sonra denendi; solda eski çıktı:
+        // "Fuck me." -> "Becer beni"
+        "^fuck me(?=[.!]*$|, fuck\\b)" to "Fuck",
+        // "Yo!" -> "Sen!"
+        "^yo(?=!*$)" to "Hey",
+        // "Urgh." -> "Evet."
+        "\\burgh\\b" to "ugh",
+        // "!!" modeli döngüye sokuyordu: "Ortega!!" -> "Ortegaga"
+        "!{2,}" to "!",
+        "\\?{2,}" to "?",
+        // "take this err," -> "al şu hatayı"
+        ",?\\s+err(?=[,.]|$)" to "",
+        // "I'm straight, fool" -> "heteroyum"
+        "\\bI'm straight(?=, (?:fool|man|homie|dude|bro)\\b)" to "I'm good",
+        // "Good looking out" -> "İyi görünüyorsun"
+        "\\bgood looking out\\b" to "thanks for the help",
+        // "Slinging dope" -> "Uyuşturucu kullanıp"
+        "\\bslingin[g']? dope\\b" to "selling dope",
+        // "make my skin crawl" -> "beni süründürüyorsun"
+        "\\bmake my skin crawl\\b" to "disgust me",
+        // "ain't this 'bout a bitch" -> "bu bir sürtük hakkında değil mi"
+        "\\bain't this '?bout a bitch\\b" to "this is fucking unbelievable",
+        // "Tough fucking tits!" -> "Sert göğüsler!"
+        "\\btough (?:fucking )?tits\\b" to "too fucking bad",
+        // "The cheek!" -> "Yanak!"
+        "^the (?:fucking )?cheek(?: of it)?(?=[.!]*$)" to "What nerve",
+        // "that fruitcake" -> "meyveli kek"
+        "(?<=\\b(?:that|this|the|you) )fruitcake\\b" to "lunatic",
+        // "your old lady" -> "yaşlı kadın"
+        "(?<=\\byour )old lady\\b" to "woman",
+        // "nail my wife" -> "karımı çivile"
+        "\\bnail(?= my (?:wife|girl|girlfriend)\\b)" to "fuck",
+        // "hit a bank" -> "bankaya çarpmak", "do a store" -> "dükkan açmak"
+        "\\bhit a bank\\b" to "rob a bank",
+        "\\bwe do a store\\b" to "we rob a store",
+        // "know the score" -> "skoru biliyoruz"
+        "\\bknow the score\\b" to "know how this works",
+        // "the one time!" (polis anlamında) -> "bir kere!"
+        "\\bthe one time(?=[!.]*$)" to "the cops",
+        // Düz çevrilen "kıç" kalıpları
+        "\\bhang with your ass\\b" to "hang with you",
+        "\\byour ass don't look\\b" to "you don't look",
+        // "Fuckin' A." -> "Lanet olası."
+        "^fuckin[g']? a(?=[.!])" to "Fuck yeah",
+        // "Fo' sho" -> "Hadi be oğlum"
+        "\\bfo'? sho\\b" to "for sure",
+        // "Y'all telling me." -> "Hepiniz bana söylüyorsunuz"
+        "^y'all telling me\\b" to "Tell me about it",
+        // Sokak dili hece oyunu: nizote = note, spidnot = spot
+        "\\bspidnot\\b" to "spot",
+        "\\bnizote\\b" to "note",
+        // "work forces" -> "iş adamları", "mobile device" -> "seyyar cihaz", "hog-riding" -> "domuz sürme"
+        "\\bwork forces\\b" to "workforces",
+        "\\bmobile device\\b" to "portable device",
+        "\\bhog-riding\\b" to "biker",
 
         // Konuşma dili kısaltmaları
         "\\bgonna\\b" to "going to",

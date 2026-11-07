@@ -22,6 +22,14 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     private val NOTES = mapOf(
+        "1.1.1" to listOf(
+            "OPUS çeviri motoru altyazı verisiyle yeniden eğitildi: günlük konuşmaları ve argoyu daha doğal çeviriyor. OPUS'u daha önce indirdiyseniz Ayarlar > ⚡ OPUS Çeviri Motoru'ndan güncelleyebilirsiniz (355 MB); indirme bitene kadar mevcut model çalışmaya devam eder.",
+            "Sinematik Altyazı'ya Ortadan akış seçeneği: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar.",
+            "Geçmiş çeviriler kapalıyken göz modunda yazı, ekrana sığan en büyük boyuta çıkar. Görünen geçmiş satır sayısı 20'ye kadar artırılabilir.",
+            "Daha fazla OCR hatası ve yanlış çevrilen argo kalıbı düzeltildi; doğru okunan bazı kelimelerin yanlışlıkla değiştirilmesi önlendi.",
+            "Dikkatli çeviri ayarı kaldırıldı. Yarım kalan ya da bozuk görünen çeviriler yine kendiliğinden yeniden deneniyor.",
+            "Uygulama içi güncellemede indirilen dosya kurulumdan önce doğrulanıyor; eksik ya da bozuk inen dosya kuruluma gönderilmiyor."
+        ),
         "1.1.0" to listOf(
             "Yapışık okunan \"I'm a\" gibi kalıplar artık doğru çevriliyor.",
             "Beyaz altyazı filtresi çeviriyi biraz geciktirebildiği için varsayılan olarak kapalı; isterseniz Ayarlar'dan açabilirsiniz.",

@@ -439,7 +439,7 @@ class CompositeTranslationEngine(
 
     private fun cacheKey(source: String): String {
         // Mod ve yön anahtarın parçası: başka motorun çevirisi bu moda sızmasın
-        return "${mode.name}|$isTrToEn|${useOfflinePlus()}|${OcrTuning.opusCarefulEnabled}|" + source.lowercase()
+        return "${mode.name}|$isTrToEn|${useOfflinePlus()}|" + source.lowercase()
             .replace(Regex("[^a-z0-9çğıöşü\\s]"), "")
             .replace(Regex("\\s+"), " ")
             .trim()

@@ -11,13 +11,23 @@ import java.util.concurrent.TimeUnit
 /**
  * GitHub Releases üzerinden yeni sürüm kontrolü.
  *
- * "latest" olarak işaretli sürüme bakılır; OPUS model sürümü (offline-model-v1)
+ * "latest" olarak işaretli sürüme bakılır; OPUS model sürümleri (offline-model-v*)
  * latest olarak işaretlenmediği için karışmaz. Etiketler "v1.0.2" biçiminde olmalı.
  */
 object UpdateChecker {
 
     /** [apkUrl]: sürüme eklenmiş APK (uygulama içi güncelleme için); yoksa null ve GitHub sayfası açılır. */
-    data class ReleaseInfo(val version: String, val pageUrl: String, val notes: String, val apkUrl: String? = null)
+    data class ReleaseInfo(
+        val version: String,
+        val pageUrl: String,
+        val notes: String,
+        val apkUrl: String? = null,
+        /** GitHub'ın bildirdiği boyut ve SHA-256: indirilen dosya bunlarla karşılaştırılır (yoksa -1 / null). */
+        val apkSize: Long = -1L,
+        val apkSha256: String? = null
+    )
+
+    private data class ApkAsset(val url: String, val size: Long, val sha256: String?)
 
     private const val TAG = "UpdateChecker"
     private const val LATEST_URL = "https://api.github.com/repos/crosswindfighter/camera-translator/releases/latest"
@@ -43,24 +53,30 @@ object UpdateChecker {
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IllegalStateException("HTTP ${response.code}")
             val json = JSONObject(response.body?.string().orEmpty())
+            val apk = findApk(json)
             ReleaseInfo(
                 version = json.getString("tag_name").trim().removePrefix("v").removePrefix("V"),
                 // Sunucudan gelen adres tarayıcıda açılacağı için sadece bu reponun sayfalarına izin ver
                 pageUrl = json.optString("html_url", "").takeIf { it.startsWith("$RELEASES_PAGE/") } ?: RELEASES_PAGE,
                 notes = json.optString("body", "").trim(),
-                apkUrl = findApk(json)
+                apkUrl = apk?.url,
+                apkSize = apk?.size ?: -1L,
+                apkSha256 = apk?.sha256
             )
         }
     }
 
     /** Sürümdeki .apk dosyası; indirilecek adres yalnızca bu reponun sürüm dosyalarından biri olabilir. */
-    private fun findApk(json: JSONObject): String? {
+    private fun findApk(json: JSONObject): ApkAsset? {
         val assets = json.optJSONArray("assets") ?: return null
         for (i in 0 until assets.length()) {
             val asset = assets.optJSONObject(i) ?: continue
             if (!asset.optString("name").endsWith(".apk", ignoreCase = true)) continue
             val url = asset.optString("browser_download_url")
-            if (url.startsWith("$RELEASES_PAGE/download/")) return url
+            if (url.startsWith("$RELEASES_PAGE/download/")) {
+                val sha256 = asset.optString("digest").takeIf { it.startsWith("sha256:") }?.removePrefix("sha256:")
+                return ApkAsset(url, asset.optLong("size", -1L), sha256)
+            }
         }
         return null
     }
