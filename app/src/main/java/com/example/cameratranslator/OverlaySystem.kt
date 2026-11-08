@@ -726,7 +726,7 @@ fun MainOverlay(
                         shape = RoundedCornerShape(16.dp)
                     ) {
                         Text(
-                            "KAMERA İLE",
+                            "GÖRÜNÜM MODU",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp,
@@ -734,7 +734,7 @@ fun MainOverlay(
                             modifier = Modifier.padding(start = 16.dp, top = 6.dp, bottom = 2.dp)
                         )
                         listOf(
-                            DisplayMode.DEFAULT to "🎬  Telefon ekranında",
+                            DisplayMode.DEFAULT to "🎬  Sinematik",
                             DisplayMode.SCREEN_BETA to "📺  Yazının üstünde",
                             DisplayMode.PHONE_SCREEN to "📱  Ekran Çevirisi"
                         ).forEach { (mode, label) ->

@@ -306,7 +306,7 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "• Telefon ekranında (Sinematik Altyazı):",
+                        text = "• Sinematik:",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
@@ -318,7 +318,7 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "• Yazının üstünde (Yerinde Çeviri):",
+                        text = "• Yazının üstünde:",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
@@ -426,7 +426,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Ekrandaki tüm çerçeve ve butonları gizleyerek odağınızı tamamen altyazıya vermenizi sağlar. Telefon ekranında modunda son çeviri, tek bakışta okunsun diye ekrana sığan en büyük boyuta çıkar; bunu Ayarlar > Görünüm Modu'ndan kapatabilirsiniz.",
+                        text = "Ekrandaki tüm çerçeve ve butonları gizleyerek odağınızı tamamen altyazıya vermenizi sağlar. Sinematik modda son çeviri, tek bakışta okunsun diye ekrana sığan en büyük boyuta çıkar; bunu Ayarlar > Görünüm Modu'ndan kapatabilirsiniz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

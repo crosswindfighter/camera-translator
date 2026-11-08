@@ -25,8 +25,8 @@ enum class DisplayMode {
 /** Modun ekranda görünen adı (kayıtlı adlar eski sürümlerle uyum için değişmedi) */
 val DisplayMode.label: String
     get() = when (this) {
-        DisplayMode.DEFAULT -> "Sinematik Altyazı"
-        DisplayMode.SCREEN_BETA -> "Yerinde Çeviri"
+        DisplayMode.DEFAULT -> "Sinematik"
+        DisplayMode.SCREEN_BETA -> "Yazının üstünde"
         DisplayMode.PHONE_SCREEN -> "Ekran Çevirisi"
     }
 

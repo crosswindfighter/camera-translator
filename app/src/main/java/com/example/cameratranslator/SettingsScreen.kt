@@ -937,7 +937,7 @@ fun SettingsScreen(
                             val isPhone = mode == DisplayMode.PHONE_SCREEN
                             ModeChoiceCard(
                                 icon = if (isPhone) "📱" else "📷",
-                                title = if (isPhone) DisplayMode.PHONE_SCREEN.label else "Kamera ile",
+                                title = if (isPhone) DisplayMode.PHONE_SCREEN.label else "Kamera",
                                 subtitle = if (isPhone) "Telefonun kendi ekranını çevirir" else "TV'deki altyazıyı kamerayla okur",
                                 selected = if (isPhone) isPhoneMode else !isPhoneMode,
                                 onClick = { onDisplayModeChange(mode) },
@@ -948,7 +948,7 @@ fun SettingsScreen(
 
                     // Kamerayla çeviride çevirinin yeri: Sinematik Altyazı ya da Yerinde Çeviri
                     if (!isPhoneMode) {
-                        Text("Çeviri nerede gösterilsin?", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+                        Text("Çeviri nasıl gösterilsin?", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -956,7 +956,7 @@ fun SettingsScreen(
                                 .padding(4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
-                            listOf(DisplayMode.DEFAULT to "🎬 Telefon ekranında", DisplayMode.SCREEN_BETA to "📺 Yazının üstünde").forEach { (option, label) ->
+                            listOf(DisplayMode.DEFAULT to "🎬 Sinematik", DisplayMode.SCREEN_BETA to "📺 Yazının üstünde").forEach { (option, label) ->
                                 val isSelected = option == currentDisplayMode
                                 Surface(
                                     modifier = Modifier

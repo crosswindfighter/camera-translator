@@ -98,14 +98,14 @@ private val STEPS = listOf(
     ),
     GuideStep(
         "Görünüm modu",
-        "Bu düğmeye basınca küçük bir menü açılır: kamerayla çeviride çevirinin telefon ekranında mı (Sinematik Altyazı) yoksa " +
-            "TV'deki yazının tam üstünde mi (Yerinde Çeviri) gösterileceğini seçer ya da Ekran Çevirisi'ne geçersiniz. " +
+        "Bu düğmeye basınca küçük bir menü açılır: kamerayla çeviride Sinematik (çeviri iri yazılı bir altyazı olarak) ya da " +
+            "Yazının üstünde (çeviri TV'deki yazının tam üstünde) seçeneğini seçer ya da Ekran Çevirisi'ne geçersiniz. " +
             "Modların ne işe yaradığını Ayarlar > Görünüm Modu'nda okuyabilirsiniz.",
         GuideTarget.MODE
     ),
     GuideStep(
         "Ayarlar",
-        "Görünüm modları (Sinematik Altyazı, Yerinde Çeviri ve telefonun kendi ekranını çeviren Ekran Çevirisi), yazı boyutu, sesli okuma ve OPUS motoru buradaki Ayarlar'da. İpucu: oyunda altyazı " +
+        "Görünüm modları (Sinematik, Yazının üstünde ve telefonun kendi ekranını çeviren Ekran Çevirisi), yazı boyutu, sesli okuma ve OPUS motoru buradaki Ayarlar'da. İpucu: oyunda altyazı " +
             "arka planını (siyah kutu) açarsanız okuma çok daha doğru olur.",
         GuideTarget.MENU
     )
