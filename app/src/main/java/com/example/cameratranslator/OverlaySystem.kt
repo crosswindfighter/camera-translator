@@ -706,7 +706,7 @@ fun MainOverlay(
         ) {
             // 1. Quick Display Mode Switcher Button (Visible ONLY when enabled in Settings)
             if (showDisplayModeQuickSwitch && !isStealthMode) {
-                // Modlar sırayla dönmez: Ayarlar'daki gibi kamera seçenekleri ve Ekran Çevirisi ayrı gruplarda
+                // Modlar sırayla dönmez: düğme, üç seçeneği gösteren küçük bir menü açar
                 var isModeMenuOpen by remember { mutableStateOf(false) }
                 Box {
                     IconButton(
@@ -738,9 +738,6 @@ fun MainOverlay(
                             DisplayMode.SCREEN_BETA to "📺  Yazının üstünde",
                             DisplayMode.PHONE_SCREEN to "📱  Ekran Çevirisi"
                         ).forEach { (mode, label) ->
-                            if (mode == DisplayMode.PHONE_SCREEN) {
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                            }
                             DropdownMenuItem(
                                 text = {
                                     Text(
