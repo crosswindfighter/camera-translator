@@ -1,7 +1,6 @@
 package com.example.cameratranslator
 
 import android.graphics.RectF
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -78,14 +77,16 @@ fun ScreenTranslationBox(
     } else 24f
     val pad = with(density) { 8.dp.toPx() }
     val padX = with(density) { 8.dp.toPx() } * 2
-    val padY = with(density) { 4.dp.toPx() } * 2
+    val padY = with(density) { 3.dp.toPx() } * 2
     val margin = with(density) { 4.dp.toPx() }
     val centerX = ocrRect.left + (bounds.left + bounds.right) / 2f * ocrRect.width
     val centerY = ocrRect.top + (bounds.top + bounds.bottom) / 2f * ocrRect.height
-    // Kutu en az İngilizce yazıyı örtecek genişlikte (sonunda Türkçe yazıya göre daraltılır), en az 40 dp yüksekliğinde
+    // Kutu en az İngilizce yazıyı örtecek genişlikte (sonunda Türkçe yazıya göre daraltılır). Yükseklik de yazıyı
+    // sarar: İngilizce yazıyı örtecek kadar (üst-altta 3 dp pay), Türkçe yazı daha uzunsa onun kadar. Eskiden
+    // 8 dp pay ve en az 40 dp yükseklik vardı; tek satırda üstte ve altta fazla siyah boşluk kalıyordu.
     val englishWidth = (bounds.width() * ocrRect.width + pad * 2).coerceAtMost(ocrRect.width)
     var boxWidth = ocrRect.width
-    var boxHeight = (bounds.height() * ocrRect.height + pad * 2).coerceAtLeast(with(density) { 40.dp.toPx() })
+    var boxHeight = bounds.height() * ocrRect.height + with(density) { 3.dp.toPx() } * 2
     // Kutunun boyu, içindeki yazının ölçüsünden hesaplanır (yazı aynı stil ve genişlikle çizilir), cümle kesilmez.
     // Sığmazsa kutu sırayla büyür: alanın tüm genişliği -> alanı biraz taşan genişlik (en fazla 1,4 katı) ->
     // aşağı-yukarı uzama (alanın 1,6 katı ya da İngilizce yazının 3 katı). Bunlar da yetmezse yazı küçülür.
@@ -137,7 +138,7 @@ fun ScreenTranslationBox(
             .offset { IntOffset(boxLeft.roundToInt(), boxTop.roundToInt()) }
             .size(with(density) { boxWidth.toDp() }, with(density) { boxHeight.toDp() })
             .background(Color.Black, RoundedCornerShape(6.dp))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
+            .padding(horizontal = 8.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(text = text, style = style(fontSize), modifier = Modifier.fillMaxWidth())
@@ -234,24 +235,4 @@ fun ExtraOcrArea(
             )
         }
     }
-}
-
-/** Ekran çevirisinde okuma sürerken alanın köşesinde yavaşça yanıp sönen nokta ("çalışıyor" işareti). */
-@Composable
-fun ReadingDot(modifier: Modifier = Modifier) {
-    val transition = androidx.compose.animation.core.rememberInfiniteTransition(label = "readingDot")
-    val alpha by transition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 0.9f,
-        animationSpec = androidx.compose.animation.core.infiniteRepeatable(
-            animation = androidx.compose.animation.core.tween(900),
-            repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
-        ),
-        label = "readingDotAlpha"
-    )
-    Box(
-        modifier = modifier
-            .size(7.dp)
-            .background(AREA_COLOR.copy(alpha = alpha), androidx.compose.foundation.shape.CircleShape)
-    )
 }

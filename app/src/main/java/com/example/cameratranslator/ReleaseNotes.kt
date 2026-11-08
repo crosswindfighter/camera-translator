@@ -22,6 +22,14 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     private val NOTES = mapOf(
+        "1.1.2" to listOf(
+            "Ayarlar yenilendi: görünüm modu iki seçenekte toplandı, Kamera ile ve Ekran Çevirisi. Kamerayla çeviride çevirinin telefon ekranında mı yoksa televizyondaki yazının üstünde mi gösterileceğini seçersiniz. Kaydırıcılar ve açıklamalar da yenilendi.",
+            "Ana ekrandaki mod düğmesi artık modları sırayla değiştirmiyor; seçenekleri gösteren küçük bir menü açıyor.",
+            "Göz modunda büyük yazı: göz simgesine basınca son çeviri ekrana sığan en büyük boyuta çıkar. Geçmiş çeviriler açıkken de çalışır; Ayarlar'dan kapatılabilir.",
+            "Yazının üstünde (Yerinde Çeviri): Başlat'a basınca OCR alanlarının çerçevesi gizlenir, siyah kutu yazıyı daha sıkı sarar ve yazı boyutu tamamen ekrandaki yazıya göre ayarlanır.",
+            "Durdurup hemen yeniden başlatınca ekrandaki altyazının çevrilmemesi düzeltildi.",
+            "Bazı OCR okuma hataları daha düzeltildi."
+        ),
         "1.1.1" to listOf(
             "OPUS çeviri motoru altyazı verisiyle yeniden eğitildi: günlük konuşmaları ve argoyu daha doğal çeviriyor. OPUS'u daha önce indirdiyseniz Ayarlar > ⚡ OPUS Çeviri Motoru'ndan güncelleyebilirsiniz (355 MB); indirme bitene kadar mevcut model çalışmaya devam eder.",
             "Sinematik Altyazı'ya Ortadan akış seçeneği: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar.",

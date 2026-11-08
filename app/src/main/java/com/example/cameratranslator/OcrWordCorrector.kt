@@ -256,6 +256,11 @@ class OcrWordCorrector(
         val split = if (commonOnly || word.endsWith("in")) null else bestSplit(word)
 
         best(confusionVariants(word)).let { if (acceptable(it)) return it }
+        // OPUS sözlüğünde olmayan ama gerçek kelime, tek bir OCR karışıklığıyla: "hltman" -> hitman.
+        // Yalnızca tek aday varsa (birden çok gerçek kelime çıkıyorsa hangisi olduğu belli değil)
+        if (!commonOnly && word.length >= 5) {
+            confusionVariants(word).filter { it in realWords }.singleOrNull()?.let { return it }
+        }
         // Kısaltmanın bozuk hali: hadrt -> hadn't, navent -> haven't, doht -> don't
         // (iki yaygın kelimeye bölünebiliyorsa bölme kazanır: haveno -> have no, haven't değil)
         if (split == null || !isCommonSplit(split)) (confusionVariants(word) + edits1(word))

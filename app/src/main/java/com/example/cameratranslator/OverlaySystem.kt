@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.CenterFocusStrong
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cached
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Menu
@@ -99,6 +100,8 @@ fun MainOverlay(
     /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği */
     subtitleFlow: SubtitleFlow = SubtitleFlow.UP,
     flowLines: Int = 2,
+    /** Göz modunda son çeviri ekrana sığan en büyük boyutta gösterilir (Ayarlar'dan kapatılabilir). */
+    eyeBigText: Boolean = true,
     isPaused: Boolean,
     zoomLevel: Float,
     onTogglePause: () -> Unit,
@@ -115,7 +118,8 @@ fun MainOverlay(
     onCycleTranslationMode: () -> Unit = {},
     displayMode: DisplayMode = DisplayMode.DEFAULT,
     showDisplayModeQuickSwitch: Boolean = false,
-    onToggleDisplayMode: () -> Unit = {},
+    /** Mod düğmesindeki menüden seçilen görünüm modu */
+    onSelectDisplayMode: (DisplayMode) -> Unit = {},
     isStealthMode: Boolean = false,
     onToggleStealthMode: () -> Unit = {},
     isExposureControlsVisible: Boolean = false,
@@ -364,12 +368,21 @@ fun MainOverlay(
                     }
                     // OCR'dan uzak kenara gelen satırlar kararıp kaybolur (başlat çubuğuna/kamera deliğine değmeden)
                     val fadePx = with(density) { 56.dp.toPx() }
-                    // Kapalı + göz modu: tek çeviri bütün alanı doldurur (taşmadan, kamera deliğine binmeden)
-                    val fillScreen = subtitleFlow == SubtitleFlow.OFF && isStealthMode
+                    // Göz modunda büyük yazı: Kapalı'da tek çeviri bütün alanı doldurur (taşmadan, kamera deliğine
+                    // binmeden); akışlarda güncel çeviri büyür ama önceki satırlara yer kalır
+                    val bigText = isStealthMode && eyeBigText
+                    val fillScreen = subtitleFlow == SubtitleFlow.OFF && bigText
+                    val fillShare = when {
+                        fillScreen -> 0.97f
+                        !bigText -> null
+                        centered -> 0.55f
+                        else -> 0.75f
+                    }
                     FlowingSubtitles(
                         lines = lines,
                         currentMaxFontSize = effectiveFontSize,
                         flowUp = flowUp,
+                        fillShare = fillShare,
                         // Alan, ekranla aynı üst kenardan başlamıyor: ekran ortası alanın koordinatına çevrilir.
                         // Dolu ekranda yazı alanın ortasına oturur; delik yüzünden alan ortalı değilse kesilmesin.
                         centerYPx = when {
@@ -377,7 +390,6 @@ fun MainOverlay(
                             centered -> containerSize.height / 2f - with(density) { subtitleTop.toPx() }
                             else -> null
                         },
-                        fillArea = fillScreen,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(flowHeight)
@@ -408,21 +420,18 @@ fun MainOverlay(
             if (screenTextBounds != null && !isStatusMessage && containerSize != Size.Zero) {
                 ScreenTranslationBox(
                     ocrRect, screenTextBounds, screenTextLineHeight, currentTranslation,
-                    minFontSize = subtitleFontSize, containerSize = containerSize, allowedArea = allowedArea
+                    minFontSize = IN_PLACE_MIN_FONT_SIZE, containerSize = containerSize, allowedArea = allowedArea
                 )
             }
-            // Alanın yeri belli olsun (göz modunda gizli)
-            if (!isStealthMode && containerSize != Size.Zero) {
+            // Alanın yeri belli olsun: yalnızca duraklatılmışken (alan ayarlanırken). Başlatınca çerçeve gizlenir,
+            // çeviri zaten alanın içindeki yazının üstüne gelir.
+            if (!isStealthMode && isPaused && containerSize != Size.Zero) {
                 Box(
                     modifier = Modifier
                         .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
                         .size(with(density) { ocrRect.width.toDp() }, with(density) { ocrRect.height.toDp() })
                         .border(1.dp, Color(0xFF00E5FF).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
                 ) {
-                    // Okuma sürüyor işareti: çeviri gelene kadar uygulamanın çalıştığı belli olsun
-                    if (!isPaused) {
-                        ReadingDot(Modifier.align(Alignment.TopEnd).padding(top = 6.dp, end = 6.dp))
-                    }
                     // Birden çok alan varken numara: 1 ana (altyazı) alanı
                     if (extraAreas.isNotEmpty()) {
                         Text(
@@ -463,13 +472,10 @@ fun MainOverlay(
                         .padding(6.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    val betaFontSize = remember(subtitleFontSize) {
-                        (subtitleFontSize * 0.70f).coerceIn(14f, 48f)
-                    }
                     // Kutuya sığmazsa kendiliğinden küçülür (kutu küçültülünce yazı taşmasın)
                     AutoFitText(
                         text = currentTranslation,
-                        maxFontSize = if (isStatusMessage) STATUS_FONT_SIZE else betaFontSize,
+                        maxFontSize = if (isStatusMessage) STATUS_FONT_SIZE else IN_PLACE_MIN_FONT_SIZE,
                         fontWeight = if (isStatusMessage) FontWeight.Normal else FontWeight.Bold,
                         color = if (isStatusMessage) Color.White.copy(alpha = 0.85f) else Color.White,
                         lineHeightFactor = 1.20f,
@@ -500,7 +506,10 @@ fun MainOverlay(
 
         // LAYER 3: Touch Interaction Layer for OCR Box Dragging/Resizing (Hidden in Stealth Mode)
         // Bound dynamically to containerSize and displayMode so dragging never gets stuck!
-        if (containerSize.width > 0f && containerSize.height > 0f && !isStealthMode && !isPhoneMode) {
+        // Yerinde Çeviri çalışırken alan gizli: görünmeyen alan yanlışlıkla sürüklenmesin
+        if (containerSize.width > 0f && containerSize.height > 0f && !isStealthMode && !isPhoneMode &&
+            !(displayMode == DisplayMode.SCREEN_BETA && !isPaused)
+        ) {
             Box(
                 modifier = Modifier
                     .offset { IntOffset(ocrRect.left.roundToInt(), ocrRect.top.roundToInt()) }
@@ -558,8 +567,9 @@ fun MainOverlay(
                     area = area,
                     isLandscape = isLandscape,
                     containerSize = containerSize,
-                    isStealthMode = isStealthMode,
-                    minFontSize = subtitleFontSize,
+                    // Çalışırken ek alanların çerçevesi de gizli
+                    isStealthMode = isStealthMode || !isPaused,
+                    minFontSize = IN_PLACE_MIN_FONT_SIZE,
                     allowedArea = controlsFreeArea(containerSize, isLandscape, isStealthMode),
                     onRectChange = { rect -> onExtraAreaChange(index, rect) },
                     onRectSave = { landscape, rect -> onExtraAreaSave(index, landscape, rect) }
@@ -696,16 +706,58 @@ fun MainOverlay(
         ) {
             // 1. Quick Display Mode Switcher Button (Visible ONLY when enabled in Settings)
             if (showDisplayModeQuickSwitch && !isStealthMode) {
-                IconButton(
-                    onClick = onToggleDisplayMode,
-                    modifier = Modifier.size(44.dp).onGloballyPositioned { modeBounds = it.boundsInRoot() }
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Cached,
-                        contentDescription = "Görünüm modunu değiştir",
-                        tint = ICON_DISPLAY_MODE,
-                        modifier = Modifier.size(SIDE_ICON_SIZE)
-                    )
+                // Modlar sırayla dönmez: Ayarlar'daki gibi kamera seçenekleri ve Ekran Çevirisi ayrı gruplarda
+                var isModeMenuOpen by remember { mutableStateOf(false) }
+                Box {
+                    IconButton(
+                        onClick = { isModeMenuOpen = true },
+                        modifier = Modifier.size(44.dp).onGloballyPositioned { modeBounds = it.boundsInRoot() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Cached,
+                            contentDescription = "Görünüm modunu değiştir",
+                            tint = ICON_DISPLAY_MODE,
+                            modifier = Modifier.size(SIDE_ICON_SIZE)
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = isModeMenuOpen,
+                        onDismissRequest = { isModeMenuOpen = false },
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            "KAMERA İLE",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(start = 16.dp, top = 6.dp, bottom = 2.dp)
+                        )
+                        listOf(
+                            DisplayMode.DEFAULT to "🎬  Telefon ekranında",
+                            DisplayMode.SCREEN_BETA to "📺  Yazının üstünde",
+                            DisplayMode.PHONE_SCREEN to "📱  Ekran Çevirisi"
+                        ).forEach { (mode, label) ->
+                            if (mode == DisplayMode.PHONE_SCREEN) {
+                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                            }
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        label,
+                                        fontWeight = if (mode == displayMode) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                trailingIcon = if (mode == displayMode) {
+                                    { Icon(Icons.Rounded.Check, contentDescription = "Seçili", tint = MaterialTheme.colorScheme.primary) }
+                                } else null,
+                                onClick = {
+                                    isModeMenuOpen = false
+                                    onSelectDisplayMode(mode)
+                                }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -1101,6 +1153,11 @@ private fun Modifier.alignedToButton(buttonCenterY: Float?, containerHeight: Flo
 
 /** Bilgi notlarının yazı boyutu (çeviri yazısından küçük) */
 private const val STATUS_FONT_SIZE = 17f
+/**
+ * Yerinde Çeviri'de çeviri, ekrandaki İngilizce yazının boyutunu alır (ayarı yok); yazı çok küçük okunursa
+ * bu boyutun altına inmez.
+ */
+private const val IN_PLACE_MIN_FONT_SIZE = 14f
 
 /** Sol üst menünün konumu: [beside] ise düğmenin sağında ve üstü aynı hizada, değilse hemen altında. */
 private class MenuPositionProvider(private val beside: Boolean, private val gapPx: Int) : PopupPositionProvider {

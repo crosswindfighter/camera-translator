@@ -286,16 +286,17 @@ class MainActivity : ComponentActivity() {
                                 subtitleFontSize = activeSubtitleFontSize,
                                 displayMode = displayMode,
                                 showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
-                                onToggleDisplayMode = {
-                                    // Sağdaki mod düğmesi üç mod arasında sırayla geçer
-                                    val modes = DisplayMode.entries
-                                    displayMode = modes[(modes.indexOf(displayMode) + 1) % modes.size]
-                                    settingsManager.saveDisplayMode(displayMode)
-                                    // Ekran Çevirisi'nden çıkılınca ekran paylaşımı da durur
-                                    if (displayMode != DisplayMode.PHONE_SCREEN && PhoneScreenService.running.value) {
-                                        PhoneScreenService.stop(this@MainActivity)
+                                onSelectDisplayMode = { mode ->
+                                    // Sağdaki mod düğmesi küçük bir menü açar; seçilen moda doğrudan geçilir
+                                    if (mode != displayMode) {
+                                        displayMode = mode
+                                        settingsManager.saveDisplayMode(displayMode)
+                                        // Ekran Çevirisi'nden çıkılınca ekran paylaşımı da durur
+                                        if (displayMode != DisplayMode.PHONE_SCREEN && PhoneScreenService.running.value) {
+                                            PhoneScreenService.stop(this@MainActivity)
+                                        }
+                                        showModeToast(displayMode.label)
                                     }
-                                    showModeToast(displayMode.label)
                                 },
                                 onToggleDirection = {
                                     isTrToEn = !isTrToEn
@@ -523,7 +524,7 @@ class MainActivity : ComponentActivity() {
         subtitleFontSize: Float,
         displayMode: DisplayMode,
         showDisplayModeQuickSwitch: Boolean,
-        onToggleDisplayMode: () -> Unit,
+        onSelectDisplayMode: (DisplayMode) -> Unit,
         onToggleDirection: () -> Unit,
         onNavigate: (Screen) -> Unit,
         isCloudModeEnabled: Boolean
@@ -534,6 +535,7 @@ class MainActivity : ComponentActivity() {
         // Sinematik altyazıda önceki çevirilerin akışı (Ayarlar'dan; ekrana dönünce yeniden okunur)
         val subtitleFlow = remember { settingsManager.getSubtitleFlow() }
         val flowLines = remember { settingsManager.getFlowLines() }
+        val eyeBigText = remember { settingsManager.getEyeBigText() }
         // İlk açılış rehberinin adımı (-1 = kapalı); Hakkında'dan tekrar açılabilir
         var guideStep by remember { mutableIntStateOf(if (settingsManager.isGuideSeen()) -1 else 0) }
         // Ekran çevirisi: çeviri kutusu İngilizce yazının tam üstüne konur; yazı 5 sn görünmezse kutu kaybolur
@@ -765,6 +767,10 @@ class MainActivity : ComponentActivity() {
             if (isPaused) {
                 stabilizer.reset()
                 lastTranslatedSource = null
+                // Tekrar koruması (10 sn içinde aynı cümle çevrilmez) duraklatmayı aşmasın: Durdur'dan sonra
+                // Başlat'a basılınca ekrandaki altyazı, az önce çevrilmiş olsa da yeniden çevrilir (ekran temizlendi)
+                recentOcrApiHistory.clear()
+                lastApiCallTime = 0L
                 speechManager.stop()
                 speechManager.resetLastSpokenText()
             } else {
@@ -924,6 +930,7 @@ class MainActivity : ComponentActivity() {
                     history = historyList,
                     subtitleFlow = subtitleFlow,
                     flowLines = flowLines,
+                    eyeBigText = eyeBigText,
                     // Telefon ekranı modunda Başlat/Durdur hizmetin durumunu gösterir
                     isPaused = if (isPhoneSource) !phoneRunning else isPaused,
                     zoomLevel = zoomLevel,
@@ -1009,7 +1016,7 @@ class MainActivity : ComponentActivity() {
                     subtitleFontSize = subtitleFontSize,
                     displayMode = displayMode,
                     showDisplayModeQuickSwitch = showDisplayModeQuickSwitch,
-                    onToggleDisplayMode = onToggleDisplayMode,
+                    onSelectDisplayMode = onSelectDisplayMode,
                     useZoomSlider = useZoomSlider,
                     isZoomRangeKnown = zoomRange != null,
                     minZoom = zoomRange?.start ?: 1f,

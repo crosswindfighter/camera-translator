@@ -325,6 +325,13 @@ class SettingsManager(context: Context) {
 
     fun getFlowLines(): Int = prefs.getInt("subtitle_flow_lines", 10).coerceIn(1, 20)
 
+    /** Sinematik altyazıda göz modunda son çeviri, yazı boyutu ayarı yerine ekrana sığan en büyük boyutta (varsayılan açık). */
+    fun getEyeBigText(): Boolean = prefs.getBoolean("eye_big_text", true)
+
+    fun saveEyeBigText(enabled: Boolean) {
+        prefs.edit().putBoolean("eye_big_text", enabled).apply()
+    }
+
     fun saveFlowLines(lines: Int) {
         prefs.edit().putInt("subtitle_flow_lines", lines.coerceIn(1, 20)).apply()
     }

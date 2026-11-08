@@ -98,9 +98,9 @@ private val STEPS = listOf(
     ),
     GuideStep(
         "Görünüm modu",
-        "Bu düğmeyle görünüm modları arasında geçiş yaparsınız; her dokunuşta seçilen modun adı kısaca görünür. " +
-            "Sinematik Altyazı'da geçmiş çeviriler OCR alanının konumuna göre yukarı ya da aşağı akar; Yerinde Çeviri'de " +
-            "çeviri TV'deki yazının tam üstüne oturur. Modların ne işe yaradığını Ayarlar > Görünüm Modu'nda okuyabilirsiniz.",
+        "Bu düğmeye basınca küçük bir menü açılır: kamerayla çeviride çevirinin telefon ekranında mı (Sinematik Altyazı) yoksa " +
+            "TV'deki yazının tam üstünde mi (Yerinde Çeviri) gösterileceğini seçer ya da Ekran Çevirisi'ne geçersiniz. " +
+            "Modların ne işe yaradığını Ayarlar > Görünüm Modu'nda okuyabilirsiniz.",
         GuideTarget.MODE
     ),
     GuideStep(

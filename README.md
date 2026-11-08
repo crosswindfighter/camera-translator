@@ -34,9 +34,11 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 - **Google Cloud Text to Speech (Chirp 3: HD):** İnsansı yapay zeka ses modelleri (`Kore`, `Puck`, `Charon` vb.) ile Kadın ve Erkek ses seçeneklerinde daha doğal ve akıcı seslendirme. Ücretsiz kullanım kotası ve fiyatlandırma koşulları Google Cloud'a bağlıdır. Çevrimiçi bağlantı ve API gerektirir.
 - **Seslendirme Ayarları:** Her iki modda da seslendirmenin geride kalmaması için ayarlanabilir ses hızı.
 
-### 📺 3 Farklı Çeviri Görünüm Modu
-- 🎬 **Sinematik Altyazı:** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. İsterseniz Ortadan akış seçilebilir: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar. Görünen satır sayısı (1–20) ayarlanabilir; geçmiş çeviriler kapalıyken göz modunda yazı, ekrana sığan en büyük boyuta çıkar.
-- 📺 **Yerinde Çeviri:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır (Ayarlar'dan en küçük boyut seçilebilir); uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
+### 📺 Görünüm Modları
+Ayarlar'da iki seçenek vardır: **📷 Kamera ile** (çevirinin telefon ekranında mı yoksa televizyondaki yazının üstünde mi gösterileceği ayrıca seçilir) ve **📱 Ekran Çevirisi**. Ana ekrandaki mod düğmesi de aynı seçenekleri küçük bir menüde açar.
+
+- 🎬 **Telefon ekranında (Sinematik Altyazı):** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. İsterseniz Ortadan akış seçilebilir: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar. Görünen satır sayısı (1–20) ayarlanabilir. Göz modunda son çeviri, bir bakışta okunsun diye ekrana sığan en büyük boyuta çıkar; bu, Ayarlar'dan kapatılabilir.
+- 📺 **Yazının üstünde (Yerinde Çeviri):** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; Başlat'a basınca OCR alanının çerçevesi gizlenir, duraklatınca alan yeniden ayarlanabilir; uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
 - 📱 **Ekran Çevirisi:** Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında "Tek uygulama" seçip oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez.
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
@@ -56,7 +58,7 @@ Uygulama ilk açılışta OPUS modunda başlar. OPUS İngilizce → Türkçe çe
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.1.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.2.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
@@ -136,6 +138,14 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Manuel odak kaydırıcısında **AUTO** bölgesi/butonu, TV mesafesine göre hassaslaştırılmış odak.
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
+
+#### 🎛️ v1.1.2: yenilenen Ayarlar
+- Görünüm modu iki seçenekte toplandı (Kamera ile ve Ekran Çevirisi); kamerayla çeviride çevirinin telefon ekranında mı yazının üstünde mi gösterileceği seçiliyor.
+- Yeni mod kartları, yeniden tasarlanan kaydırıcılar, sadeleşen açıklamalar ve sıralama.
+- Ana ekrandaki mod düğmesi modları sırayla değiştirmek yerine küçük bir menü açıyor.
+- Göz modunda büyük yazı: son çeviri ekrana sığan en büyük boyuta çıkıyor, geçmiş çevirilerle de çalışıyor; Ayarlar'dan kapatılabiliyor.
+- Yazının üstünde: Başlat'a basınca OCR çerçeveleri gizleniyor, siyah kutu yazıyı sıkı sarıyor, yazı boyutu ayarı yerine ekrandaki yazının boyutu kullanılıyor.
+- Durdurup hemen yeniden başlatınca altyazının çevrilmemesi düzeltildi; birkaç OCR hatası daha giderildi.
 
 #### 🧠 v1.1.1: yeniden eğitilen OPUS
 - OPUS modeli OpenSubtitles altyazı çiftleriyle yeniden eğitildi: günlük konuşmaları ve argoyu daha doğal çeviriyor. Boyutu (355 MB) ve hızı değişmedi.

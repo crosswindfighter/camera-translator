@@ -306,7 +306,7 @@ fun AboutScreen(onBack: () -> Unit) {
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "• Sinematik Altyazı:",
+                        text = "• Telefon ekranında (Sinematik Altyazı):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
@@ -318,13 +318,13 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "• Yerinde Çeviri:",
+                        text = "• Yazının üstünde (Yerinde Çeviri):",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Televizyon veya monitör yazılarını yerinde takip etmek için tasarlanmıştır. OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; Ayarlar'dan en küçük yazı boyutu seçilebilir. Siyah kutu yazıyı sarar, uzun çevirilerde büyür ama düğmelerin üstüne binmez; yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar > Görünüm Modu'ndan en fazla 3 OCR alanı eklenebilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir. Alanlar sürüklenerek taşınır, sağ alt köşedeki açık mavi okla (⇲) boyutlandırılır; konumları dikey ve yatay için ayrı kaydedilir.",
+                        text = "Televizyon veya monitör yazılarını yerinde takip etmek için tasarlanmıştır. OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde siyah kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır. Başlat'a basınca OCR alanlarının çerçevesi gizlenir; duraklatınca alanlar yeniden görünür ve ayarlanabilir. Siyah kutu yazıyı sarar, uzun çevirilerde büyür ama düğmelerin üstüne binmez; yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar > Görünüm Modu'ndan en fazla 3 OCR alanı eklenebilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir. Alanlar duraklatılmışken sürüklenerek taşınır, sağ alt köşedeki açık mavi okla (⇲) boyutlandırılır; konumları dikey ve yatay için ayrı kaydedilir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -426,7 +426,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Ekrandaki tüm çerçeve ve butonları gizleyerek odağınızı tamamen altyazıya vermenizi sağlar.",
+                        text = "Ekrandaki tüm çerçeve ve butonları gizleyerek odağınızı tamamen altyazıya vermenizi sağlar. Telefon ekranında modunda son çeviri, tek bakışta okunsun diye ekrana sığan en büyük boyuta çıkar; bunu Ayarlar > Görünüm Modu'ndan kapatabilirsiniz.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )

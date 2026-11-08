@@ -61,9 +61,13 @@ fun FlowingSubtitles(
     flowUp: Boolean,
     modifier: Modifier = Modifier,
     centerYPx: Float? = null,
-    /** Kapalı + göz modu: yazı boyutu ayarı yerine alana sığan en büyük boyut seçilir ([FILL_MAX_FONT_SIZE]'a kadar). */
-    fillArea: Boolean = false
+    /**
+     * Göz modunda büyük yazı: yazı boyutu ayarı yerine güncel çevirinin alanın bu kadarına sığan en büyük boyutu
+     * seçilir ([FILL_MAX_FONT_SIZE]'a kadar). Kapalı'da ~1 (tek çeviri), akışlarda önceki satırlara yer kalacak kadar.
+     */
+    fillShare: Float? = null
 ) {
+    val fillArea = fillShare != null
     // Satırın kimliği metni (+ aynı metin kaçıncı kez geçiyor): güncel çeviri geçmişe geçince aynı satır kalır
     val keyed = remember(lines) {
         val seen = HashMap<String, Int>()
@@ -79,7 +83,7 @@ fun FlowingSubtitles(
         val current = lines.lastOrNull().orEmpty()
         val widthPx = constraints.maxWidth
         // Ortalanınca alan bütün ekran: güncel çeviri yine üstte önceki satırlara yer bıraksın
-        val currentHeightShare = if (fillArea) 0.97f else if (centerYPx != null) 0.4f else 0.65f
+        val currentHeightShare = fillShare ?: if (centerYPx != null) 0.4f else 0.65f
         val maxCurrentHeight = if (constraints.hasBoundedHeight) constraints.maxHeight * currentHeightShare else Float.MAX_VALUE
         val currentFontSize = remember(current, currentMaxFontSize, widthPx, maxCurrentHeight, fillArea) {
             if (fillArea && widthPx > 0 && current.isNotEmpty()) {
