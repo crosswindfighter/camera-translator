@@ -140,7 +140,7 @@ fun AboutScreen(onBack: () -> Unit) {
 
             if (isDevModeEnabled) {
                 Text(
-                    text = "🛠 Geliştirici modu açık: OCR görüntüleri, okunan metin ve çeviriler kaydediliyor (son 600 kare ≈ 7 dk, ~180 MB).\nKonum: Android/data/com.example.cameratranslator/files/ocr_debug\nUygulama kapansa da açık kalır. Kapatmak için sürüm yazısına 7 kez dokun; yeniden açınca eski kayıtlar silinir.",
+                    text = "🛠 Geliştirici modu açık: OCR görüntüleri, okunan metin ve çeviriler kaydediliyor (son 600 kare ≈ 7 dk, ~180 MB).\nKonum: Android/data/com.example.cameratranslator/files/ocr_debug\nUygulama kapanınca kendiliğinden kapanır. Kapatmak için sürüm yazısına yine 7 kez dokun; yeniden açınca eski kayıtlar silinir.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.tertiary,
                     textAlign = TextAlign.Center,
