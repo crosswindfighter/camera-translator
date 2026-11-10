@@ -8,9 +8,11 @@ import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -140,45 +142,66 @@ fun AboutScreen(onBack: () -> Unit) {
             }
 
             if (isDevModeEnabled) {
-                Text(
-                    text = "🛠 Geliştirici modu açık: OCR görüntüleri, okunan metin ve çeviriler kaydediliyor (son 600 kare ≈ 7 dk, ~180 MB).\nKonum: Android/data/com.example.cameratranslator/files/ocr_debug\nUygulama kapanınca kendiliğinden kapanır. Kapatmak için sürüm yazısına yine 7 kez dokun; yeniden açınca eski kayıtlar silinir.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.tertiary,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 8.dp)
-                )
-                // Kayıt, kullanıcının gönderebileceği küçük bir zip olarak paylaşılır (yalnızca metin loglar)
-                val shareScope = androidx.compose.runtime.rememberCoroutineScope()
-                FilledTonalButton(
-                    onClick = {
-                        shareScope.launch {
-                            val shared = try {
-                                LogSharer.share(context)
-                            } catch (e: Exception) {
-                                android.util.Log.e("AboutScreen", "Log share failed", e)
-                                false
-                            }
-                            if (!shared) {
-                                Toast.makeText(
-                                    context,
-                                    "Paylaşılacak kayıt yok. Önce Başlat'a basıp birkaç altyazı çevirin.",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        }
-                    },
-                    modifier = Modifier.padding(top = 10.dp)
+                // İki ayrı kart: modun durumu ve kaydı paylaşma (yazılar birbirine karışmasın)
+                DevModeCard(
+                    icon = "🛠",
+                    title = "Geliştirici modu açık",
+                    modifier = Modifier.padding(top = 16.dp)
                 ) {
-                    Text("📤 Kaydı paylaş")
+                    Text(
+                        text = "Sorunları bulup uygulamayı iyileştirmek için okunan altyazılar, çeviriler ve OCR alanının " +
+                            "görüntüleri kaydediliyor. Kayıtlar yalnızca telefonunuzda, " +
+                            "Android/data/com.example.cameratranslator klasöründe tutulur. Uygulama kapanınca mod da kapanır; " +
+                            "elle kapatmak için sürüm yazısına yine 7 kez dokunun. Mod yeniden açıldığında önceki kayıtlar silinir.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
-                Text(
-                    text = "Çeviri ve okuma kayıtlarıyla telefon bilgilerini küçük bir dosya olarak hazırlar; e-posta, WhatsApp " +
-                        "ya da Drive ile gönderebilirsiniz. Görüntüler dosyaya eklenmez.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(top = 6.dp, start = 8.dp, end = 8.dp)
-                )
+                DevModeCard(
+                    icon = "📤",
+                    title = "Sorun bildir",
+                    modifier = Modifier.padding(top = 12.dp)
+                ) {
+                    Text(
+                        text = "Bir sorun yaşarsanız Kaydı paylaş'a basın. Kayıt zip dosyası olarak hazırlanır; dilerseniz " +
+                            "telefonunuza kaydedebilir ya da bu dosyayı ekleyerek GitHub'daki Issues sayfasından sorununuzu " +
+                            "doğrudan geliştiriciye iletebilirsiniz.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )                    // Kayıt, kullanıcının gönderebileceği küçük bir zip olarak paylaşılır (yalnızca metin loglar)
+                    val shareScope = androidx.compose.runtime.rememberCoroutineScope()
+                    Button(
+                        onClick = {
+                            shareScope.launch {
+                                val shared = try {
+                                    LogSharer.share(context)
+                                } catch (e: Exception) {
+                                    android.util.Log.e("AboutScreen", "Log share failed", e)
+                                    false
+                                }
+                                if (!shared) {
+                                    Toast.makeText(
+                                        context,
+                                        "Paylaşılacak kayıt yok. Önce Başlat'a basıp birkaç altyazı çevirin.",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Kaydı paylaş", fontWeight = FontWeight.Bold)
+                    }
+                    // Sorunun bildirileceği yer: kayıt dosyası Issues sayfasına sürüklenip eklenebilir
+                    OutlinedButton(
+                        onClick = { openLink(context, "https://github.com/crosswindfighter/camera-translator/issues") },
+                        modifier = Modifier.fillMaxWidth().height(46.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("GitHub Issues sayfasını aç", fontWeight = FontWeight.Medium)
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -602,6 +625,13 @@ fun AboutScreen(onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Sorun bildirmenin yolu: geliştirici modu kaydı + Issues
+                Text(
+                    text = "Bir sorun mu yaşıyorsunuz? Sürüm yazısına 7 kez dokunarak geliştirici modunu açın; uygulama " +
+                        "kayıt almaya başlar. Kaydı paylaş ile hazırlanan dosyayı aşağıdaki düğmeden açılan Issues sayfasına ekleyin.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 OutlinedButton(
                     onClick = { openLink(context, "https://github.com/crosswindfighter/camera-translator/issues") },
                     modifier = Modifier.fillMaxWidth().height(46.dp),
@@ -625,6 +655,51 @@ fun AboutScreen(onBack: () -> Unit) {
             }
 
             Spacer(modifier = Modifier.height(36.dp))
+        }
+    }
+}
+
+/**
+ * Geliştirici modu kartı: solda renkli daire içinde simge, yanında başlık; altında kartın içeriği.
+ * Hakkında'daki diğer kartlarla aynı zemin ve çerçeveyi kullanır.
+ */
+@Composable
+private fun DevModeCard(
+    icon: String,
+    title: String,
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = SectionCardStyle.cardColor(darkAlpha = 0.35f),
+        border = SectionCardStyle.cardBorder(showInDark = false),
+        shadowElevation = SectionCardStyle.cardShadow()
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(icon, fontSize = 18.sp)
+                }
+                Text(
+                    title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(start = 12.dp)
+                )
+            }
+            content()
         }
     }
 }

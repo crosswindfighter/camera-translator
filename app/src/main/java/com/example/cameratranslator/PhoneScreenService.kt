@@ -764,7 +764,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     /** İngilizce yazı birkaç saniye görünmezse çevirisi de kaybolur. */
     private suspend fun hideStaleTranslations() {
         while (scope.isActive) {
-            delay(500)
+            delay(HIDE_CHECK_MS)
             val now = System.currentTimeMillis()
             for (i in 0 until MAX_AREAS) {
                 if (translations[i] != null && now - lastSeenAt[i] > HIDE_AFTER_MS) translations[i] = null
@@ -956,7 +956,9 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val MAX_AREAS = 3
         /** Okumalar arası bekleme. 350 ms iken okuma başına ~0,5 sn, yazıdan çeviriye ~1,1 sn gidiyordu (logdan) */
         private const val FRAME_INTERVAL_MS = 120L
-        private const val HIDE_AFTER_MS = 5000L
+        /** İngilizce yazı bu kadar görünmezse çevirisi kaybolur (5 sn uzun geliyordu; denetim aralığıyla en fazla ~3,25 sn) */
+        private const val HIDE_AFTER_MS = 3000L
+        private const val HIDE_CHECK_MS = 250L
         private const val RECENT_READS = 12
         /** Kelimelerin bu orandan azı gerçek kelimeyse okuma bozuk sayılır (en az 4 kelimede) */
         private const val MIN_REAL_WORD_RATIO = 0.6f

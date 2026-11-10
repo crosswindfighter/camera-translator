@@ -75,6 +75,15 @@ Bu hatanın en sık nedeni dosyanın eksik inmesidir. Sırayla şunları deneyin
 
 Sorun sürerse telefon modelinizi, Android sürümünüzü, dosya boyutunu ve hata mesajını [Issues](https://github.com/crosswindfighter/camera-translator/issues) bölümüne yazın.
 
+### 🐞 Sorun Bildirme
+
+1. Uygulamada Hakkında ekranını açıp sürüm yazısına 7 kez dokunun; geliştirici modu açılır ve uygulama kayıt almaya başlar.
+2. Uygulamayı sorunun yaşandığı şekilde kullanın.
+3. Hakkında'ya dönüp **Kaydı paylaş**'a basın; kayıt küçük bir zip dosyası olarak hazırlanır.
+4. [Issues](https://github.com/crosswindfighter/camera-translator/issues) sayfasında sorunu anlatın ve zip dosyasını ekleyin.
+
+Kayıtta okunan altyazılar, çeviriler, telefon modeli, Android sürümü ve uygulama ayarları bulunur; kamera görüntüleri dosyaya eklenmez.
+
 ---
 
 ### ⚠️ Önemli Not: Metin Okuma (OCR) Hata Yapabilir
@@ -140,8 +149,10 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
 
 #### 🔍 v1.1.3: uygulamanın içinde gelen metin okuma
-- Metin okuma (ML Kit) artık APK'nın içinde geliyor; Google Play Hizmetleri'nin indirdiği modüle bağlı değil. Bazı telefonlarda çevirinin bir anda durup "Altyazı bekleniyor"da kalması giderildi.
+- Metin okuma (ML Kit) artık APK'nın içinde geliyor; Google Play Hizmetleri'nin indirdiği modüle bağlı değil. Bazı telefonlarda çevirinin "Altyazı bekleniyor" yazısında takılı kalması düzeltildi.
 - Metin okuma art arda hata verirse ekranda ne yapılacağını söyleyen bir uyarı çıkıyor.
+- Sorun bildirme: geliştirici modunda **Kaydı paylaş** ile kayıt zip dosyası olarak hazırlanıp Issues sayfasına eklenebiliyor (bkz. Sorun Bildirme).
+- Ekran Çevirisi'nde çeviri, İngilizce yazı ekrandan kalkınca yaklaşık 3 saniyede kayboluyor.
 
 #### 🎛️ v1.1.2: yenilenen Ayarlar
 - Görünüm modu iki seçenekte toplandı (Kamera ve Ekran Çevirisi); kamerada Sinematik ile yazının üstünde gösterim arasında seçim yapılıyor.
