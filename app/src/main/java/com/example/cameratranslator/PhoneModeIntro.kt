@@ -190,7 +190,8 @@ private fun IntroSteps(running: Boolean) {
             IntroCard(
                 Icons.Rounded.Tv,
                 "İsterseniz televizyonda oynayın",
-                "Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açın."
+                "Samsung telefonunuzu kabloyla televizyona bağlayın; DeX'te Xbox veya PlayStation Remote Play ile " +
+                    "oyunlarınızı yüksek görüntü kalitesinde, Türkçe altyazıyla oynayın."
             )
             IntroCard(
                 Icons.Rounded.TouchApp,
