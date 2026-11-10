@@ -23,6 +23,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -145,6 +146,38 @@ fun AboutScreen(onBack: () -> Unit) {
                     color = MaterialTheme.colorScheme.tertiary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp)
+                )
+                // Kayıt, kullanıcının gönderebileceği küçük bir zip olarak paylaşılır (yalnızca metin loglar)
+                val shareScope = androidx.compose.runtime.rememberCoroutineScope()
+                FilledTonalButton(
+                    onClick = {
+                        shareScope.launch {
+                            val shared = try {
+                                LogSharer.share(context)
+                            } catch (e: Exception) {
+                                android.util.Log.e("AboutScreen", "Log share failed", e)
+                                false
+                            }
+                            if (!shared) {
+                                Toast.makeText(
+                                    context,
+                                    "Paylaşılacak kayıt yok. Önce Başlat'a basıp birkaç altyazı çevirin.",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(top = 10.dp)
+                ) {
+                    Text("📤 Kaydı paylaş")
+                }
+                Text(
+                    text = "Çeviri ve okuma kayıtlarıyla telefon bilgilerini küçük bir dosya olarak hazırlar; e-posta, WhatsApp " +
+                        "ya da Drive ile gönderebilirsiniz. Görüntüler dosyaya eklenmez.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 6.dp, start = 8.dp, end = 8.dp)
                 )
             }
 

@@ -2,4 +2,6 @@
 <!-- Uygulama içi güncelleme: indirilen APK kurulum penceresine bu klasörden verilir -->
 <paths>
     <cache-path name="updates" path="updates/" />
+    <!-- Geliştirici modu kaydı: paylaşılan log zip'i bu klasörden verilir -->
+    <cache-path name="logs" path="logs/" />
 </paths>

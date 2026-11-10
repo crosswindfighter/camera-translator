@@ -58,6 +58,9 @@ enum class Screen {
     CAMERA, SETTINGS, ABOUT, HISTORY
 }
 
+/** Bu kadar kelimelik altyazı, motor çeviremeyip aynen döndürse de ekranda gösterilir */
+private const val SHORT_LINE_WORDS = 2
+
 /** Metin okuma art arda hata verince ekranda gösterilir; kullanıcı ne yapacağını bilsin */
 private const val OCR_FAILING_MESSAGE =
     "⚠️ Metin okuma şu an çalışmıyor. Durdurup yeniden başlatın; düzelmezse uygulamayı kapatıp açın veya telefonu yeniden başlatın."
@@ -610,7 +613,10 @@ class MainActivity : ComponentActivity() {
 
                         if (timestamp < lastTranslationTimestamp.get()) return@launch
 
-                        if (translated.isNotBlank() && !translated.equals(confirmedText, ignoreCase = true)) {
+                        // Çeviri İngilizcesiyle aynı geldiyse (motor çeviremedi) gösterilmez; kısa ünlem ve
+                        // kelimelerde ("Hey.", "Geeky.") ise gösterilir, yoksa altyazı hiç görünmüyordu
+                        val isShortLine = confirmedText.trim().split(' ').count { it.isNotBlank() } <= SHORT_LINE_WORDS
+                        if (translated.isNotBlank() && (isShortLine || !translated.equals(confirmedText, ignoreCase = true))) {
                             val currentNorm = normalizeForDeduplication(translated)
                             val prevNorm = normalizeForDeduplication(currentTranslationRef.value)
                             val lastHistoryNorm = historyListRef.value.lastOrNull()?.let { normalizeForDeduplication(it) }

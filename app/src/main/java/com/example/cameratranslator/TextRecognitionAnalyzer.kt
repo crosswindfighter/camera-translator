@@ -445,6 +445,15 @@ class TextRecognitionAnalyzer(
 
         internal fun filterOcrNoise(text: String): String {
             val words = text.replace(SPACES_REGEX, " ").trim().split(SPACES_REGEX)
+            // Gerçek bir cümlenin içindeki harf+rakam kelimeleri ("beta in Q4 maybe Q3", "an AK47", "M16") korunur;
+            // gürültü kuralı yalnızca anlamlı kelimesi az okumalara uygulanır (HUD'daki "A10", "B12" gibi)
+            val realWordCount = if (OcrTextFixer.isDictionaryLoaded) {
+                words.count { w ->
+                    val key = w.trim { !it.isLetter() && it != APOSTROPHE }.lowercase()
+                    key.length >= 2 && key.all { it.isLetter() || it == APOSTROPHE } && OcrTextFixer.isDictionaryWord(key)
+                }
+            } else 0
+            val keepAlphanumeric = realWordCount >= MIN_REAL_WORDS_FOR_ALPHANUMERIC
             val filteredWords = words.filter { word ->
                 // Not: büyük harfli kelimeleri (MENU, PAUSE) atan filtre kaldırıldı. HUD yazılarını artık
                 // "Sadece ortadaki altyazıyı oku" eliyor; o filtre bağırarak yazılmış altyazıları
@@ -453,7 +462,8 @@ class TextRecognitionAnalyzer(
                 // 1. Filter out alphanumeric noise words where letters and numbers are directly concatenated (e.g. A10, A1, A2, A5000, 100X, B12)
                 // Sıra sayıları, onyıllar ve saatler gerçek kelimedir: 1st, 24th, 90s, 10pm, 5k
                 val core = word.trim { !it.isLetterOrDigit() }
-                val hasAlphanumericNoise = !NUMBER_WITH_SUFFIX.matches(core) && ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
+                val hasAlphanumericNoise = !keepAlphanumeric && !NUMBER_WITH_SUFFIX.matches(core) &&
+                    ALPHANUMERIC_NOISE_REGEX.containsMatchIn(word)
 
                 // 2. Filter out unpronounceable OCR artifacts and gibberish noise words
                 val isGibberish = isGibberishWord(word)
@@ -525,6 +535,9 @@ class TextRecognitionAnalyzer(
         private val SENTENCE_END_PUNCTUATION = Regex("[.!?…][\"')]*\\s*$")
 
         private val SPACES_REGEX = Regex("\\s+")
+        /** Harf+rakam kelimelerin korunması için cümlede gereken gerçek kelime sayısı */
+        private const val MIN_REAL_WORDS_FOR_ALPHANUMERIC = 3
+        private const val APOSTROPHE = '\''
         private val NUMBER_WITH_SUFFIX = Regex("\\d+(st|nd|rd|th|s|k|m|am|pm|x)", RegexOption.IGNORE_CASE)
         private val INTERJECTIONS = setOf("shh", "shhh", "hmm", "hmmm", "hm", "mm", "mmm", "mhm", "psst", "pst", "pfft", "tsk", "brr", "grr", "sh")
         private val REJECT_PATTERN = Regex("[<>]+|_{2,}|={2,}")
