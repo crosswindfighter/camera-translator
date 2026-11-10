@@ -22,6 +22,10 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     private val NOTES = mapOf(
+        "1.1.3" to listOf(
+            "Metin okuma artık uygulamanın içinde geliyor; Google Play Hizmetleri'ne bağlı değil. Bazı telefonlarda çevirinin bir anda durup \"Altyazı bekleniyor\" yazısında kalması sorunu giderildi.",
+            "Metin okuma bir sorun yüzünden çalışamazsa ekranda artık ne yapmanız gerektiğini söyleyen bir uyarı çıkıyor."
+        ),
         "1.1.2" to listOf(
             "Ayarlar yenilendi: görünüm modu iki seçenekte toplandı, Kamera ve Ekran Çevirisi. Kamerada Sinematik ile televizyondaki yazının üstünde gösterim arasında seçim yaparsınız. Kaydırıcılar ve açıklamalar da yenilendi.",
             "Ana ekrandaki mod düğmesi artık modları sırayla değiştirmiyor; seçenekleri gösteren küçük bir menü açıyor.",

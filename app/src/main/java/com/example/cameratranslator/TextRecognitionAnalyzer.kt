@@ -47,10 +47,17 @@ class TextRecognitionAnalyzer(
     /** Ekran çevirisindeki ek alanlar (0 = 2. alan): okunan yazı, güven, yeri ve satır yüksekliği */
     private val onExtraText: (Int, String, Float, RectF?, Float) -> Unit = { _, _, _, _, _ -> },
     /** Ek alanda yazı yok */
-    private val onExtraEmpty: (Int) -> Unit = {}
+    private val onExtraEmpty: (Int) -> Unit = {},
+    /**
+     * Metin okuma art arda hata veriyor (true) ya da yeniden çalışmaya başladı (false). Hatalar eskiden yalnızca
+     * loga yazılıyordu; ekranda "Altyazı bekleniyor" kalıyor, kullanıcı nedenini göremiyordu.
+     */
+    private val onRecognizerFailing: (Boolean) -> Unit = {}
 ) : ImageAnalysis.Analyzer {
 
     private val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+    /** Art arda hata veren ML Kit çağrısı sayısı (başarılı bir okuma sıfırlar) */
+    private val consecutiveFailures = AtomicInteger(0)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     private var stabilizationJob: Job? = null
@@ -236,11 +243,13 @@ class TextRecognitionAnalyzer(
     ): Pair<OcrReading, String>? {
         return try {
             val visionText = recognizer.process(InputImage.fromBitmap(bitmap, 0)).await()
+            if (consecutiveFailures.getAndSet(0) >= FAILURES_BEFORE_WARNING) onRecognizerFailing(false)
             extractSubtitleText(visionText, bitmap.width, bitmap.height, centerOnly) to visionText.text
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.e(TAG, "Frame #$frameId ML Kit error", e)
+            if (consecutiveFailures.incrementAndGet() == FAILURES_BEFORE_WARNING) onRecognizerFailing(true)
             null
         }
     }
@@ -501,6 +510,8 @@ class TextRecognitionAnalyzer(
         const val MAX_EXTRA_AREAS = 2
         private const val TAG = "OCR_ANALYZER"
         private const val EMPTY_RESET_THRESHOLD = 3
+        /** Bu kadar ML Kit çağrısı art arda hata verirse ekranda uyarı çıkar (~birkaç saniye) */
+        private const val FAILURES_BEFORE_WARNING = 10
         private const val MAX_OCR_WIDTH = 2400f
         // 3 iken "No!", "Go!", "Hi.", "Ok." gibi kısa altyazılar siliniyordu
         private const val MIN_LINE_LETTERS = 2

@@ -58,6 +58,10 @@ enum class Screen {
     CAMERA, SETTINGS, ABOUT, HISTORY
 }
 
+/** Metin okuma art arda hata verince ekranda gösterilir; kullanıcı ne yapacağını bilsin */
+private const val OCR_FAILING_MESSAGE =
+    "⚠️ Metin okuma şu an çalışmıyor. Durdurup yeniden başlatın; düzelmezse uygulamayı kapatıp açın veya telefonu yeniden başlatın."
+
 
 class MainActivity : ComponentActivity() {
 
@@ -687,6 +691,8 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        // Metin okuma art arda hata veriyorsa "Altyazı bekleniyor" yerine nedeni gösterilir
+        var isOcrFailing by remember { mutableStateOf(false) }
         val analyzer = remember {
             TextRecognitionAnalyzer(
                 onTextDetected = { ocrText, confidence ->
@@ -714,7 +720,9 @@ class MainActivity : ComponentActivity() {
                     stabilizer.notifyEmpty()
                     lastTranslatedSource = null
                     recentOcrApiHistory.clear()
-                }
+                },
+                // Analiz iş parçacığından gelir: durum ana iş parçacığında değişsin
+                onRecognizerFailing = { failing -> runOnUiThread { isOcrFailing = failing } }
             )
         }
 
@@ -853,6 +861,7 @@ class MainActivity : ComponentActivity() {
                     opusNotice != null -> ""
                     statusText.isNotEmpty() -> statusText
                     isPaused -> ""
+                    isOcrFailing -> OCR_FAILING_MESSAGE
                     currentTranslation.isNotEmpty() -> currentTranslation
                     isBusy && translationMode != TranslationMode.OFFLINE -> "Çevriliyor..."
                     else -> "Altyazı bekleniyor..."
@@ -878,7 +887,8 @@ class MainActivity : ComponentActivity() {
                             ).show()
                         }
                     ),
-                    isStatusMessage = isPhoneSource,
+                    // Metin okuma hatası da durum yazısı gibi gösterilir (Yazının üstünde modunda da görünsün)
+                    isStatusMessage = isPhoneSource || (isOcrFailing && !isPaused),
                     isPhoneMode = isPhoneSource,
                     screenTextBounds = if (isPaused || currentTranslation.isEmpty()) null else screenTextBounds,
                     screenTextLineHeight = screenTextLineHeight,

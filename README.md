@@ -58,7 +58,7 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.2.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.3.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
@@ -138,6 +138,10 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Manuel odak kaydırıcısında **AUTO** bölgesi/butonu, TV mesafesine göre hassaslaştırılmış odak.
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
+
+#### 🔍 v1.1.3: uygulamanın içinde gelen metin okuma
+- Metin okuma (ML Kit) artık APK'nın içinde geliyor; Google Play Hizmetleri'nin indirdiği modüle bağlı değil. Bazı telefonlarda çevirinin bir anda durup "Altyazı bekleniyor"da kalması giderildi.
+- Metin okuma art arda hata verirse ekranda ne yapılacağını söyleyen bir uyarı çıkıyor.
 
 #### 🎛️ v1.1.2: yenilenen Ayarlar
 - Görünüm modu iki seçenekte toplandı (Kamera ve Ekran Çevirisi); kamerada Sinematik ile yazının üstünde gösterim arasında seçim yapılıyor.
