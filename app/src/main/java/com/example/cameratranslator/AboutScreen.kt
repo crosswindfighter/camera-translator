@@ -550,13 +550,13 @@ fun AboutScreen(onBack: () -> Unit) {
                     )
 
                     Text(
-                        text = "• Güncellemeler ve Rehber:",
+                        text = "• Güncellemeler, Rehber ve Yardım:",
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Yeni sürüm çıktığında uygulama sizi bilgilendirir; güncelleme uygulamanın içinden indirilip tek dokunuşla kurulabilir. Güncellemeden sonraki ilk açılışta yenilikler gösterilir. Uygulamanın düğmelerini tanıtan rehbere bu sayfanın altındaki düğmeden tekrar ulaşabilirsiniz.",
+                        text = "Yeni sürüm çıktığında uygulama sizi bilgilendirir; güncelleme uygulamanın içinden indirilip tek dokunuşla kurulabilir. Güncellemeden sonraki ilk açılışta yenilikler gösterilir. Uygulamanın düğmelerini tanıtan rehbere bu sayfanın altındaki düğmeden tekrar ulaşabilirsiniz. Uygulamanın A'dan Z'ye kullanımı, taktikler ve sık sorulan sorular için ☰ Menü > Nasıl kullanılır sayfasına bakın.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
