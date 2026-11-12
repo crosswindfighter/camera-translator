@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
 import androidx.compose.material.icons.automirrored.rounded.VolumeOff
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.Cached
@@ -624,6 +625,7 @@ fun MainOverlay(
                                     listOf(
                                         Triple(Icons.Rounded.Settings, "Ayarlar", Screen.SETTINGS),
                                         Triple(Icons.Rounded.History, "Çeviri geçmişi", Screen.HISTORY),
+                                        Triple(Icons.AutoMirrored.Rounded.HelpOutline, "Nasıl kullanılır", Screen.HELP),
                                         Triple(Icons.Rounded.Info, "Hakkında", Screen.ABOUT)
                                     ).forEach { (icon, label, screen) ->
                                         DropdownMenuItem(
@@ -1129,6 +1131,7 @@ private val ICON_FOCUS_ACTIVE = Color(0xFF00E5FF)
 private val MENU_ICON_COLORS = mapOf(
     Screen.SETTINGS to Color(0xFFB39DDB),
     Screen.HISTORY to Color(0xFFA5D6A7), // yeşil
+    Screen.HELP to Color(0xFFFFCC80), // turuncu
     Screen.ABOUT to Color(0xFF64B5F6) // mavi (sarı uyarı gibi görünüyordu)
 )
 

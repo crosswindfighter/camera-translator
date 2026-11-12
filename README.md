@@ -51,6 +51,7 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 - **Çeviri Geçmişi:** Uygulama açık olduğu sürece çevrilen altyazılar İngilizceleriyle birlikte menüden görüntülenebilir; kaçırdığınız cümlelere sonradan bakabilirsiniz (telefona kaydedilmez).
 - **Kendini Denetleyen Çeviri:** OPUS'un yarım kalan ya da bozuk görünen çevirileri otomatik olarak daha dikkatli bir yöntemle yeniden denenir.
 - **Uygulama İçinden Güncelleme:** Yeni sürüm çıktığında uygulama sizi bilgilendirir; güncelleme uygulamanın içinden indirilip tek dokunuşla kurulur. Güncellemeden sonraki ilk açılışta yenilikler gösterilir.
+- **Nasıl Kullanılır:** Menüdeki bu sayfada A'dan Z'ye kullanım, taktikler ve sık sorulan sorular bulunur.
 - **İlk Açılış Rehberi:** Uygulamanın düğmelerini adım adım tanıtır; Hakkında ekranından tekrar açılabilir.
 
 ---
@@ -149,6 +150,7 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
 
 #### 🛡️ v1.1.4: daha anlaşılır Ekran Çevirisi
+- Menüye **Nasıl kullanılır** sayfası eklendi: A'dan Z'ye kullanım, daha iyi sonuç için taktikler ve sık sorulan sorular.
 - Görüntü simsiyah gelirse (yanlış uygulama seçildiğinde ya da uygulama ekran paylaşımını engellediğinde) ekranın ortasında uyarı ve ne yapılacağını anlatan kart çıkıyor.
 - Uyarılar bildirimler kapalıyken de görünsün diye çeviri ekranının ortasında gösteriliyor; uzun süre yazı okunmazsa bir kez OCR alanı ipucu çıkıyor.
 - **Kaydı indir**: kayıt zip dosyası telefonun İndirilenler klasörüne kaydedilebiliyor; Ekran Çevirisi kayıtları daha ayrıntılı.

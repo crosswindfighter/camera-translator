@@ -29,6 +29,7 @@ object ReleaseNotes {
 
     private val NOTES = mapOf(
         "1.1.4" to listOf(
+            "Yeni Nasıl kullanılır sayfası: menüden açılır. Uygulamanın A'dan Z'ye kullanımı, daha iyi sonuç için taktikler ve sık sorulan sorular burada.",
             "Ekran Çevirisi'nde siyah ekran uyarısı: ekran paylaşımından görüntü simsiyah gelirse ekranın ortasında uyarı çıkar. Yanlış uygulama seçildiğinde ya da seçilen uygulama ekran paylaşımını engellediğinde ne yapmanız gerektiğini anlatır.",
             "Ekran Çevirisi'nin uyarıları, bildirimler kapalı olsa bile çeviri ekranının ortasında gösteriliyor.",
             "Bir süre hiç yazı okunmazsa OCR alanlarını kontrol etmeniz için bir kez ipucu çıkar. Metin okuma çalışmazsa da uyarı gösterilir.",

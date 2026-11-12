@@ -55,7 +55,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicLong
 
 enum class Screen {
-    CAMERA, SETTINGS, ABOUT, HISTORY
+    CAMERA, SETTINGS, ABOUT, HISTORY, HELP
 }
 
 /** Bu kadar kelimelik altyazı, motor çeviremeyip aynen döndürse de ekranda gösterilir */
@@ -446,6 +446,9 @@ class MainActivity : ComponentActivity() {
                         }
                         Screen.HISTORY -> {
                             HistoryScreen(onBack = { currentScreen = Screen.CAMERA })
+                        }
+                        Screen.HELP -> {
+                            HelpScreen(onBack = { currentScreen = Screen.CAMERA })
                         }
                     }
 
