@@ -115,20 +115,29 @@ fun PhoneScreenOverlay(service: PhoneScreenService) {
             }
             // Ekran paylaşımı engelleniyor: uyarı oyunun üstünde gösterilir (bildirimler kapalıysa Toast hiç görünmüyor)
             val captureBlocked by PhoneScreenService.captureBlocked.collectAsState()
-            if (captureBlocked) {
-                CaptureBlockedBanner(large = service.onExternalDisplay)
+            // Öncelik: siyah ekran > metin okuma hatası > kısa bilgi notu
+            val warning = when {
+                captureBlocked -> PhoneScreenService.CAPTURE_BLOCKED_BANNER
+                service.ocrFailing.value -> PhoneScreenService.OCR_FAILING_NOTICE
+                else -> null
+            }
+            val info = service.notice.value
+            if (warning != null) {
+                OverlayNotice("⚠ $warning", large = service.onExternalDisplay, warning = true)
+            } else if (info != null) {
+                OverlayNotice(info, large = service.onExternalDisplay, warning = false)
             }
         }
     }
 }
 
 /**
- * Siyah ekran uyarısı: uygulamaların çizdiği alanın (kamera deliği, gezinme ve durum çubukları hariç) tam ortasında.
+ * Oyunun üstündeki uyarı ya da bilgi notu: uygulamaların çizdiği alanın (kamera deliği, gezinme ve durum çubukları hariç) tam ortasında.
  * Katman bu çubukların altına da uzandığı için düz ortalama yatayda uyarıyı oyunun ortasından kaydırıyordu.
  * DeX'te (TV) uzaktan okunacağı için yazı daha büyük.
  */
 @Composable
-private fun CaptureBlockedBanner(large: Boolean) {
+private fun OverlayNotice(text: String, large: Boolean, warning: Boolean) {
     // Çubukların ve kamera deliğinin payı, telefon dönünce Compose tarafından kendiliğinden güncellenir. (Önceki elle
     // ölçüm dönüşten sonra eski yönün payını tutup uyarıyı dikeyde sağa kaydırıyordu.)
     Box(
@@ -138,7 +147,7 @@ private fun CaptureBlockedBanner(large: Boolean) {
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "⚠ " + PhoneScreenService.CAPTURE_BLOCKED_BANNER,
+            text = text,
             color = Color.White,
             fontWeight = FontWeight.Bold,
             fontSize = if (large) 20.sp else 12.sp,
@@ -147,7 +156,8 @@ private fun CaptureBlockedBanner(large: Boolean) {
             modifier = Modifier
                 .padding(horizontal = 24.dp)
                 .widthIn(max = if (large) 640.dp else 360.dp)
-                .background(Color(0xE6B3261E), RoundedCornerShape(if (large) 16.dp else 12.dp))
+                // Uyarı kırmızı, bilgi notu koyu (çeviri kutularıyla aynı tonda)
+                .background(if (warning) Color(0xE6B3261E) else Color(0xE61C1F26), RoundedCornerShape(if (large) 16.dp else 12.dp))
                 .padding(horizontal = if (large) 20.dp else 12.dp, vertical = if (large) 14.dp else 8.dp)
         )
     }

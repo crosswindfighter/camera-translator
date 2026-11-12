@@ -126,6 +126,15 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      * siyah görünür (yazı kapanır); bu fark edilince çeviri yazının hemen üstüne (yanına) alınır.
      */
     val coverText = mutableStateOf(true)
+    /** Oyunun üstünde kısa süre gösterilen bilgi notu (Toast yerine: bildirimler kapalıysa Toast hiç görünmüyor) */
+    val notice = mutableStateOf<String?>(null)
+    private var noticeJob: Job? = null
+    /** Metin okuma art arda hata veriyor: oyunun üstünde uyarı gösterilir */
+    val ocrFailing = mutableStateOf(false)
+    private var consecutiveOcrFailures = 0
+    /** Hiç yazı okunmadan geçen sürenin başlangıcı (0: henüz kare yok); "alanda yazı yok" ipucu bir kez gösterilir */
+    private var noTextSince = 0L
+    private var noTextHintShown = false
 
     private val lastSeenAt = LongArray(MAX_AREAS)
     private val lastTextRect = arrayOfNulls<RectF>(MAX_AREAS)
@@ -357,6 +366,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
             lastFrameAt = System.currentTimeMillis()
             checkBlackFrame(frame)
+            checkNoTextHint()
             try {
                 for (index in 0 until areaCount.value) {
                     val area = settings.getPhoneAreaRect(index, isLandscape.value)
@@ -537,6 +547,11 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         try {
             var lines = recognizeLines(ocrInput, index)
             ocrErrorLogged[index] = false
+            consecutiveOcrFailures = 0
+            if (ocrFailing.value) {
+                ocrFailing.value = false
+                OcrDebugDumper.logPipeline("Telefon ekranı", "Metin okuma yeniden çalışıyor", endOfEntry = true)
+            }
             // Kamera modundaki gürültü filtresi: harf-rakam karışığı ve anlamsız kelimeler atılır
             var text = TextRecognitionAnalyzer.filterOcrNoise(lines.joinToString(" ") { it.text })
             // Açık zeminde beyaz yazı: normal okuma bozuk ya da boşsa aynı kare işlenip bir daha okunur; daha çok gerçek
@@ -637,6 +652,11 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (e !is kotlinx.coroutines.CancellationException && !ocrErrorLogged[index]) {
                 ocrErrorLogged[index] = true
                 OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "OCR hata verdi: ${e.javaClass.simpleName}: ${e.message}", endOfEntry = true)
+            }
+            // Kamera modundaki gibi: art arda hata gelirse metin okuma bozuk demektir, kullanıcı uyarılır
+            if (e !is kotlinx.coroutines.CancellationException && ++consecutiveOcrFailures >= OCR_FAILING_COUNT && !ocrFailing.value) {
+                ocrFailing.value = true
+                OcrDebugDumper.logPipeline("Telefon ekranı", "Metin okuma art arda $OCR_FAILING_COUNT kez hata verdi, uyarı gösterildi", endOfEntry = true)
             }
         } finally {
             if (ocrInput !== crop) ocrInput.recycle()
@@ -838,11 +858,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         for (i in 0 until MAX_AREAS) translations[i] = null
         stabilizers.forEach { it.reset() }
         applyWindowFlags()
-        android.widget.Toast.makeText(
-            overlayContext,
-            "Çeviriler altyazının yanında gösterilecek. Tam üstünde ve ekran yansıtmada görmek için ekran paylaşımında \"Tek bir uygulamayı paylaş\" seçeneğini kullanın.",
-            android.widget.Toast.LENGTH_LONG
-        ).show()
+        showNotice(HIDDEN_OVERLAY_NOTICE, NOTICE_MS)
     }
 
     private fun overlayFlags(editing: Boolean): Int {
@@ -1002,9 +1018,38 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         runCatching { windowManager.updateViewLayout(view, params) }
     }
 
+    /** Bilgi notunu oyunun üstünde [durationMs] boyunca gösterir */
+    private fun showNotice(text: String, durationMs: Long) {
+        noticeJob?.cancel()
+        notice.value = text
+        noticeJob = scope.launch {
+            delay(durationMs)
+            notice.value = null
+        }
+    }
+
+    /**
+     * Başladıktan sonra uzun süre hiç yazı okunmadıysa (ve görüntü siyah değilse) alan büyük ihtimalle altyazının
+     * üstünde değildir: oturumda bir kez ipucu gösterilir. Düzenleme süresi sayılmaz.
+     */
+    private fun checkNoTextHint() {
+        if (captureProvenOk || noTextHintShown || isEditing.value || _captureBlocked.value || ocrFailing.value) return
+        val now = System.currentTimeMillis()
+        if (noTextSince == 0L) {
+            noTextSince = now
+            return
+        }
+        if (now - noTextSince < NO_TEXT_HINT_MS) return
+        noTextHintShown = true
+        OcrDebugDumper.logPipeline("Telefon ekranı", "${NO_TEXT_HINT_MS / 1000} sn'dir hiç yazı okunmadı, alan ipucu gösterildi", endOfEntry = true)
+        showNotice(NO_TEXT_HINT, NO_TEXT_HINT_SHOW_MS)
+    }
+
     /** Alan düzenleme: katman dokunulabilir olur, alanlar görünür; bitince yine dokunulmaz */
     fun setEditing(editing: Boolean) {
         isEditing.value = editing
+        // Alanlar yeni yerleştirildi: ipucu süresi baştan sayılır
+        if (!editing && noTextSince != 0L) noTextSince = System.currentTimeMillis()
         if (editing) for (i in 0 until MAX_AREAS) translations[i] = null
         applyWindowFlags()
         if (!editing) stabilizers.forEach { it.reset() }
@@ -1116,6 +1161,18 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val CAPTURE_BLOCKED_BANNER =
             "Görüntü siyah geliyor. \"Tek bir uygulamayı paylaş\" seçeneğinde oyunun açık olduğu uygulamayı seçtiğinizden emin olun; " +
                 "doğru seçtiyseniz bu uygulama ekran paylaşımını engelliyor olabilir."
+        const val OCR_FAILING_NOTICE =
+            "Metin okuma şu an çalışmıyor. Durdurup yeniden başlatın; düzelmezse uygulamayı kapatıp açın veya telefonu yeniden başlatın."
+        private const val HIDDEN_OVERLAY_NOTICE =
+            "Çeviriler altyazının yanında gösterilecek. Tam üstünde ve ekran yansıtmada görmek için ekran paylaşımında " +
+                "\"Tek bir uygulamayı paylaş\" seçeneğini kullanın."
+        private const val NO_TEXT_HINT =
+            "Henüz yazı okunamadı. OCR alanlarının altyazının üstünde olduğundan emin olun: yüzen düğme → OCR alanlarını düzenle."
+        private const val NOTICE_MS = 7_000L
+        private const val NO_TEXT_HINT_MS = 45_000L
+        private const val NO_TEXT_HINT_SHOW_MS = 10_000L
+        /** Art arda bu kadar OCR hatası gelirse uyarılır (kamera modundaki gibi) */
+        private const val OCR_FAILING_COUNT = 10
         /** Görüntü bu kadar süre kesintisiz simsiyah gelirse uyarılır (oyunların kısa siyah geçişleri sayılmasın) */
         private const val BLACK_WARN_MS = 8_000L
         /** Bu parlaklığın (0-255) üstünde tek bir örnek piksel bile varsa görüntü siyah sayılmaz */
