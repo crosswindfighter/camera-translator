@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.Subtitles
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Tv
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,16 +49,18 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 internal val INTRO_CYAN = Color(0xFF00E5FF)
 internal val INTRO_BLUE = Color(0xFF2979FF)
 private val INTRO_GREEN = Color(0xFF69F0AE)
+private val INTRO_WARNING = Color(0xFFFF6E6E)
 private val INTRO_GRADIENT = listOf(INTRO_CYAN, INTRO_BLUE)
 
 /** Ekran Çevirisi modunun ana ekranı: mod bekliyorken nasıl başlatılacağını, çalışırken ne yapılacağını anlatır. */
 @Composable
 fun PhoneModeIntro(modifier: Modifier = Modifier) {
     val running by PhoneScreenService.running.collectAsStateWithLifecycle()
+    val captureBlocked by PhoneScreenService.captureBlocked.collectAsStateWithLifecycle()
     IntroLayout(
         modifier = modifier.fillMaxSize(),
         header = { IntroHeader(running) },
-        steps = { IntroSteps(running) }
+        steps = { IntroSteps(running, captureBlocked) }
     )
 }
 
@@ -172,8 +175,17 @@ private fun RunningBadge() {
 }
 
 @Composable
-private fun IntroSteps(running: Boolean) {
+private fun IntroSteps(running: Boolean, captureBlocked: Boolean) {
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (running && captureBlocked) {
+            // Korumalı uygulama: ekran paylaşımına simsiyah görüntü geliyor, çeviri yapılamaz
+            IntroCard(
+                Icons.Rounded.Warning,
+                "Ekran görüntüsü alınamıyor",
+                PhoneScreenService.CAPTURE_BLOCKED_MESSAGE,
+                accent = INTRO_WARNING
+            )
+        }
         if (running) {
             IntroCard(Icons.Rounded.SportsEsports, "Oyununuza dönün", "Çeviriler oyunun üstünde görünecek.")
             IntroCard(
@@ -196,7 +208,7 @@ private fun IntroSteps(running: Boolean) {
             IntroCard(
                 Icons.Rounded.TouchApp,
                 "Başlat'a basın",
-                "Ekran paylaşımında \"Tek uygulama\" seçip oyunu seçin. OCR alanlarını oyunun içinden, yüzen balonla yerleştirin."
+                "Ekran paylaşımında \"Tek bir uygulamayı paylaş\" seçeneğiyle oyunu seçin. OCR alanlarını oyunun içinden, yüzen balonla yerleştirin."
             )
             IntroCard(
                 Icons.Rounded.Subtitles,
@@ -208,7 +220,7 @@ private fun IntroSteps(running: Boolean) {
 }
 
 @Composable
-internal fun IntroCard(icon: ImageVector, title: String, body: String) {
+internal fun IntroCard(icon: ImageVector, title: String, body: String, accent: Color = INTRO_CYAN) {
     val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
@@ -222,10 +234,10 @@ internal fun IntroCard(icon: ImageVector, title: String, body: String) {
         Box(
             modifier = Modifier
                 .size(36.dp)
-                .background(INTRO_CYAN.copy(alpha = 0.14f), CircleShape),
+                .background(accent.copy(alpha = 0.14f), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = INTRO_CYAN, modifier = Modifier.size(20.dp))
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
         }
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, color = Color.White, fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)

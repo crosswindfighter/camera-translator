@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -168,10 +171,61 @@ fun AboutScreen(onBack: () -> Unit) {
                             "doğrudan geliştiriciye iletebilirsiniz.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )                    // Kayıt, kullanıcının gönderebileceği küçük bir zip olarak paylaşılır (yalnızca metin loglar)
+                    )
+                    // Kayıt, kullanıcının gönderebileceği küçük bir zip olarak kaydedilir ya da paylaşılır (yalnızca metin loglar).
+                    // Düğmeler kayıt oluşana kadar sönük durur; ekran açıkken kayıt dosyaları ara ara yoklanır.
+                    val hasLogs by androidx.compose.runtime.produceState(initialValue = LogSharer.hasLogs(context)) {
+                        while (true) {
+                            value = LogSharer.hasLogs(context)
+                            kotlinx.coroutines.delay(1_500)
+                        }
+                    }
                     val shareScope = androidx.compose.runtime.rememberCoroutineScope()
-                    Button(
-                        onClick = {
+                    // Kayıt yokken düğmelerin neden kapalı olduğunu düğmelerden önce, göze çarpan renkte söyler
+                    if (!hasLogs) {
+                        Text(
+                            text = androidx.compose.ui.text.buildAnnotatedString {
+                                withStyle(androidx.compose.ui.text.SpanStyle(fontWeight = FontWeight.Bold)) { append("Not: ") }
+                                append(
+                                    "Henüz kayıt yok. Geri dönün, ana ekrandaki Başlat'a basın ve özellikle sorun yaşadığınız " +
+                                        "yeri deneyin. Kayıt oluşunca butonlar aktif olur."
+                                )
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Paylaşmadan, zip'i doğrudan telefonun İndirilenler klasörüne kaydeder
+                        LogActionButton(
+                            icon = Icons.Rounded.Download,
+                            label = "Kaydı indir",
+                            enabled = hasLogs,
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            shareScope.launch {
+                                val message = try {
+                                    when (val result = LogSharer.saveToDownloads(context)) {
+                                        is LogSharer.SaveResult.Saved -> "İndirilenler klasörüne kaydedildi: ${result.fileName}"
+                                        LogSharer.SaveResult.NoLogs -> "Kaydedilecek kayıt yok. Önce Başlat'a basıp birkaç altyazı çevirin."
+                                        LogSharer.SaveResult.Unsupported -> "Bu Android sürümünde kaydetme yok; Kaydı paylaş'ı kullanın."
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("AboutScreen", "Log save failed", e)
+                                    "Kayıt kaydedilemedi; Kaydı paylaş'ı deneyin."
+                                }
+                                Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+                            }
+                        }
+                        LogActionButton(
+                            icon = Icons.Rounded.Share,
+                            label = "Kaydı paylaş",
+                            enabled = hasLogs,
+                            modifier = Modifier.weight(1f)
+                        ) {
                             shareScope.launch {
                                 val shared = try {
                                     LogSharer.share(context)
@@ -187,11 +241,7 @@ fun AboutScreen(onBack: () -> Unit) {
                                     ).show()
                                 }
                             }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(46.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Text("Kaydı paylaş", fontWeight = FontWeight.Bold)
+                        }
                     }
                     // Sorunun bildirileceği yer: kayıt dosyası Issues sayfasına sürüklenip eklenebilir
                     OutlinedButton(
@@ -392,7 +442,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında \"Tek uygulama\" seçip oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez. Mod çalışırken telefonun ekranı açık tutulur. Android 10 ve üstü gerekir.",
+                        text = "Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında \"Tek bir uygulamayı paylaş\" seçeneğiyle oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez. Mod çalışırken telefonun ekranı açık tutulur. Android 10 ve üstü gerekir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -663,6 +713,28 @@ fun AboutScreen(onBack: () -> Unit) {
  * Geliştirici modu kartı: solda renkli daire içinde simge, yanında başlık; altında kartın içeriği.
  * Hakkında'daki diğer kartlarla aynı zemin ve çerçeveyi kullanır.
  */
+/** Kaydı kaydet/paylaş düğmesi: ikisi aynı görünür; kayıt yokken sönük ve basılamaz. */
+@Composable
+private fun LogActionButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    enabled: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(46.dp),
+        shape = RoundedCornerShape(12.dp),
+        contentPadding = PaddingValues(horizontal = 10.dp)
+    ) {
+        Icon(icon, contentDescription = null, modifier = Modifier.size(18.dp))
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(label, fontWeight = FontWeight.Bold, maxLines = 1, softWrap = false)
+    }
+}
+
 @Composable
 private fun DevModeCard(
     icon: String,

@@ -18,6 +18,12 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -106,7 +113,43 @@ fun PhoneScreenOverlay(service: PhoneScreenService) {
                     service.translations.getOrNull(index), service.minFontSize(), containerSize, service.coverText.value, service.transitionMs()
                 )
             }
+            // Ekran paylaşımı engelleniyor: uyarı oyunun üstünde gösterilir (bildirimler kapalıysa Toast hiç görünmüyor)
+            val captureBlocked by PhoneScreenService.captureBlocked.collectAsState()
+            if (captureBlocked) {
+                CaptureBlockedBanner(large = service.onExternalDisplay)
+            }
         }
+    }
+}
+
+/**
+ * Siyah ekran uyarısı: uygulamaların çizdiği alanın (kamera deliği, gezinme ve durum çubukları hariç) tam ortasında.
+ * Katman bu çubukların altına da uzandığı için düz ortalama yatayda uyarıyı oyunun ortasından kaydırıyordu.
+ * DeX'te (TV) uzaktan okunacağı için yazı daha büyük.
+ */
+@Composable
+private fun CaptureBlockedBanner(large: Boolean) {
+    // Çubukların ve kamera deliğinin payı, telefon dönünce Compose tarafından kendiliğinden güncellenir. (Önceki elle
+    // ölçüm dönüşten sonra eski yönün payını tutup uyarıyı dikeyde sağa kaydırıyordu.)
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "⚠ " + PhoneScreenService.CAPTURE_BLOCKED_BANNER,
+            color = Color.White,
+            fontWeight = FontWeight.Bold,
+            fontSize = if (large) 20.sp else 12.sp,
+            lineHeight = if (large) 27.sp else 16.sp,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .widthIn(max = if (large) 640.dp else 360.dp)
+                .background(Color(0xE6B3261E), RoundedCornerShape(if (large) 16.dp else 12.dp))
+                .padding(horizontal = if (large) 20.dp else 12.dp, vertical = if (large) 14.dp else 8.dp)
+        )
     }
 }
 

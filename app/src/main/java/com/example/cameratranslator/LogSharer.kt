@@ -1,8 +1,12 @@
 package com.example.cameratranslator
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -38,6 +42,51 @@ object LogSharer {
             Intent.createChooser(send, "Kaydı paylaş").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
         return true
+    }
+
+    /** Gönderilecek kayıt var mı (Hakkında'daki düğmeler buna göre açılır) */
+    fun hasLogs(context: Context): Boolean {
+        val source = context.getExternalFilesDir("ocr_debug") ?: return false
+        return LOG_FILES.any { File(source, it).let { file -> file.isFile && file.length() > 0 } }
+    }
+
+    sealed class SaveResult {
+        data class Saved(val fileName: String) : SaveResult()
+        object NoLogs : SaveResult()
+        /** Android 9 ve altı: İndirilenler'e izinsiz yazılamıyor, paylaşım menüsü kullanılmalı */
+        object Unsupported : SaveResult()
+    }
+
+    /** Zip'i telefonun İndirilenler klasörüne kaydeder (izin gerektirmez, Android 10+). */
+    suspend fun saveToDownloads(context: Context): SaveResult = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val zip = buildZip(context) ?: return@withContext SaveResult.NoLogs
+            copyToDownloads(context, zip)
+            SaveResult.Saved(zip.name)
+        } else {
+            SaveResult.Unsupported
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
+    private fun copyToDownloads(context: Context, zip: File) {
+        val resolver = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, zip.name)
+            put(MediaStore.MediaColumns.MIME_TYPE, "application/zip")
+            put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: throw IllegalStateException("İndirilenler'e dosya açılamadı")
+        try {
+            resolver.openOutputStream(uri)?.use { out -> zip.inputStream().use { it.copyTo(out) } }
+                ?: throw IllegalStateException("İndirilenler'e yazılamadı")
+            resolver.update(uri, ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }, null, null)
+        } catch (e: Exception) {
+            resolver.delete(uri, null, null)
+            throw e
+        }
     }
 
     private fun buildZip(context: Context): File? {

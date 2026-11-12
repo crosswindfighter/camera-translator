@@ -94,6 +94,11 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
+    /**
+     * Kare kopyalanırken (arka plan iş parçacığı) okuyucu kapatılmasın: telefon dönünce eski okuyucu ana iş parçacığında
+     * kapatılıyordu, yarıda kalan kopyalama serbest bırakılmış belleği okuyup uygulamayı çökertiyordu (SIGSEGV).
+     */
+    private val readerLock = Any()
     private var captureThread: HandlerThread? = null
     private var captureJob: Job? = null
     private var overlayView: ComposeView? = null
@@ -131,6 +136,16 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private val translateJobs = arrayOfNulls<Job>(MAX_AREAS)
     private val emptyReads = IntArray(MAX_AREAS)
     private val lastLoggedRead = arrayOfNulls<String>(MAX_AREAS)
+    /** Geliştirici logu: alan ne zamandan beri boş okunuyor, bu boşluk/hata kayda yazıldı mı */
+    private val emptySince = LongArray(MAX_AREAS)
+    /** Görüntü ne zamandan beri simsiyah geliyor (0: siyah değil) */
+    private var blackSince = 0L
+    /** Bu oturumda en az bir yazı okundu: ekran paylaşımı çalışıyor, siyah uyarısı bir daha gösterilmez */
+    private var captureProvenOk = false
+    private val emptyLogged = BooleanArray(MAX_AREAS)
+    private val ocrErrorLogged = BooleanArray(MAX_AREAS)
+    /** "Sadece ortadaki altyazı" yüzünden atılan kenar yazısı (alan boş görünürken neden boş olduğunu söyler) */
+    private val droppedEdgeText = arrayOfNulls<String>(MAX_AREAS)
     private val stabilizers by lazy {
         List(MAX_AREAS) { index ->
             OcrStabilizer(
@@ -202,6 +217,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         keepPhoneScreenOn()
         lifecycleRegistry.currentState = Lifecycle.State.RESUMED
         _running.value = true
+        _captureBlocked.value = false
         captureJob = scope.launch { captureLoop() }
         scope.launch { hideStaleTranslations() }
         return START_NOT_STICKY
@@ -229,6 +245,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     override fun onDestroy() {
         _running.value = false
+        _captureBlocked.value = false
         captureJob?.cancel()
         scope.cancel()
         runCatching { overlayView?.let { windowManager.removeView(it) } }
@@ -303,14 +320,16 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         imageReader = reader
         display.resize(width, height, densityDpi())
         display.surface = reader.surface
-        old?.close()
+        synchronized(readerLock) { old?.close() }
     }
 
     private fun releaseCapture() {
         runCatching { virtualDisplay?.release() }
         virtualDisplay = null
-        runCatching { imageReader?.close() }
-        imageReader = null
+        synchronized(readerLock) {
+            runCatching { imageReader?.close() }
+            imageReader = null
+        }
         captureThread?.quitSafely()
         captureThread = null
     }
@@ -324,6 +343,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (isEditing.value) continue
             val frame = withContext(Dispatchers.Default) { grabFrame() }
             if (frame == null) {
+                checkBlackFrame(null)
                 // Görüntü değişmeyince yeni kare gelmez; uzun sürerse yakalama durmuş olabilir (geliştirici logu)
                 if (!stallLogged && System.currentTimeMillis() - lastFrameAt > STALL_LOG_MS) {
                     stallLogged = true
@@ -336,6 +356,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
                 OcrDebugDumper.logPipeline("Telefon ekranı", "Ekran görüntüsü yeniden geliyor", endOfEntry = true)
             }
             lastFrameAt = System.currentTimeMillis()
+            checkBlackFrame(frame)
             try {
                 for (index in 0 until areaCount.value) {
                     val area = settings.getPhoneAreaRect(index, isLandscape.value)
@@ -347,7 +368,54 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         }
     }
 
-    private fun grabFrame(): Bitmap? {
+    /**
+     * Korumalı uygulamalar (FLAG_SECURE) ekran paylaşımına simsiyah görüntü verir; o zaman OCR hiçbir şey okuyamaz.
+     * Görüntü bir süre kesintisiz simsiyah gelirse kullanıcı uyarılır, görüntü gelince uyarı kalkar.
+     */
+    private fun checkBlackFrame(frame: Bitmap?) {
+        // Bu oturumda yazı okunabildiyse paylaşım engellenmiyor demektir: oyundaki siyah sahneler uyarı çıkarmasın
+        if (captureProvenOk) return
+        val now = System.currentTimeMillis()
+        // Yeni kare yok: görüntü değişmiyor demektir, son kare siyahsa siyah sürüyor sayılır
+        val black = if (frame == null) blackSince != 0L else isBlackFrame(frame)
+        if (!black) {
+            blackSince = 0L
+            if (_captureBlocked.value) {
+                _captureBlocked.value = false
+                OcrDebugDumper.logPipeline("Telefon ekranı", "Görüntü artık siyah değil", endOfEntry = true)
+            }
+            return
+        }
+        if (blackSince == 0L) blackSince = now
+        if (_captureBlocked.value || now - blackSince < BLACK_WARN_MS) return
+        _captureBlocked.value = true
+        OcrDebugDumper.logPipeline(
+            "Telefon ekranı", "${BLACK_WARN_MS / 1000} sn'dir görüntü simsiyah geliyor (uygulama ekran paylaşımını engelliyor olabilir)",
+            endOfEntry = true
+        )
+        // Uyarı katmanda, oyunun üstünde gösterilir (PhoneScreenOverlay). Toast kullanılmıyor: uygulamanın
+        // bildirimleri kapalıysa Android arka plandaki uygulamanın Toast'unu hiç göstermiyor.
+    }
+
+    /** Ekranın her yerinden seyrek örnek alınır; hepsi neredeyse simsiyahsa true */
+    private fun isBlackFrame(frame: Bitmap): Boolean {
+        for (gy in 0 until 24) {
+            val y = frame.height * (gy * 2 + 1) / 48
+            // Uyarı gösterilirken ortadaki uyarı kutusu yakalanabilir (tüm ekran paylaşımı): o bant atlanır
+            if (_captureBlocked.value && y > frame.height * BANNER_TOP && y < frame.height * BANNER_BOTTOM) continue
+            for (gx in 0 until 24) {
+                val pixel = frame.getPixel(frame.width * (gx * 2 + 1) / 48, y)
+                if ((pixel shr 16 and 0xFF) > BLACK_PIXEL_LEVEL || (pixel shr 8 and 0xFF) > BLACK_PIXEL_LEVEL ||
+                    (pixel and 0xFF) > BLACK_PIXEL_LEVEL
+                ) return false
+            }
+        }
+        return true
+    }
+
+    private fun grabFrame(): Bitmap? = synchronized(readerLock) { copyLatestFrame() }
+
+    private fun copyLatestFrame(): Bitmap? {
         val image = runCatching { imageReader?.acquireLatestImage() }.getOrNull() ?: return null
         return try {
             val plane = image.planes[0]
@@ -372,11 +440,15 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     private suspend fun recognizeLines(input: Bitmap, index: Int): List<ReadLine> {
         val result = recognizer.process(InputImage.fromBitmap(input, 0)).await()
         val centerOnly = index == 0 && OcrTuning.centerOnlyEnabled
-        val readLines = result.textBlocks.flatMap { it.lines }
+        val rawLines = result.textBlocks.flatMap { it.lines }
             .filter { line -> line.text.count { it.isLetter() } >= 2 }
+        val readLines = rawLines
             .mapNotNull { line -> if (centerOnly) centeredLine(line, input.width) else ReadLine(line.text.trim(), line.boundingBox, line.confidence) }
             // Araç/tabela yazısı ("PARK RANGER"): tamamı büyük harf ve noktalamasız
             .filter { !TextRecognitionAnalyzer.isCapsDecal(it.text) }
+        if (centerOnly && readLines.isEmpty() && rawLines.isNotEmpty()) {
+            droppedEdgeText[index] = rawLines.joinToString(" ") { it.text.trim() }.take(80)
+        }
         // Altyazıya ait olmayan satırlar ("oBEY" arması, haritadaki "Adanas") ne metne ne kutunun boyutuna girsin
         return if (index == 0) dropStrayLines(readLines) else readLines
     }
@@ -464,6 +536,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         if (index == 0) OcrDebugDumper.maybeSaveFrames(++dumpFrameId, ocrInput, null)
         try {
             var lines = recognizeLines(ocrInput, index)
+            ocrErrorLogged[index] = false
             // Kamera modundaki gürültü filtresi: harf-rakam karışığı ve anlamsız kelimeler atılır
             var text = TextRecognitionAnalyzer.filterOcrNoise(lines.joinToString(" ") { it.text })
             // Açık zeminde beyaz yazı: normal okuma bozuk ya da boşsa aynı kare işlenip bir daha okunur; daha çok gerçek
@@ -503,10 +576,27 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             if (text.isBlank()) {
                 emptyReads[index]++
                 if (emptyReads[index] >= 3) stabilizers[index].notifyEmpty()
+                logLongEmpty(index)
                 return
             }
+            emptySince[index] = 0L
+            emptyLogged[index] = false
+            // Yazı okunabiliyorsa görüntü engellenmiyor demektir: uyarı kalkar ve bu oturumda bir daha çıkmaz
+            captureProvenOk = true
+            blackSince = 0L
+            if (_captureBlocked.value) {
+                _captureBlocked.value = false
+                OcrDebugDumper.logPipeline("Telefon ekranı", "Yazı okundu, siyah ekran uyarısı kaldırıldı", endOfEntry = true)
+            }
+            droppedEdgeText[index] = null
             // Altyazıya benzemeyen okuma (tuş ipuçları "Zoom LT RT ...", rakam yığını) "yazı yok" sayılmaz, yalnızca atlanır
-            if (!TextRecognitionAnalyzer.isPlausibleSubtitle(text)) return
+            if (!TextRecognitionAnalyzer.isPlausibleSubtitle(text)) {
+                if (text != lastLoggedRead[index]) {
+                    lastLoggedRead[index] = text
+                    OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "Altyazıya benzemiyor, atlandı: $text", endOfEntry = true)
+                }
+                return
+            }
             emptyReads[index] = 0
             if (text != lastLoggedRead[index]) {
                 lastLoggedRead[index] = text
@@ -543,6 +633,11 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             stabilizers[index].submit(text, confidence)
         } catch (e: Exception) {
             Log.w(TAG, "OCR failed", e)
+            // Geliştirici logu: hata art arda gelirse bir kez yazılır, okuma düzelince yeniden yazılabilir
+            if (e !is kotlinx.coroutines.CancellationException && !ocrErrorLogged[index]) {
+                ocrErrorLogged[index] = true
+                OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "OCR hata verdi: ${e.javaClass.simpleName}: ${e.message}", endOfEntry = true)
+            }
         } finally {
             if (ocrInput !== crop) ocrInput.recycle()
             crop.recycle()
@@ -598,6 +693,23 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             TranslationHistory.add(text, translated, area = index + 1)
             OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "$text → $translated", endOfEntry = true)
         }
+    }
+
+    /**
+     * Geliştirici logu: alanda uzun süre hiç yazı okunmazsa bir kez yazılır. Kayıtta hiç okuma yoksa sebebin
+     * "alanda yazı yok" mu yoksa "kenardaki yazı atıldı" mı olduğu buradan anlaşılır.
+     */
+    private fun logLongEmpty(index: Int) {
+        val now = System.currentTimeMillis()
+        if (emptySince[index] == 0L) {
+            emptySince[index] = now
+            return
+        }
+        if (emptyLogged[index] || now - emptySince[index] < EMPTY_LOG_MS) return
+        emptyLogged[index] = true
+        val edge = droppedEdgeText[index]
+        val reason = if (edge != null) " (alanda yazı vardı ama altyazı sayılmadı; \"Sadece ortadaki altyazı\" ya da tabela filtresi attı: \"$edge\")" else ""
+        OcrDebugDumper.logPipeline("Telefon ekranı ${index + 1}", "${EMPTY_LOG_MS / 1000} sn'dir alanda yazı okunmadı$reason", endOfEntry = true)
     }
 
     /** OCR'ın okuduğu satır (ortadaki kelimeler ayıklandıysa yalnızca onların metni ve yeri) */
@@ -728,7 +840,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         applyWindowFlags()
         android.widget.Toast.makeText(
             overlayContext,
-            "Çeviriler altyazının yanında gösterilecek. Tam üstünde ve ekran yansıtmada görmek için ekran paylaşımında \"Tek uygulama\" seçin.",
+            "Çeviriler altyazının yanında gösterilecek. Tam üstünde ve ekran yansıtmada görmek için ekran paylaşımında \"Tek bir uygulamayı paylaş\" seçeneğini kullanın.",
             android.widget.Toast.LENGTH_LONG
         ).show()
     }
@@ -913,6 +1025,9 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
 
     fun minFontSize(): Float = settings.getPhoneMinFontSize()
 
+    /** Katman telefonun değil başka bir ekranın (DeX'te TV) üstünde mi */
+    val onExternalDisplay: Boolean get() = overlayContext !== this
+
     /** Çevirinin geçiş süresi; yumuşak geçiş kapalıysa 0 (hemen çıkar). */
     fun transitionMs(): Int = if (settings.getPhoneSoftTransition()) settings.getPhoneTransitionMs() else 0
 
@@ -973,6 +1088,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         /** İkinci okumada görüntünün en parlak bu kadarı korunur: iki satır altyazı yaklaşık %3-6 yer kaplar */
         private const val BOOST_KEEP_RATIO = 0.08f
         private const val STALL_LOG_MS = 10_000L
+        /** Alanda bu kadar süre hiç yazı okunmazsa geliştirici loguna not düşülür */
+        private const val EMPTY_LOG_MS = 15_000L
         private const val CHANNEL_ID = "phone_screen_translation"
         private const val NOTIFICATION_ID = 7301
         private const val EXTRA_RESULT_CODE = "result_code"
@@ -984,6 +1101,28 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         private val _running = MutableStateFlow(false)
         /** Telefon ekranı modu çalışıyor mu (ana ekrandaki Başlat/Durdur için) */
         val running: StateFlow<Boolean> = _running
+
+        private val _captureBlocked = MutableStateFlow(false)
+        /** Ekran görüntüsü uzun süredir simsiyah geliyor: seçilen uygulama ekran paylaşımını engelliyor olabilir */
+        val captureBlocked: StateFlow<Boolean> = _captureBlocked
+
+        const val CAPTURE_BLOCKED_MESSAGE =
+            "İki sebebi olabilir:\n" +
+                "• Ekran paylaşımında yanlış uygulama seçilmiş olabilir. Durdurup yeniden başlatın ve \"Tek bir uygulamayı paylaş\" seçeneğiyle " +
+                "oyunu oynadığınız uygulamayı seçin (örneğin PS Remote Play).\n" +
+                "• Seçtiğiniz uygulama ekran paylaşımını engelliyor olabilir. Bu durumda Ekran Çevirisi çalışmaz; oyunu " +
+                "televizyonda ya da monitörde açıp Kamera moduyla çevirebilirsiniz."
+        /** Oyunun üstündeki kısa uyarı; ayrıntı Ekran Çevirisi'nin ana ekranında */
+        const val CAPTURE_BLOCKED_BANNER =
+            "Görüntü siyah geliyor. \"Tek bir uygulamayı paylaş\" seçeneğinde oyunun açık olduğu uygulamayı seçtiğinizden emin olun; " +
+                "doğru seçtiyseniz bu uygulama ekran paylaşımını engelliyor olabilir."
+        /** Görüntü bu kadar süre kesintisiz simsiyah gelirse uyarılır (oyunların kısa siyah geçişleri sayılmasın) */
+        private const val BLACK_WARN_MS = 8_000L
+        /** Bu parlaklığın (0-255) üstünde tek bir örnek piksel bile varsa görüntü siyah sayılmaz */
+        private const val BLACK_PIXEL_LEVEL = 6
+        /** Ortadaki uyarı kutusunun kapladığı bant (siyah denetiminde atlanır) */
+        private const val BANNER_TOP = 0.35f
+        private const val BANNER_BOTTOM = 0.65f
 
         /** Bu telefonda kullanılabilir mi (Android 10+) */
         val isSupported: Boolean get() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
