@@ -39,7 +39,7 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 
 - 🎬 **Sinematik:** Çeviriyi iri ve net bir puntoyla gösterir. Akıllı akış, çevirileri OCR alanının konumuna göre kendiliğinden yönlendirir: OCR alanı aşağıdaysa yeni çeviri onun üstünde belirir ve geçmiş çeviriler yukarı doğru yumuşakça akar; OCR alanı yukarıdaysa yeni çeviri onun altında belirir ve geçmiş çeviriler aşağı doğru yumuşakça akar. Geçmiş çeviriler küçülerek ekranın kenarında kararıp kaybolur ve hiçbir zaman altyazının üstüne binmez. İsterseniz Ortadan akış seçilebilir: çeviri, OCR alanının yerinden bağımsız olarak ekranın ortasında belirir, geçmiş çeviriler yukarı doğru akar. Görünen satır sayısı (1–20) ayarlanabilir. Göz modunda son çeviri, bir bakışta okunsun diye ekrana sığan en büyük boyuta çıkar; bu, Ayarlar'dan kapatılabilir.
 - 📺 **Yazının üstünde:** OCR alanı şeffaftır; Türkçe çeviri, İngilizce yazının tam üstünde, yazıyı saran siyah bir kutuda beyaz yazıyla gösterilir ve orijinal yazıyı örter. Yazı boyutu ekrandaki İngilizce yazıya göre kendiliğinden ayarlanır; Başlat'a basınca OCR alanının çerçevesi gizlenir, duraklatınca alan yeniden ayarlanabilir; uzun çevirilerde kutu büyür ama düğmelerin üstüne binmez. Yazı 5 saniye görünmezse çeviri kaybolur. Ayarlar'dan en fazla **3 OCR alanı** kullanılabilir (ör. biri altyazı, diğerleri görev ve bilgi mesajları için); her alan kendi yazısını ayrı çevirir ve konumu dikey/yatay için ayrı kaydedilir.
-- 📱 **Ekran Çevirisi:** Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında "Tek bir uygulamayı paylaş" seçeneğiyle oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez.
+- 📱 **Ekran Çevirisi:** Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. PS Remote Play bu modda çalışmaz: Sony, oyun görüntüsünü ekran paylaşımına kapatıyor ve uygulamaya yalnızca siyah görüntü geliyor. PlayStation oyunları için Kamera modunu kullanın; Xbox Remote Play'de böyle bir kısıtlama yoktur, sorunsuz çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında "Tek bir uygulamayı paylaş" seçeneğiyle oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez.
 
 ### 💡 Akıllı Kamera & Oyun İpuçları
 - **Işık / Pozlama Düzeltmesi (☀️):** Karanlık odada TV altyazılarındaki parlamayı (blooming) söndürerek OCR okuma doğruluğunu ve netliğini belirgin şekilde artırır. Kaydırıcının alt kısmındaki mor bölge ekstra karartmadır.
@@ -58,7 +58,7 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 ## 📲 Kurulum ve İndirme
 
 1. En güncel imzalı APK dosyasını [GitHub Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfamızdan indirin.
-2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.3.apk`) kurun.
+2. Telefonunuza indirdiğiniz APK dosyasını (ör. `camera-translator-v1.1.4.apk`) kurun.
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
@@ -79,7 +79,7 @@ Sorun sürerse telefon modelinizi, Android sürümünüzü, dosya boyutunu ve ha
 
 1. Uygulamada Hakkında ekranını açıp sürüm yazısına 7 kez dokunun; geliştirici modu açılır ve uygulama kayıt almaya başlar.
 2. Uygulamayı sorunun yaşandığı şekilde kullanın.
-3. Hakkında'ya dönüp **Kaydı paylaş**'a basın; kayıt küçük bir zip dosyası olarak hazırlanır.
+3. Hakkında'ya dönüp **Kaydı paylaş**'a basın; kayıt küçük bir zip dosyası olarak hazırlanır. **Kaydı indir** ile aynı dosyayı telefonun İndirilenler klasörüne de kaydedebilirsiniz.
 4. [Issues](https://github.com/crosswindfighter/camera-translator/issues) sayfasında sorunu anlatın ve zip dosyasını ekleyin.
 
 Kayıtta okunan altyazılar, çeviriler, telefon modeli, Android sürümü ve uygulama ayarları bulunur; kamera görüntüleri dosyaya eklenmez.
@@ -147,6 +147,13 @@ Camera Translator'ın temelleri **Google Gemini** ile atıldı; uygulama sonras�
 - Manuel odak kaydırıcısında **AUTO** bölgesi/butonu, TV mesafesine göre hassaslaştırılmış odak.
 - Açık temada belirgin kartlar, yeni odak ikonu, yeniden düzenlenen Ayarlar ve Hakkında ekranları.
 - APK yalnızca telefon işlemcileri (ARM) için derleniyor; boyut küçüldü.
+
+#### 🛡️ v1.1.4: daha anlaşılır Ekran Çevirisi
+- Görüntü simsiyah gelirse (yanlış uygulama seçildiğinde ya da uygulama ekran paylaşımını engellediğinde) ekranın ortasında uyarı ve ne yapılacağını anlatan kart çıkıyor.
+- Uyarılar bildirimler kapalıyken de görünsün diye çeviri ekranının ortasında gösteriliyor; uzun süre yazı okunmazsa bir kez OCR alanı ipucu çıkıyor.
+- **Kaydı indir**: kayıt zip dosyası telefonun İndirilenler klasörüne kaydedilebiliyor; Ekran Çevirisi kayıtları daha ayrıntılı.
+- Ekran Çevirisi açıkken telefonu döndürünce uygulamanın kapanması düzeltildi.
+- PS Remote Play'in Ekran Çevirisi'nde çalışmadığı (Sony'nin kısıtlaması) açıklamalara eklendi; Xbox Remote Play sorunsuz çalışıyor.
 
 #### 🔍 v1.1.3: uygulamanın içinde gelen metin okuma
 - Metin okuma (ML Kit) artık APK'nın içinde geliyor; Google Play Hizmetleri'nin indirdiği modüle bağlı değil. Bazı telefonlarda çevirinin "Altyazı bekleniyor" yazısında takılı kalması düzeltildi.

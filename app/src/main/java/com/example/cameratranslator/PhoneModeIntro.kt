@@ -197,12 +197,12 @@ private fun IntroSteps(running: Boolean, captureBlocked: Boolean) {
             IntroCard(
                 Icons.Rounded.PhoneAndroid,
                 "Telefonda oynayın",
-                "Telefon ekranındaki oyunları doğrudan çevirebilirsiniz. Telefondan Xbox veya PlayStation oyunlarınıza Remote Play ile bağlanıp Türkçe çeviriyle oynayabilirsiniz."
+                "Telefon ekranındaki oyunları doğrudan çevirebilirsiniz. Telefondan Xbox oyunlarınıza Remote Play ile bağlanıp Türkçe çeviriyle oynayabilirsiniz."
             )
             IntroCard(
                 Icons.Rounded.Tv,
                 "İsterseniz televizyonda oynayın",
-                "Samsung telefonunuzu kabloyla televizyona bağlayın; DeX'te Xbox veya PlayStation Remote Play ile " +
+                "Samsung telefonunuzu kabloyla televizyona bağlayın; DeX'te Xbox Remote Play ile " +
                     "oyunlarınızı yüksek görüntü kalitesinde, Türkçe altyazıyla oynayın."
             )
             IntroCard(

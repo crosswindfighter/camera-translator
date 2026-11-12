@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -21,7 +22,21 @@ import androidx.compose.ui.unit.sp
  * Yeni sürümde buraya o sürümün maddeleri eklenir; notu olmayan sürümde pencere çıkmaz.
  */
 object ReleaseNotes {
+    /** Her "Yenilikler" penceresinin altında gösterilen teşekkür yazısı */
+    const val THANKS =
+        "Sorun bildiren, kayıt gönderen ve öneride bulunan herkese çok teşekkürler. Bu sürümdeki düzeltmelerin çoğu " +
+            "sizden gelen geri bildirimler sayesinde oldu. Uygulama sizinle birlikte gelişiyor; desteğiniz için minnettarız. 💙"
+
     private val NOTES = mapOf(
+        "1.1.4" to listOf(
+            "Ekran Çevirisi'nde siyah ekran uyarısı: ekran paylaşımından görüntü simsiyah gelirse ekranın ortasında uyarı çıkar. Yanlış uygulama seçildiğinde ya da seçilen uygulama ekran paylaşımını engellediğinde ne yapmanız gerektiğini anlatır.",
+            "Ekran Çevirisi'nin uyarıları, bildirimler kapalı olsa bile çeviri ekranının ortasında gösteriliyor.",
+            "Bir süre hiç yazı okunmazsa OCR alanlarını kontrol etmeniz için bir kez ipucu çıkar. Metin okuma çalışmazsa da uyarı gösterilir.",
+            "Kaydı indir: Hakkında > Sorun bildir kısmından kayıt dosyasını telefonun İndirilenler klasörüne kaydedebilirsiniz.",
+            "Ekran Çevirisi'nde sorunları bulmak için daha fazla bilgi kaydediliyor.",
+            "Ekran Çevirisi açıkken telefonu döndürünce uygulamanın kapanması düzeltildi.",
+            "PS Remote Play'in Ekran Çevirisi'nde çalışmadığı açıklamalara eklendi. Sony oyun görüntüsünü ekran paylaşımına kapatıyor; PlayStation için Kamera modunu kullanın. Xbox Remote Play sorunsuz çalışıyor."
+        ),
         "1.1.3" to listOf(
             "Metin okuma artık uygulamanın içinde geliyor; Google Play Hizmetleri'ne bağlı değil. Bazı telefonlarda çevirinin \"Altyazı bekleniyor\" yazısında takılı kalması sorunu düzeltildi.",
             "Metin okuma bir sorun yüzünden çalışamazsa ekranda ne yapmanız gerektiğini söyleyen bir uyarı çıkıyor.",
@@ -102,6 +117,13 @@ fun WhatsNewDialog(version: String, notes: List<String>, onDismiss: () -> Unit) 
                         Text(note, fontSize = 14.sp, lineHeight = 20.sp)
                     }
                 }
+                Text(
+                    ReleaseNotes.THANKS,
+                    fontSize = 13.sp,
+                    lineHeight = 19.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Harika") } }

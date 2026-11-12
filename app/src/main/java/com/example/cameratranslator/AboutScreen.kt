@@ -442,7 +442,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         fontSize = 15.sp
                     )
                     Text(
-                        text = "Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox veya PlayStation Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında \"Tek bir uygulamayı paylaş\" seçeneğiyle oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez. Mod çalışırken telefonun ekranı açık tutulur. Android 10 ve üstü gerekir.",
+                        text = "Kamera kullanmaz; telefonun kendi ekranını okur ve oyunun üstüne, İngilizce yazının tam yerine Türkçesini yazar. Asıl gücü Samsung DeX'te: Samsung telefonunuzu kabloyla televizyona bağlayıp DeX'te Xbox Remote Play'i açtığınızda oyun büyük ekranda çok net görünür; Türkçe altyazılar doğrudan İngilizce altyazının üstüne gelir ve televizyonda görünür. Oyunu televizyonda, sanki orijinal Türkçe altyazılıymış gibi oynarsınız. Telefonda oynanan oyunlarda da çalışır. PS Remote Play bu modda çalışmaz: Sony, oyun görüntüsünü ekran paylaşımına kapatıyor ve uygulamaya yalnızca siyah görüntü geliyor. PlayStation oyunları için Kamera modunu kullanın; Xbox Remote Play'de böyle bir kısıtlama yoktur, sorunsuz çalışır. DeX'e kablosuz (Smart View ile) bağlanmak bu modla çalışmaz: kablosuz DeX de telefonun ekran paylaşımını kullandığı için ikisi çakışır ve biri kapanır. Başlat'a basın, ekran paylaşımında \"Tek bir uygulamayı paylaş\" seçeneğiyle oyunu ya da Remote Play uygulamasını seçin; OCR alanlarını oyunun içinden, ekranın kenarındaki yüzen balonla yerleştirin. Oyunu oynarken çeviriler dokunmayı engellemez. Mod çalışırken telefonun ekranı açık tutulur. Android 10 ve üstü gerekir.",
                         fontSize = 14.sp,
                         lineHeight = 22.sp
                     )
@@ -678,7 +678,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 // Sorun bildirmenin yolu: geliştirici modu kaydı + Issues
                 Text(
                     text = "Bir sorun mu yaşıyorsunuz? Sürüm yazısına 7 kez dokunarak geliştirici modunu açın; uygulama " +
-                        "kayıt almaya başlar. Kaydı paylaş ile hazırlanan dosyayı aşağıdaki düğmeden açılan Issues sayfasına ekleyin.",
+                        "kayıt almaya başlar. Kaydı paylaş ile hazırlanan dosyayı (ya da Kaydı indir ile kaydettiğinizi) aşağıdaki düğmeden açılan Issues sayfasına ekleyin.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

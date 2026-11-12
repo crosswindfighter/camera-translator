@@ -1154,7 +1154,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         const val CAPTURE_BLOCKED_MESSAGE =
             "İki sebebi olabilir:\n" +
                 "• Ekran paylaşımında yanlış uygulama seçilmiş olabilir. Durdurup yeniden başlatın ve \"Tek bir uygulamayı paylaş\" seçeneğiyle " +
-                "oyunu oynadığınız uygulamayı seçin (örneğin PS Remote Play).\n" +
+                "oyunu oynadığınız uygulamayı seçin (örneğin Xbox Remote Play).\n" +
                 "• Seçtiğiniz uygulama ekran paylaşımını engelliyor olabilir. Bu durumda Ekran Çevirisi çalışmaz; oyunu " +
                 "televizyonda ya da monitörde açıp Kamera moduyla çevirebilirsiniz."
         /** Oyunun üstündeki kısa uyarı; ayrıntı Ekran Çevirisi'nin ana ekranında */
