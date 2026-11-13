@@ -32,9 +32,9 @@ val DisplayMode.label: String
 
 class SettingsManager(context: Context) {
     companion object {
-        /** Ekran Çevirisi geçiş hızları (ms). Yavaş rahatsız etmeyecek kadar kısa tutuldu. */
-        const val PHONE_TRANSITION_SLOW_MS = 280
-        const val PHONE_TRANSITION_FAST_MS = 120
+        /** Ekran Çevirisi geçiş hızları (ms). 120/280 gözle fark edilmiyordu, geçiş yok sanılıyordu. */
+        const val PHONE_TRANSITION_SLOW_MS = 450
+        const val PHONE_TRANSITION_FAST_MS = 220
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)

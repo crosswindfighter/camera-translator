@@ -239,7 +239,7 @@ private fun PhoneTranslationBox(
     // Yeni altyazı kutunun içinde hafifçe kayıp belirir; kutu yerinde kaldığı için alttaki İngilizce görünmez
     val textEnter = remember(translation.text) { Animatable(if (textEnterMs > 0) 0f else 1f) }
     LaunchedEffect(translation.text) { if (textEnterMs > 0) textEnter.animateTo(1f, tween(textEnterMs)) }
-    val textSlide = with(density) { 6.dp.toPx() }
+    val textSlide = with(density) { 10.dp.toPx() }
 
     val centerX = (textLeft + textRight) / 2f
     val boxLeft = (centerX - boxWidth / 2f).coerceIn(margin, maxOf(margin, container.width - margin - boxWidth))
