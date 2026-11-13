@@ -1,7 +1,5 @@
 package com.example.cameratranslator
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -30,10 +28,7 @@ import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -44,7 +39,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -108,9 +102,9 @@ fun PhoneScreenOverlay(service: PhoneScreenService) {
             }
         } else {
             for (index in 0 until count) {
-                FadingTranslationBox(
-                    service.translations.getOrNull(index), service.minFontSize(), containerSize, service.coverText.value, service.transitionMs()
-                )
+                service.translations.getOrNull(index)?.let { translation ->
+                    PhoneTranslationBox(translation, service.minFontSize(), containerSize, service.coverText.value)
+                }
             }
             // Ekran paylaşımı engelleniyor: uyarı oyunun üstünde gösterilir (bildirimler kapalıysa Toast hiç görünmüyor)
             val captureBlocked by PhoneScreenService.captureBlocked.collectAsState()
@@ -186,10 +180,7 @@ private fun PhoneTranslationBox(
     minFontSize: Float,
     container: Size,
     /** true: İngilizce yazının tam üstünde ve onu örter; false: hemen üstünde (yer yoksa altında) */
-    cover: Boolean,
-    boxAlpha: () -> Float,
-    /** Yazının belirme süresi; 0 ise hemen görünür */
-    textEnterMs: Int
+    cover: Boolean
 ) {
     if (container.width <= 0f || container.height <= 0f) return
     val density = LocalDensity.current
@@ -235,11 +226,6 @@ private fun PhoneTranslationBox(
     )
     val boxHeight = maxOf(layout.size.height + padY, if (cover) textBottom - textTop + coverPad * 2 else 0f)
 
-    // Yeni altyazı kutunun içinde hafifçe kayıp belirir; kutu yerinde kaldığı için alttaki İngilizce görünmez
-    val textEnter = remember(translation.text) { Animatable(if (textEnterMs > 0) 0f else 1f) }
-    LaunchedEffect(translation.text) { if (textEnterMs > 0) textEnter.animateTo(1f, tween(textEnterMs)) }
-    val textSlide = with(density) { 10.dp.toPx() }
-
     val centerX = (textLeft + textRight) / 2f
     val boxLeft = (centerX - boxWidth / 2f).coerceIn(margin, maxOf(margin, container.width - margin - boxWidth))
     val boxTop = if (cover) {
@@ -253,7 +239,6 @@ private fun PhoneTranslationBox(
         modifier = Modifier
             .offset { IntOffset(boxLeft.roundToInt(), boxTop.roundToInt()) }
             .size(with(density) { boxWidth.toDp() }, with(density) { boxHeight.toDp() })
-            .graphicsLayer { alpha = boxAlpha() }
             // Simsiyah: yarı saydamken oyunun kendi altyazısı arkadan seçiliyordu
             .background(Color.Black, RoundedCornerShape(6.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -262,46 +247,9 @@ private fun PhoneTranslationBox(
         Text(
             text = translation.text,
             style = style(fontSize),
-            modifier = Modifier
-                .fillMaxWidth()
-                .graphicsLayer {
-                    alpha = textEnter.value
-                    translationY = (1f - textEnter.value) * textSlide
-                }
+            modifier = Modifier.fillMaxWidth()
         )
     }
-}
-
-/**
- * Kutu anında belirir (sönükken alttaki İngilizce altyazı arkadan okunuyordu), içindeki yazı yumuşakça gelir ve
- * altyazı bitince son çeviriyle birlikte yumuşakça söner. Yalnızca görünüm: OCR ve
- * çeviri süresini etkilemez. [transitionMs] 0 ise (yumuşak geçiş kapalı) kutu ve yazı hemen çıkıp hemen kaybolur.
- * Yazı çabuk gelir (2/3), kutu ağır söner (5/4): okuma gecikmesin, kaybolması da sert olmasın.
- */
-@Composable
-private fun FadingTranslationBox(
-    current: PhoneScreenService.AreaTranslation?,
-    minFontSize: Float,
-    container: Size,
-    cover: Boolean,
-    transitionMs: Int
-) {
-    if (transitionMs <= 0) {
-        if (current != null) PhoneTranslationBox(current, minFontSize, container, cover, boxAlpha = { 1f }, textEnterMs = 0)
-        return
-    }
-    val last = remember { mutableStateOf<PhoneScreenService.AreaTranslation?>(null) }
-    SideEffect { if (current != null) last.value = current }
-    // Girişte animasyon yok: kutu hemen tam siyah olur, yoksa geçiş boyunca İngilizce yazı arkadan görünüyor
-    val alpha = remember { Animatable(0f) }
-    val visible = current != null
-    LaunchedEffect(visible) {
-        if (visible) alpha.snapTo(1f) else alpha.animateTo(0f, tween(transitionMs * 5 / 4))
-    }
-    val faded by remember { derivedStateOf { alpha.value <= 0f } }
-    if (current == null && faded) return
-    val translation = current ?: last.value ?: return
-    PhoneTranslationBox(translation, minFontSize, container, cover, boxAlpha = { if (visible) 1f else alpha.value }, textEnterMs = transitionMs * 2 / 3)
 }
 
 /** Yüzen düğme: sürüklenir; dokununca menü (alanları düzenle, uygulamaya dön, durdur). */

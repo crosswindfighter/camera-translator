@@ -347,8 +347,6 @@ private fun PhoneScreenSection() {
     val context = LocalContext.current
     val settings = remember { SettingsManager(context) }
     var size by remember { mutableFloatStateOf(settings.getPhoneMinFontSize()) }
-    var softTransition by remember { mutableStateOf(settings.getPhoneSoftTransition()) }
-    var transitionMs by remember { mutableIntStateOf(settings.getPhoneTransitionMs()) }
 
     Text("📱 Ekran Çevirisi", fontSize = 14.sp, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
     SettingSlider(
@@ -368,54 +366,6 @@ private fun PhoneScreenSection() {
         fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text("Yumuşak geçiş", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-        Switch(
-            checked = softTransition,
-            onCheckedChange = {
-                softTransition = it
-                settings.savePhoneSoftTransition(it)
-            }
-        )
-    }
-    if (softTransition) {
-        Text("Geçiş hızı", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(SectionCardStyle.segmentBackground(), RoundedCornerShape(12.dp))
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            listOf(SettingsManager.PHONE_TRANSITION_SLOW_MS to "Yavaş", SettingsManager.PHONE_TRANSITION_FAST_MS to "Hızlı").forEach { (durationMs, label) ->
-                val isSelected = durationMs == transitionMs
-                Surface(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(40.dp)
-                        .clickable {
-                            transitionMs = durationMs
-                            settings.savePhoneTransitionMs(durationMs)
-                        },
-                    color = if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Text(
-                            text = label,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 13.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-        }
-    }
 }
 
 /** Sinematik altyazıda önceki çevirilerin akış yönü ve kaç satırının görüneceği. */

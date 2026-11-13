@@ -32,9 +32,6 @@ val DisplayMode.label: String
 
 class SettingsManager(context: Context) {
     companion object {
-        /** Ekran Çevirisi geçiş hızları (ms). 120/280 gözle fark edilmiyordu, geçiş yok sanılıyordu. */
-        const val PHONE_TRANSITION_SLOW_MS = 450
-        const val PHONE_TRANSITION_FAST_MS = 220
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences("app_settings", Context.MODE_PRIVATE)
@@ -362,22 +359,6 @@ class SettingsManager(context: Context) {
 
     fun saveOpusNoticeDismissed() {
         prefs.edit().putBoolean("opus_notice_dismissed", true).apply()
-    }
-
-    /** Ekran Çevirisi: çeviri yumuşak geçişle mi gelsin, yoksa hemen mi çıksın */
-    fun getPhoneSoftTransition(): Boolean = prefs.getBoolean("phone_soft_transition", true)
-
-    fun savePhoneSoftTransition(enabled: Boolean) {
-        prefs.edit().putBoolean("phone_soft_transition", enabled).apply()
-    }
-
-    /** Ekran Çevirisi: yumuşak geçişin süresi (ms) */
-    fun getPhoneTransitionMs(): Int =
-        if (prefs.getInt("phone_transition_ms", PHONE_TRANSITION_FAST_MS) <= PHONE_TRANSITION_FAST_MS) PHONE_TRANSITION_FAST_MS
-        else PHONE_TRANSITION_SLOW_MS
-
-    fun savePhoneTransitionMs(durationMs: Int) {
-        prefs.edit().putInt("phone_transition_ms", durationMs).apply()
     }
 
     /** Telefon ekranı modundaki OCR alanı sayısı (1–3) */

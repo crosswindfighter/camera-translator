@@ -1073,9 +1073,6 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     /** Katman telefonun değil başka bir ekranın (DeX'te TV) üstünde mi */
     val onExternalDisplay: Boolean get() = overlayContext !== this
 
-    /** Çevirinin geçiş süresi; yumuşak geçiş kapalıysa 0 (hemen çıkar). */
-    fun transitionMs(): Int = if (settings.getPhoneSoftTransition()) settings.getPhoneTransitionMs() else 0
-
     fun openApp() {
         val intent = Intent(this, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
