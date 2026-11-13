@@ -239,6 +239,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         for (i in 0 until MAX_AREAS) translations[i] = null
         stabilizers.forEach { it.reset() }
         restartCapture()
+        // Yeni boyutta düğme başka bir yarıda kalmış olabilir; menünün yönü ona göre belirlenir
+        bubbleView?.post { anchorBubble() }
     }
 
     /**
@@ -982,6 +984,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         val view = composeView { PhoneScreenBubble(this) }
         bubbleView = view
         windowManager.addView(view, params)
+        // Ölçülür ölçülmez kenara bağlanır: yoksa menü ilk açılışta hep aşağı açılıp ekranın altında kalıyordu
+        view.post { anchorBubble() }
     }
 
     /** Yüzen düğme sürüklendi (pencere sağa/alta bağlıysa konum o kenardan ölçülür) */
@@ -1003,11 +1007,15 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     fun anchorBubble() {
         val params = bubbleParams ?: return
         val view = bubbleView ?: return
+        if (view.width == 0 || view.height == 0) return
         val (width, height) = screenSize()
         val fromRight = (params.gravity and Gravity.END) == Gravity.END
         val fromBottom = (params.gravity and Gravity.BOTTOM) == Gravity.BOTTOM
-        val left = if (fromRight) width - params.x - view.width else params.x
-        val top = if (fromBottom) height - params.y - view.height else params.y
+        // Ekran döndüyse eski konum dışarıda kalabilir
+        val left = (if (fromRight) width - params.x - view.width else params.x)
+            .coerceIn(0, maxOf(0, width - view.width))
+        val top = (if (fromBottom) height - params.y - view.height else params.y)
+            .coerceIn(0, maxOf(0, height - view.height))
         val onRight = left + view.width / 2 > width / 2
         val onBottom = top + view.height / 2 > height / 2
         bubbleOnRight.value = onRight
