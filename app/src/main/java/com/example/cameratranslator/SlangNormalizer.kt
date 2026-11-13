@@ -168,6 +168,9 @@ object SlangNormalizer {
         "\\bwanna\\b" to "want to",
         // "it's gotta be" = "it's got to be" ("it's have to be" çıkıyordu)
         "(?<=\\b(?:it|he|she|that|there)'s\\s)gotta\\b" to "got to",
+        // "I've gotta", "we have gotta": "have have to" oluyordu
+        "(?<=['’]ve\\s)gotta\\b" to "got to",
+        "(?<=\\bhave\\s)gotta\\b" to "got to",
         "\\bgotta\\b" to "have to",
         "\\blemme\\b" to "let me",
         "\\bgimme\\b" to "give me",

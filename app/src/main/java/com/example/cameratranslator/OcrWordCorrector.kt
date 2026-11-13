@@ -503,6 +503,8 @@ class OcrWordCorrector(
             // Düzeltici bozuyordu: rapel -> rape, Ballas -> Dallas, pube -> pure, mentorship -> mentor ship,
             // recommence -> recommend, carat -> car at, reformat -> reform at, lockup -> lock up, iFruit -> i fruit
             "rapel", "ballas", "pube", "mentorship", "recommence", "carat", "reformat", "lockup", "ifruit",
+            // uppity -> up pity, deify -> deity, squeals -> sgueals, ringworm -> ring worm, plinking -> linking
+            "uppity", "deify", "squeals", "squeal", "ringworm", "plinking", "plink",
             "oh", "ohh", "uh", "uhh", "um", "hmm", "ah", "ahh", "huh", "whoa", "wow", "ok", "okay",
             "nah", "yep", "yup", "hey", "shh", "ugh", "yo", "ya", "homie", "homies", "dawg", "bro", "cuz", "fam",
             "argh", "aargh", "ew", "eww", "yikes", "nope", "gee", "jeez", "damn", "dammit", "goddamn", "puke",
