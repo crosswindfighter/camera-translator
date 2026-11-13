@@ -276,6 +276,7 @@ private fun PhoneTranslationBox(
  * Kutu anında belirir (sönükken alttaki İngilizce altyazı arkadan okunuyordu), içindeki yazı yumuşakça gelir ve
  * altyazı bitince son çeviriyle birlikte yumuşakça söner. Yalnızca görünüm: OCR ve
  * çeviri süresini etkilemez. [transitionMs] 0 ise (yumuşak geçiş kapalı) kutu ve yazı hemen çıkıp hemen kaybolur.
+ * Yazı çabuk gelir (2/3), kutu ağır söner (5/4): okuma gecikmesin, kaybolması da sert olmasın.
  */
 @Composable
 private fun FadingTranslationBox(
@@ -300,7 +301,7 @@ private fun FadingTranslationBox(
     val faded by remember { derivedStateOf { alpha.value <= 0f } }
     if (current == null && faded) return
     val translation = current ?: last.value ?: return
-    PhoneTranslationBox(translation, minFontSize, container, cover, boxAlpha = { if (visible) 1f else alpha.value }, textEnterMs = transitionMs)
+    PhoneTranslationBox(translation, minFontSize, container, cover, boxAlpha = { if (visible) 1f else alpha.value }, textEnterMs = transitionMs * 2 / 3)
 }
 
 /** Yüzen düğme: sürüklenir; dokununca menü (alanları düzenle, uygulamaya dön, durdur). */
