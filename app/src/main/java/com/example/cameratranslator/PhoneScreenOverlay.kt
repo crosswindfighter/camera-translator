@@ -1,7 +1,6 @@
 package com.example.cameratranslator
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -274,7 +273,8 @@ private fun PhoneTranslationBox(
 }
 
 /**
- * Kutu çeviri yokken yumuşakça açılır, altyazı bitince son çeviriyle yumuşakça söner. Yalnızca görünüm: OCR ve
+ * Kutu anında belirir (sönükken alttaki İngilizce altyazı arkadan okunuyordu), içindeki yazı yumuşakça gelir ve
+ * altyazı bitince son çeviriyle birlikte yumuşakça söner. Yalnızca görünüm: OCR ve
  * çeviri süresini etkilemez. [transitionMs] 0 ise (yumuşak geçiş kapalı) kutu ve yazı hemen çıkıp hemen kaybolur.
  */
 @Composable
@@ -291,15 +291,16 @@ private fun FadingTranslationBox(
     }
     val last = remember { mutableStateOf<PhoneScreenService.AreaTranslation?>(null) }
     SideEffect { if (current != null) last.value = current }
-    val alpha = animateFloatAsState(
-        targetValue = if (current != null) 1f else 0f,
-        animationSpec = tween(if (current != null) transitionMs else transitionMs * 5 / 4),
-        label = "phoneBoxAlpha"
-    )
+    // Girişte animasyon yok: kutu hemen tam siyah olur, yoksa geçiş boyunca İngilizce yazı arkadan görünüyor
+    val alpha = remember { Animatable(0f) }
+    val visible = current != null
+    LaunchedEffect(visible) {
+        if (visible) alpha.snapTo(1f) else alpha.animateTo(0f, tween(transitionMs * 5 / 4))
+    }
     val faded by remember { derivedStateOf { alpha.value <= 0f } }
     if (current == null && faded) return
     val translation = current ?: last.value ?: return
-    PhoneTranslationBox(translation, minFontSize, container, cover, boxAlpha = { alpha.value }, textEnterMs = transitionMs)
+    PhoneTranslationBox(translation, minFontSize, container, cover, boxAlpha = { if (visible) 1f else alpha.value }, textEnterMs = transitionMs)
 }
 
 /** Yüzen düğme: sürüklenir; dokununca menü (alanları düzenle, uygulamaya dön, durdur). */
