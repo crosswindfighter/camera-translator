@@ -21,6 +21,8 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -303,10 +305,22 @@ private fun TranslationList(fontSize: Float) {
         }
     }
     val fresh = TranslationHistory.entries.filter { now - it.time <= LIST_MAX_AGE_MS }
-    val shown = fresh.takeLast(LIST_LINES)
+    // En yenisi başta: LazyColumn ters yerleşimde ilk öğeyi en alta koyar ve ölçmeye oradan başlar
+    val shown = fresh.takeLast(LIST_LINES).asReversed()
     val fadePx = with(LocalDensity.current) { LIST_FADE.toPx() }
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        Column(
+        if (shown.isEmpty() && TranslationHistory.entries.isEmpty()) {
+            Text(
+                text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = fontSize.sp,
+                lineHeight = (fontSize * 1.3f).sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp)
+            )
+            return@Box
+        }
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
@@ -321,19 +335,11 @@ private fun TranslationList(fontSize: Float) {
                         blendMode = BlendMode.DstIn
                     )
                 },
-            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)
+            reverseLayout = true,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            userScrollEnabled = false
         ) {
-            if (shown.isEmpty() && TranslationHistory.entries.isEmpty()) {
-                Text(
-                    text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
-                    color = Color.White.copy(alpha = 0.45f),
-                    fontSize = fontSize.sp,
-                    lineHeight = (fontSize * 1.3f).sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            shown.forEach { entry ->
+            items(shown, key = { it.id }) { entry ->
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         text = entry.translation,
