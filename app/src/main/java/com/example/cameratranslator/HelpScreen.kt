@@ -89,6 +89,20 @@ private val HELP_SECTIONS = listOf(
                 )
             ),
             HelpTopic(
+                "📺", "Oyunu televizyonda oynayıp telefondan takip etme",
+                listOf(
+                    "Ne işe yarar: Oyun televizyonda, telefon yanınızda durur. Çeviriler telefonda akan iri puntolu bir liste olarak görünür; anlamadığınız bir replik olunca telefona bakıp okursunuz. Oyunun görüntüsünün üstüne hiçbir şey yazılmaz.",
+                    "PlayStation için tek yol budur: PS Remote Play ekran paylaşımını engellediği için normal Ekran Çevirisi çalışmaz, ama konsoldan açtığınız yayın çalışır.",
+                    "1. Yayın açın: PS5'te Share menüsünden Twitch ya da YouTube'a canlı yayın başlatın. Xbox'ta da aynısını yapabilirsiniz.",
+                    "2. Telefonda açın: Twitch ya da YouTube uygulamasında kendi yayınınızı açın. İzlemek için değil, uygulamanın okuyabileceği bir görüntü olsun diye.",
+                    "3. Başlatın: Uygulamada Ekran Çevirisi'ne geçip Başlat'a basın, \"Tek bir uygulamayı paylaş\" ile Twitch'i (ya da YouTube'u) seçin.",
+                    "4. Alanı yerleştirin: Yüzen düğme → OCR alanlarını düzenle ile alanı altyazının olduğu yere koyun.",
+                    "5. Listeye geçin: Yüzen düğme → Liste görünümü. Telefonu yanınıza koyun, televizyondan oynayın.",
+                    "Gecikme: Yayında birkaç saniye gecikme olur. Televizyonda duyduğunuz repliğin çevirisi telefona biraz sonra gelir; kaçırdığınız yeri okumak için zaten yeterlidir.",
+                    "Yazı boyutu: Telefon uzaktaysa Ayarlar > 📱 Ekran Çevirisi'nden çeviri yazı boyutunu büyütün."
+                )
+            ),
+            HelpTopic(
                 "🎬", "Görünüm modları",
                 listOf(
                     "Sinematik: Çeviri iri ve net bir altyazı olarak gösterilir. Geçmiş çeviriler yumuşakça akar ve hiçbir zaman altyazının üstüne binmez. İsterseniz Ortadan akış seçilebilir.",
@@ -181,7 +195,8 @@ private val HELP_SECTIONS = listOf(
                 "🎮", "PS Remote Play neden çalışmıyor?",
                 listOf(
                     "Sony, PS Remote Play'de oyun görüntüsünü ekran paylaşımına kapatıyor; uygulamaya yalnızca siyah görüntü geliyor. Bu kısıtlama Sony'den kaynaklanır, uygulama tarafından aşılamaz.",
-                    "PlayStation oyunları için: Kamera modunu kullanın; televizyondaki altyazıyı kamerayla okuyup çevirir.",
+                    "Yayın yöntemi: PS5'ten Twitch ya da YouTube'a yayın açıp telefonda o yayını paylaşırsanız Ekran Çevirisi çalışır. Bu yöntem yukarıdaki \"Oyunu televizyonda oynayıp telefondan takip etme\" başlığında anlatılıyor.",
+                    "Kamera modu: Televizyondaki altyazıyı kamerayla okuyup çevirir; yayın açmak istemiyorsanız bu yolu kullanın.",
                     "Xbox Remote Play'de böyle bir kısıtlama yoktur, Ekran Çevirisi sorunsuz çalışır."
                 )
             ),

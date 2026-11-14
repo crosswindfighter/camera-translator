@@ -361,6 +361,16 @@ class SettingsManager(context: Context) {
         prefs.edit().putBoolean("opus_notice_dismissed", true).apply()
     }
 
+    /**
+     * Ekran Çevirisi: çeviri oyunun üstünde kutu içinde mi, yoksa telefonda akan bir liste olarak mı gösterilsin.
+     * Liste, oyunu televizyonda oynayıp telefondan takip etmek içindir.
+     */
+    fun getPhoneListView(): Boolean = prefs.getBoolean("phone_list_view", false)
+
+    fun savePhoneListView(enabled: Boolean) {
+        prefs.edit().putBoolean("phone_list_view", enabled).apply()
+    }
+
     /** Telefon ekranı modundaki OCR alanı sayısı (1–3) */
     fun getPhoneAreaCount(): Int = prefs.getInt("phone_area_count", 1).coerceIn(1, 3)
 

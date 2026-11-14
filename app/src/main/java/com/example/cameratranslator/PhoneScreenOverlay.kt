@@ -101,9 +101,13 @@ fun PhoneScreenOverlay(service: PhoneScreenService) {
                 ToolbarButton("Bitti", accent = true) { service.setEditing(false) }
             }
         } else {
-            for (index in 0 until count) {
-                service.translations.getOrNull(index)?.let { translation ->
-                    PhoneTranslationBox(translation, service.minFontSize(), containerSize, service.coverText.value)
+            if (service.listView.value) {
+                TranslationList(service.minFontSize())
+            } else {
+                for (index in 0 until count) {
+                    service.translations.getOrNull(index)?.let { translation ->
+                        PhoneTranslationBox(translation, service.minFontSize(), containerSize, service.coverText.value)
+                    }
                 }
             }
             // Ekran paylaşımı engelleniyor: uyarı oyunun üstünde gösterilir (bildirimler kapalıysa Toast hiç görünmüyor)
@@ -252,6 +256,57 @@ private fun PhoneTranslationBox(
     }
 }
 
+/** Liste görünümünde ekranda tutulan çeviri sayısı (en yenisi en altta). */
+private const val LIST_LINES = 6
+
+/**
+ * Liste görünümü: çeviri oyunun üstüne yazılmaz, telefonda akan bir liste olarak gösterilir. Oyun televizyonda
+ * oynanırken telefon yanda durur, kaçırılan replik oradan okunur. En yeni çeviri en altta, yukarıdakiler soluklaşır.
+ * İngilizcesi küçük puntoyla altında durur. Katman yakalamada gizlidir (bkz. PhoneScreenService.overlayFlags).
+ */
+@Composable
+private fun TranslationList(fontSize: Float) {
+    val shown = TranslationHistory.entries.takeLast(LIST_LINES)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xE6000000))
+            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)
+    ) {
+        if (shown.isEmpty()) {
+            Text(
+                text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
+                color = Color.White.copy(alpha = 0.45f),
+                fontSize = fontSize.sp,
+                lineHeight = (fontSize * 1.3f).sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        shown.forEachIndexed { index, entry ->
+            // En alttaki satır tam parlak; yukarı çıkıldıkça solar, böylece göz en yeniye gider
+            val fade = (1f - (shown.lastIndex - index) * 0.17f).coerceAtLeast(0.3f)
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = entry.translation,
+                    color = Color.White.copy(alpha = fade),
+                    fontSize = fontSize.sp,
+                    lineHeight = (fontSize * 1.3f).sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = entry.source,
+                    color = Color.White.copy(alpha = fade * 0.45f),
+                    fontSize = (fontSize * 0.6f).sp,
+                    lineHeight = (fontSize * 0.85f).sp
+                )
+            }
+        }
+    }
+}
+
 /** Yüzen düğme: sürüklenir; dokununca menü (alanları düzenle, uygulamaya dön, durdur). */
 @Composable
 fun PhoneScreenBubble(service: PhoneScreenService) {
@@ -297,6 +352,10 @@ private fun BubbleMenu(service: PhoneScreenService, editing: Boolean, close: () 
     ) {
         BubbleItem(if (editing) "Düzenlemeyi bitir" else "OCR alanlarını düzenle") {
             service.setEditing(!editing)
+            close()
+        }
+        BubbleItem(if (service.listView.value) "Liste görünümü  ✓" else "Liste görünümü") {
+            service.setListView(!service.listView.value)
             close()
         }
         BubbleItem("Uygulamaya dön") {

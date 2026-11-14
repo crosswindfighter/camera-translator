@@ -126,6 +126,11 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      * siyah görünür (yazı kapanır); bu fark edilince çeviri yazının hemen üstüne (yanına) alınır.
      */
     val coverText = mutableStateOf(true)
+    /**
+     * Çeviri oyunun üstüne yazılmak yerine akan bir liste olarak gösterilir (oyun televizyonda, telefon yanında).
+     * Liste yakalamada gizlenir, yoksa OCR kendi çevirisini okur.
+     */
+    val listView = mutableStateOf(false)
     /** Oyunun üstünde kısa süre gösterilen bilgi notu (Toast yerine: bildirimler kapalıysa Toast hiç görünmüyor) */
     val notice = mutableStateOf<String?>(null)
     private var noticeJob: Job? = null
@@ -177,6 +182,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         settings = SettingsManager(this)
         windowManager = getSystemService(WINDOW_SERVICE) as WindowManager
         areaCount.value = settings.getPhoneAreaCount()
+        listView.value = settings.getPhoneListView()
+        current = this
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -255,6 +262,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     }
 
     override fun onDestroy() {
+        if (current === this) current = null
         _running.value = false
         _captureBlocked.value = false
         captureJob?.cancel()
@@ -868,7 +876,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         // Oyun sırasında dokunulmaz: dokunuşlar oyuna gider
         if (!editing) flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        if (hideFromCapture) flags = flags or WindowManager.LayoutParams.FLAG_SECURE
+        if (hideFromCapture || listView.value) flags = flags or WindowManager.LayoutParams.FLAG_SECURE
         // Katman telefonun ekranındaysa telefonun ekranını açık tutar (bkz. keepPhoneScreenOn)
         if (overlayContext === this) flags = flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         return flags
@@ -1063,6 +1071,15 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         if (!editing) stabilizers.forEach { it.reset() }
     }
 
+    /** Liste görünümü açılıp kapanır; katman yakalamada gizleneceği için pencere bayrakları yenilenir. */
+    fun setListView(enabled: Boolean) {
+        if (listView.value == enabled) return
+        listView.value = enabled
+        settings.savePhoneListView(enabled)
+        for (i in 0 until MAX_AREAS) translations[i] = null
+        applyWindowFlags()
+    }
+
     fun setAreaCount(count: Int) {
         val value = count.coerceIn(1, MAX_AREAS)
         areaCount.value = value
@@ -1147,6 +1164,14 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         private const val EXTRA_DISPLAY_ID = "display_id"
         private const val ACTION_STOP = "com.example.cameratranslator.STOP_PHONE_SCREEN"
 
+
+        /** Çalışan servis: Ayarlar'dan yapılan değişiklik oyuna dönmeden uygulanır (onDestroy'da temizlenir) */
+        private var current: PhoneScreenService? = null
+
+        /** Ayarlar ekranından liste görünümü değiştirildi: servis çalışıyorsa hemen uygulanır */
+        fun applyListView(enabled: Boolean) {
+            current?.setListView(enabled)
+        }
 
         private val _running = MutableStateFlow(false)
         /** Telefon ekranı modu çalışıyor mu (ana ekrandaki Başlat/Durdur için) */
