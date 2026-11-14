@@ -132,6 +132,12 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      * "tüm ekran" seçilmişse OCR kendi yazısını okur ve katman her zamanki gibi yakalamada gizlenir.
      */
     val listView = mutableStateOf(false)
+    /**
+     * Paylaşılan uygulama ekranda değil (başka bir uygulamaya geçildi): yakalanan görüntü simsiyah gelir.
+     * Liste tüm ekranı kapladığı için bu durumda gizlenir, yoksa açtığın uygulamanın üstünde durmaya devam eder.
+     */
+    val captureDark = mutableStateOf(false)
+    private var darkSince = 0L
     /** Oyunun üstünde kısa süre gösterilen bilgi notu (Toast yerine: bildirimler kapalıysa Toast hiç görünmüyor) */
     val notice = mutableStateOf<String?>(null)
     private var noticeJob: Job? = null
@@ -364,6 +370,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             val frame = withContext(Dispatchers.Default) { grabFrame() }
             if (frame == null) {
                 checkBlackFrame(null)
+                checkCaptureDark(null)
                 // Görüntü değişmeyince yeni kare gelmez; uzun sürerse yakalama durmuş olabilir (geliştirici logu)
                 if (!stallLogged && System.currentTimeMillis() - lastFrameAt > STALL_LOG_MS) {
                     stallLogged = true
@@ -377,6 +384,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             }
             lastFrameAt = System.currentTimeMillis()
             checkBlackFrame(frame)
+            checkCaptureDark(frame)
             checkNoTextHint()
             try {
                 for (index in 0 until areaCount.value) {
@@ -393,6 +401,30 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
      * Korumalı uygulamalar (FLAG_SECURE) ekran paylaşımına simsiyah görüntü verir; o zaman OCR hiçbir şey okuyamaz.
      * Görüntü bir süre kesintisiz simsiyah gelirse kullanıcı uyarılır, görüntü gelince uyarı kalkar.
      */
+    /**
+     * Liste görünümü tüm ekranı kapladığı için, paylaşılan uygulama arka plana geçince (görüntü simsiyah gelir)
+     * liste gizlenir ve kullanıcı açtığı uygulamayı görür. Geri dönülünce ilk siyah olmayan karede geri gelir.
+     * [checkBlackFrame]'den ayrıdır: o, yazı bir kez okunduktan sonra susar; bu her zaman çalışır.
+     */
+    private fun checkCaptureDark(frame: Bitmap?) {
+        if (!listView.value) {
+            darkSince = 0L
+            if (captureDark.value) captureDark.value = false
+            return
+        }
+        val dark = if (frame == null) darkSince != 0L else isBlackFrame(frame)
+        if (!dark) {
+            darkSince = 0L
+            if (captureDark.value) captureDark.value = false
+            return
+        }
+        if (darkSince == 0L) darkSince = System.currentTimeMillis()
+        if (!captureDark.value && System.currentTimeMillis() - darkSince >= LIST_DARK_MS) {
+            captureDark.value = true
+            OcrDebugDumper.logPipeline("Telefon ekranı", "Paylaşılan uygulama görünmüyor, liste gizlendi", endOfEntry = true)
+        }
+    }
+
     private fun checkBlackFrame(frame: Bitmap?) {
         // Bu oturumda yazı okunabildiyse paylaşım engellenmiyor demektir: oyundaki siyah sahneler uyarı çıkarmasın
         if (captureProvenOk) return
@@ -1205,6 +1237,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         /** Art arda bu kadar OCR hatası gelirse uyarılır (kamera modundaki gibi) */
         private const val OCR_FAILING_COUNT = 10
         /** Görüntü bu kadar süre kesintisiz simsiyah gelirse uyarılır (oyunların kısa siyah geçişleri sayılmasın) */
+        /** Liste görünümü bu kadar siyah kareden sonra gizlenir (başka uygulamaya geçildi) */
+        private const val LIST_DARK_MS = 1_500L
         private const val BLACK_WARN_MS = 8_000L
         /** Bu parlaklığın (0-255) üstünde tek bir örnek piksel bile varsa görüntü siyah sayılmaz */
         private const val BLACK_PIXEL_LEVEL = 6

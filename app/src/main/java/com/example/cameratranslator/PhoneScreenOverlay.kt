@@ -109,7 +109,8 @@ fun PhoneScreenOverlay(service: PhoneScreenService) {
             }
         } else {
             if (service.listView.value) {
-                TranslationList(service.minFontSize())
+                // Paylaşılan uygulama ekranda değilse liste gizlenir, yoksa öndeki uygulamanın üstünde kalır
+                if (!service.captureDark.value) TranslationList(service.minFontSize())
             } else {
                 for (index in 0 until count) {
                     service.translations.getOrNull(index)?.let { translation ->
