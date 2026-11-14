@@ -264,11 +264,12 @@ private fun PhoneTranslationBox(
     }
 }
 
-/** Liste görünümünde ekranda tutulan çeviri sayısı (en yenisi en altta) */
-private const val LIST_LINES = 8
-/** İri puntoda daha az satır: yoksa altı çeviri ekrana sığmıyor */
-private const val LIST_LINES_BIG = 3
-private const val LIST_BIG_FONT = 30f
+/**
+ * Listede hazır tutulan çeviri sayısı (en yenisi en altta). Ekrana sığandan fazlası bilerek verilir: liste alta
+ * yaslanır, sığmayanlar üstten kırpılır ve üst kenarda sönerek kaybolur. Yazı boyutuna göre azaltılmaz, yoksa
+ * iri puntoda satırlar ekranın ortasında yok oluyor.
+ */
+private const val LIST_LINES = 14
 /** Tek bir çeviri ekranı kaplamasın */
 private const val LIST_MAX_LINES = 3
 /** Eski satırlar ekranın üst kenarına yaklaşırken bu yükseklik boyunca sönerek kaybolur */
@@ -286,7 +287,7 @@ private val LIST_FADE = 80.dp
  */
 @Composable
 private fun TranslationList(fontSize: Float) {
-    val shown = TranslationHistory.entries.takeLast(if (fontSize >= LIST_BIG_FONT) LIST_LINES_BIG else LIST_LINES)
+    val shown = TranslationHistory.entries.takeLast(LIST_LINES)
     val fadePx = with(LocalDensity.current) { LIST_FADE.toPx() }
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         Column(
