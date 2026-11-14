@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -308,6 +309,10 @@ private fun TranslationList(fontSize: Float) {
     // En yenisi başta: LazyColumn ters yerleşimde ilk öğeyi en alta koyar ve ölçmeye oradan başlar
     val shown = fresh.takeLast(LIST_LINES).asReversed()
     val fadePx = with(LocalDensity.current) { LIST_FADE.toPx() }
+    // Yeni çeviri listenin başına ekleniyor; LazyColumn eski satırı sabit tutup yenisini alt kenarın
+    // dışında bırakıyor. Her yeni satırda listeyi başa (en alta) çekiyoruz.
+    val listState = rememberLazyListState()
+    LaunchedEffect(shown.firstOrNull()?.id) { listState.scrollToItem(0) }
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (shown.isEmpty() && TranslationHistory.entries.isEmpty()) {
             Text(
@@ -321,6 +326,7 @@ private fun TranslationList(fontSize: Float) {
             return@Box
         }
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
