@@ -60,7 +60,6 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import kotlinx.coroutines.delay
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -275,11 +274,6 @@ private fun PhoneTranslationBox(
  * iri puntoda satırlar ekranın ortasında yok oluyor.
  */
 private const val LIST_LINES = 14
-/**
- * Listede bir çeviri bu kadar süre kalır. Eskiler silinmeyince ekran dakikalar önceki repliklerle doluyor, yeni
- * çeviri en altta belirse bile göz onu yakalayamıyor ve çeviri gecikiyormuş gibi görünüyordu.
- */
-private const val LIST_MAX_AGE_MS = 20_000L
 /** Tek bir çeviri ekranı kaplamasın */
 private const val LIST_MAX_LINES = 3
 /** Eski satırlar ekranın üst kenarına yaklaşırken bu yükseklik boyunca sönerek kaybolur */
@@ -297,24 +291,16 @@ private val LIST_FADE = 80.dp
  */
 @Composable
 private fun TranslationList(fontSize: Float) {
-    // Saniyede bir yenilenir: yeni çeviri gelmese de süresi dolan satırlar ekrandan düşsün
-    var now by remember { mutableStateOf(System.currentTimeMillis()) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(1_000)
-            now = System.currentTimeMillis()
-        }
-    }
-    val fresh = TranslationHistory.entries.filter { now - it.time <= LIST_MAX_AGE_MS }
-    // En yenisi başta: LazyColumn ters yerleşimde ilk öğeyi en alta koyar ve ölçmeye oradan başlar
-    val shown = fresh.takeLast(LIST_LINES).asReversed()
+    // En yenisi başta: LazyColumn ters yerleşimde ilk öğeyi en alta koyar ve ölçmeye oradan başlar.
+    // Satırlar zamanla silinmez; yalnızca yenileri geldikçe yukarı itilip üst kenarda sönerek kaybolur.
+    val shown = TranslationHistory.entries.takeLast(LIST_LINES).asReversed()
     val fadePx = with(LocalDensity.current) { LIST_FADE.toPx() }
     // Yeni çeviri listenin başına ekleniyor; LazyColumn eski satırı sabit tutup yenisini alt kenarın
     // dışında bırakıyor. Her yeni satırda listeyi başa (en alta) çekiyoruz.
     val listState = rememberLazyListState()
     LaunchedEffect(shown.firstOrNull()?.id) { listState.scrollToItem(0) }
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        if (shown.isEmpty() && TranslationHistory.entries.isEmpty()) {
+        if (shown.isEmpty()) {
             Text(
                 text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
                 color = Color.White.copy(alpha = 0.45f),
