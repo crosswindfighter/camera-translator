@@ -505,6 +505,8 @@ class OcrWordCorrector(
             "rapel", "ballas", "pube", "mentorship", "recommence", "carat", "reformat", "lockup", "ifruit",
             // uppity -> up pity, deify -> deity, squeals -> sgueals, ringworm -> ring worm, plinking -> linking
             "uppity", "deify", "squeals", "squeal", "ringworm", "plinking", "plink",
+            // Azerbaijanis -> Azerbaijani (cogul "s" siliniyordu), Raspberry -> Whiskey (isim bozuluyordu)
+            "azerbaijani", "azerbaijanis", "raspberry", "raspberries",
             "oh", "ohh", "uh", "uhh", "um", "hmm", "ah", "ahh", "huh", "whoa", "wow", "ok", "okay",
             "nah", "yep", "yup", "hey", "shh", "ugh", "yo", "ya", "homie", "homies", "dawg", "bro", "cuz", "fam",
             "argh", "aargh", "ew", "eww", "yikes", "nope", "gee", "jeez", "damn", "dammit", "goddamn", "puke",
