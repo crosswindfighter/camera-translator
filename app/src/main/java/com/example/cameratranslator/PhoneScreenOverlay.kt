@@ -336,7 +336,9 @@ private fun TranslationList(fontSize: Float) {
                     )
                 },
             reverseLayout = true,
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            // Ters yerleşimde varsayılan hizalama Bottom'dır; spacedBy'ı hizalamasız yazmak onu Top yapıp
+            // listeyi ekranın üstüne itiyor ve altta boşluk bırakıyordu
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom),
             userScrollEnabled = false
         ) {
             items(shown, key = { it.id }) { entry ->
