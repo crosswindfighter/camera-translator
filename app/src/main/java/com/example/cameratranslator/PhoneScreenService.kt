@@ -128,7 +128,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
     val coverText = mutableStateOf(true)
     /**
      * Çeviri oyunun üstüne yazılmak yerine akan bir liste olarak gösterilir (oyun televizyonda, telefon yanında).
-     * Liste yakalamada gizlenir, yoksa OCR kendi çevirisini okur.
+     * "Tek bir uygulamayı paylaş" seçildiğinde katman yakalanmadığı için liste ekran görüntüsüne de girer;
+     * "tüm ekran" seçilmişse OCR kendi yazısını okur ve katman her zamanki gibi yakalamada gizlenir.
      */
     val listView = mutableStateOf(false)
     /** Oyunun üstünde kısa süre gösterilen bilgi notu (Toast yerine: bildirimler kapalıysa Toast hiç görünmüyor) */
@@ -876,7 +877,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
         // Oyun sırasında dokunulmaz: dokunuşlar oyuna gider
         if (!editing) flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-        if (hideFromCapture || listView.value) flags = flags or WindowManager.LayoutParams.FLAG_SECURE
+        if (hideFromCapture) flags = flags or WindowManager.LayoutParams.FLAG_SECURE
         // Katman telefonun ekranındaysa telefonun ekranını açık tutar (bkz. keepPhoneScreenOn)
         if (overlayContext === this) flags = flags or WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         return flags
@@ -1071,7 +1072,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         if (!editing) stabilizers.forEach { it.reset() }
     }
 
-    /** Liste görünümü açılıp kapanır; katman yakalamada gizleneceği için pencere bayrakları yenilenir. */
+    /** Liste görünümü açılıp kapanır; ekrandaki eski kutular temizlenir. */
     fun setListView(enabled: Boolean) {
         if (listView.value == enabled) return
         listView.value = enabled

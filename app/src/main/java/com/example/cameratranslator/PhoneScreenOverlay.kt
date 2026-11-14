@@ -37,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -45,6 +46,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -256,21 +258,29 @@ private fun PhoneTranslationBox(
     }
 }
 
-/** Liste görünümünde ekranda tutulan çeviri sayısı (en yenisi en altta). */
+/** Liste görünümünde ekranda tutulan çeviri sayısı (en yenisi en altta) */
 private const val LIST_LINES = 6
+/** İri puntoda daha az satır: yoksa altı çeviri ekrana sığmıyor */
+private const val LIST_LINES_BIG = 3
+private const val LIST_BIG_FONT = 30f
+/** Tek bir çeviri ekranı kaplamasın */
+private const val LIST_MAX_LINES = 3
 
 /**
  * Liste görünümü: çeviri oyunun üstüne yazılmaz, telefonda akan bir liste olarak gösterilir. Oyun televizyonda
  * oynanırken telefon yanda durur, kaçırılan replik oradan okunur. En yeni çeviri en altta, yukarıdakiler soluklaşır.
- * İngilizcesi küçük puntoyla altında durur. Katman yakalamada gizlidir (bkz. PhoneScreenService.overlayFlags).
+ * İngilizcesi küçük puntoyla altında durur.
+ *
+ * En yeni satır her zaman tam görünür: liste alta yaslanır, sığmayan eski satırlar üstten kırpılır (clipToBounds).
  */
 @Composable
 private fun TranslationList(fontSize: Float) {
-    val shown = TranslationHistory.entries.takeLast(LIST_LINES)
+    val shown = TranslationHistory.entries.takeLast(if (fontSize >= LIST_BIG_FONT) LIST_LINES_BIG else LIST_LINES)
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color(0xE6000000))
+            .clipToBounds()
             .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)
@@ -294,13 +304,21 @@ private fun TranslationList(fontSize: Float) {
                     color = Color.White.copy(alpha = fade),
                     fontSize = fontSize.sp,
                     lineHeight = (fontSize * 1.3f).sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    maxLines = LIST_MAX_LINES,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Text(
                     text = entry.source,
                     color = Color.White.copy(alpha = fade * 0.45f),
                     fontSize = (fontSize * 0.6f).sp,
-                    lineHeight = (fontSize * 0.85f).sp
+                    lineHeight = (fontSize * 0.85f).sp,
+                    textAlign = TextAlign.Center,
+                    maxLines = LIST_MAX_LINES,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
