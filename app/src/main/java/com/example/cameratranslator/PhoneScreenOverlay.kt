@@ -38,8 +38,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -259,67 +264,81 @@ private fun PhoneTranslationBox(
 }
 
 /** Liste görünümünde ekranda tutulan çeviri sayısı (en yenisi en altta) */
-private const val LIST_LINES = 6
+private const val LIST_LINES = 8
 /** İri puntoda daha az satır: yoksa altı çeviri ekrana sığmıyor */
 private const val LIST_LINES_BIG = 3
 private const val LIST_BIG_FONT = 30f
 /** Tek bir çeviri ekranı kaplamasın */
 private const val LIST_MAX_LINES = 3
+/** Eski satırlar ekranın üst kenarına yaklaşırken bu yükseklik boyunca sönerek kaybolur */
+private val LIST_FADE = 80.dp
 
 /**
  * Liste görünümü: çeviri oyunun üstüne yazılmaz, telefonda akan bir liste olarak gösterilir. Oyun televizyonda
  * oynanırken telefon yanda durur, kaçırılan replik oradan okunur. En yeni çeviri en altta, yukarıdakiler soluklaşır.
  * İngilizcesi küçük puntoyla altında durur.
  *
- * En yeni satır her zaman tam görünür: liste alta yaslanır, sığmayan eski satırlar üstten kırpılır (clipToBounds).
+ * En yeni satır her zaman tam görünür: liste alta yaslanır, eski satırlar yukarı çıktıkça ekranın üst kenarına
+ * yaklaşırken sönerek kaybolur. Solma satır sayısına değil konuma bağlıdır: yazı ister iri ister ufak olsun
+ * satırlar hep aynı yerde, üst çerçevenin dibinde kaybolur. Oyunun görüntüsü tamamen kapatılır (siyah zemin),
+ * çünkü oyun televizyonda izlenir ve arkadaki görüntü yalnızca okumayı zorlaştırır.
  */
 @Composable
 private fun TranslationList(fontSize: Float) {
     val shown = TranslationHistory.entries.takeLast(if (fontSize >= LIST_BIG_FONT) LIST_LINES_BIG else LIST_LINES)
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xE6000000))
-            .clipToBounds()
-            .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)
-    ) {
-        if (shown.isEmpty()) {
-            Text(
-                text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
-                color = Color.White.copy(alpha = 0.45f),
-                fontSize = fontSize.sp,
-                lineHeight = (fontSize * 1.3f).sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-        shown.forEachIndexed { index, entry ->
-            // En alttaki satır tam parlak; yukarı çıkıldıkça solar, böylece göz en yeniye gider
-            val fade = (1f - (shown.lastIndex - index) * 0.17f).coerceAtLeast(0.3f)
-            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    val fadePx = with(LocalDensity.current) { LIST_FADE.toPx() }
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.systemBars.union(WindowInsets.displayCutout))
+                .padding(horizontal = 20.dp, vertical = 16.dp)
+                .clipToBounds()
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawWithContent {
+                    drawContent()
+                    val fade = (fadePx / size.height).coerceIn(0.01f, 0.5f)
+                    drawRect(
+                        brush = Brush.verticalGradient(0f to Color.Transparent, fade to Color.Black),
+                        blendMode = BlendMode.DstIn
+                    )
+                },
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)
+        ) {
+            if (shown.isEmpty()) {
                 Text(
-                    text = entry.translation,
-                    color = Color.White.copy(alpha = fade),
+                    text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
+                    color = Color.White.copy(alpha = 0.45f),
                     fontSize = fontSize.sp,
                     lineHeight = (fontSize * 1.3f).sp,
-                    fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
-                    maxLines = LIST_MAX_LINES,
-                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth()
                 )
-                Text(
-                    text = entry.source,
-                    color = Color.White.copy(alpha = fade * 0.45f),
-                    fontSize = (fontSize * 0.6f).sp,
-                    lineHeight = (fontSize * 0.85f).sp,
-                    textAlign = TextAlign.Center,
-                    maxLines = LIST_MAX_LINES,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            }
+            shown.forEach { entry ->
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(
+                        text = entry.translation,
+                        color = Color.White,
+                        fontSize = fontSize.sp,
+                        lineHeight = (fontSize * 1.3f).sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        maxLines = LIST_MAX_LINES,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = entry.source,
+                        color = Color.White.copy(alpha = 0.45f),
+                        fontSize = (fontSize * 0.6f).sp,
+                        lineHeight = (fontSize * 0.85f).sp,
+                        textAlign = TextAlign.Center,
+                        maxLines = LIST_MAX_LINES,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
