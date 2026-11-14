@@ -23,9 +23,7 @@ import androidx.compose.ui.unit.sp
  */
 object ReleaseNotes {
     /** Her "Yenilikler" penceresinin altında gösterilen teşekkür yazısı */
-    const val THANKS =
-        "Sorun bildiren, kayıt gönderen ve öneride bulunan herkese çok teşekkürler. Bu sürümdeki düzeltmelerin çoğu " +
-            "sizden gelen geri bildirimler sayesinde oldu. Uygulama sizinle birlikte gelişiyor; desteğiniz için minnettarız. 💙"
+    const val THANKS = "Sorun bildiren, kayıt gönderen ve öneride bulunan herkese teşekkürler."
 
     private val NOTES = mapOf(
         "1.1.5" to listOf(
