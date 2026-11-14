@@ -921,9 +921,17 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         return flags
     }
 
+    /**
+     * Pencerenin saydamlığı. Android oyun üstündeki katmanlara kendiliğinden 0,8 alfa veriyor; kutu modunda bu hafif
+     * saydamlık iyi duruyor, o yüzden aynen korunur. Liste görünümü ise tüm ekranı kaplar ve arkadaki oyunun
+     * görünmemesi gerekir, orada alfa 1'e çekilir.
+     */
+    private fun overlayAlpha(): Float = if (listView.value) 1f else BOX_OVERLAY_ALPHA
+
     private fun applyWindowFlags() {
         overlayParams?.let { params ->
             params.flags = overlayFlags(isEditing.value)
+            params.alpha = overlayAlpha()
             overlayView?.let { runCatching { windowManager.updateViewLayout(it, params) } }
         }
         bubbleParams?.let { params ->
@@ -993,6 +1001,7 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
             PixelFormat.TRANSLUCENT
         ).apply {
             gravity = Gravity.TOP or Gravity.START
+            alpha = overlayAlpha()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
             }
@@ -1238,6 +1247,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         private const val OCR_FAILING_COUNT = 10
         /** Görüntü bu kadar süre kesintisiz simsiyah gelirse uyarılır (oyunların kısa siyah geçişleri sayılmasın) */
         /** Liste görünümü bu kadar siyah kareden sonra gizlenir (başka uygulamaya geçildi) */
+        /** Kutu modunda pencere saydamlığı: Android'in katmana verdiği değer (kullanıcı bu hali seviyor) */
+        private const val BOX_OVERLAY_ALPHA = 0.8f
         private const val LIST_DARK_MS = 1_500L
         private const val BLACK_WARN_MS = 8_000L
         /** Bu parlaklığın (0-255) üstünde tek bir örnek piksel bile varsa görüntü siyah sayılmaz */
