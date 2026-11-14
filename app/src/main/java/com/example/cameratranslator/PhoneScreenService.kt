@@ -1249,7 +1249,8 @@ class PhoneScreenService : Service(), LifecycleOwner, SavedStateRegistryOwner {
         /** Liste görünümü bu kadar siyah kareden sonra gizlenir (başka uygulamaya geçildi) */
         /** Kutu modunda pencere saydamlığı: Android'in katmana verdiği değer (kullanıcı bu hali seviyor) */
         private const val BOX_OVERLAY_ALPHA = 0.8f
-        private const val LIST_DARK_MS = 1_500L
+        /** Liste görünümü bu kadar siyah kareden sonra gizlenir. Kare aralığı 120 ms olduğu için bu iki-üç kare: başka uygulamaya geçince liste gözle görülür şekilde beklemez. */
+        private const val LIST_DARK_MS = 300L
         private const val BLACK_WARN_MS = 8_000L
         /** Bu parlaklığın (0-255) üstünde tek bir örnek piksel bile varsa görüntü siyah sayılmaz */
         private const val BLACK_PIXEL_LEVEL = 6
