@@ -28,6 +28,13 @@ object ReleaseNotes {
             "sizden gelen geri bildirimler sayesinde oldu. Uygulama sizinle birlikte gelişiyor; desteğiniz için minnettarız. 💙"
 
     private val NOTES = mapOf(
+        "1.1.5" to listOf(
+            "Ekran Çevirisi'ne liste görünümü: çeviri oyunun üstüne yazılmak yerine telefonda akan iri puntolu bir liste olarak gösterilir. Oyunu televizyonda oynayıp kaçırdığınız replikleri telefondan okumak içindir. Ayarlar'dan ya da oyunun içinde yüzen düğmeden açılır.",
+            "PlayStation oyuncuları için yeni bir yol: PS5'ten Twitch ya da YouTube'a yayın açıp telefonda o yayını paylaşırsanız Ekran Çevirisi çalışır. PS Remote Play'in engeli bu yöntemde yok. Adım adım anlatımı Nasıl kullanılır sayfasında.",
+            "Ekran Çevirisi'nde çeviri artık beklemeden, hazır olduğu an gösteriliyor. Yumuşak geçiş seçeneği kaldırıldı: oyunun kendi altyazısı da aniden geldiği için geçiş hem okumayı geciktiriyor hem de alttaki İngilizce yazıyı sızdırıyordu.",
+            "Ekran Çevirisi'nde yüzen düğmenin menüsü ilk açılışta ekranın altında kalıyordu, düzeltildi.",
+            "Birkaç çeviri hatası düzeltildi: \"I've gotta\" bozuk Türkçe üretiyordu; uppity, deify, ringworm gibi doğru okunan kelimeler yanlışlıkla değiştiriliyordu."
+        ),
         "1.1.4" to listOf(
             "Yeni Nasıl kullanılır sayfası: menüden açılır. Uygulamanın A'dan Z'ye kullanımı, daha iyi sonuç için taktikler ve sık sorulan sorular burada.",
             "Ekran Çevirisi'nde siyah ekran uyarısı: ekran paylaşımından görüntü simsiyah gelirse ekranın ortasında uyarı çıkar. Yanlış uygulama seçildiğinde ya da seçilen uygulama ekran paylaşımını engellediğinde ne yapmanız gerektiğini anlatır.",
