@@ -29,6 +29,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
@@ -56,6 +57,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -270,6 +272,11 @@ private fun PhoneTranslationBox(
  * iri puntoda satırlar ekranın ortasında yok oluyor.
  */
 private const val LIST_LINES = 14
+/**
+ * Listede bir çeviri bu kadar süre kalır. Eskiler silinmeyince ekran dakikalar önceki repliklerle doluyor, yeni
+ * çeviri en altta belirse bile göz onu yakalayamıyor ve çeviri gecikiyormuş gibi görünüyordu.
+ */
+private const val LIST_MAX_AGE_MS = 20_000L
 /** Tek bir çeviri ekranı kaplamasın */
 private const val LIST_MAX_LINES = 3
 /** Eski satırlar ekranın üst kenarına yaklaşırken bu yükseklik boyunca sönerek kaybolur */
@@ -287,7 +294,16 @@ private val LIST_FADE = 80.dp
  */
 @Composable
 private fun TranslationList(fontSize: Float) {
-    val shown = TranslationHistory.entries.takeLast(LIST_LINES)
+    // Saniyede bir yenilenir: yeni çeviri gelmese de süresi dolan satırlar ekrandan düşsün
+    var now by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1_000)
+            now = System.currentTimeMillis()
+        }
+    }
+    val fresh = TranslationHistory.entries.filter { now - it.time <= LIST_MAX_AGE_MS }
+    val shown = fresh.takeLast(LIST_LINES)
     val fadePx = with(LocalDensity.current) { LIST_FADE.toPx() }
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         Column(
@@ -307,7 +323,7 @@ private fun TranslationList(fontSize: Float) {
                 },
             verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)
         ) {
-            if (shown.isEmpty()) {
+            if (shown.isEmpty() && TranslationHistory.entries.isEmpty()) {
                 Text(
                     text = "Çeviriler burada listelenecek. OCR alanının altyazının üstünde olduğundan emin olun.",
                     color = Color.White.copy(alpha = 0.45f),
