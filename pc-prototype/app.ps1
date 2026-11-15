@@ -757,7 +757,7 @@ function New-Caption([string]$text, [int]$x, [int]$y, [int]$w = 150) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'CameraTranslator PC'
 $form.FormBorderStyle = 'None'
-$form.Size = New-Object System.Drawing.Size 520, 640
+$form.Size = New-Object System.Drawing.Size 520, 670
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = $C.Bg
 $form.ForeColor = $C.Text
@@ -878,7 +878,7 @@ $sld.Add_MouseUp({ $script:sliderDrag = $false })
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox, $lblOpaCap, $sld, $lblOpaVal))
 
 # --- Alan ---
-$cardArea = New-Card 20 272 480 112
+$cardArea = New-Card 20 272 480 142
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
@@ -898,7 +898,24 @@ $chkLlm.FlatStyle = 'Flat'
 $chkLlm.ForeColor = $C.Muted
 $chkLlm.BackColor = [System.Drawing.Color]::Transparent
 $chkLlm.Checked = [bool]$script:cfg.gelismisOcr
-$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm))
+
+$chkEngine = New-Object System.Windows.Forms.CheckBox
+$chkEngine.Text = 'Çeviriyi de model yapsın (deneysel)'
+$chkEngine.SetBounds(18, 96, 320, 24)
+$chkEngine.FlatStyle = 'Flat'
+$chkEngine.ForeColor = $C.Muted
+$chkEngine.BackColor = [System.Drawing.Color]::Transparent
+$chkEngine.Checked = ([string]$script:cfg.motor -eq 'llm')
+
+$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm, $chkEngine))
+
+$chkEngine.Add_CheckedChanged({
+    $script:cfg.motor = $(if ($chkEngine.Checked) { 'llm' } else { 'opus' })
+    Save-Settings
+    Write-Line $(if ($chkEngine.Checked) {
+        'Çeviriyi model yapacak (' + $script:cfg.llmModel + ') — sonraki başlatmada geçerli'
+      } else { 'Çeviriyi OPUS yapacak — sonraki başlatmada geçerli' })
+  })
 
 $chkLlm.Add_CheckedChanged({
     $script:cfg.gelismisOcr = [bool]$chkLlm.Checked
@@ -909,20 +926,20 @@ $chkLlm.Add_CheckedChanged({
 # --- Baslat ---
 $btnStart = New-Object System.Windows.Forms.Button
 $btnStart.Text = 'BAŞLAT'
-$btnStart.SetBounds(20, 398, 480, 54)
+$btnStart.SetBounds(20, 428, 480, 54)
 $btnStart.FlatStyle = 'Flat'; $btnStart.FlatAppearance.BorderSize = 0
 $btnStart.BackColor = $C.Go; $btnStart.ForeColor = [System.Drawing.Color]::White
 $btnStart.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
 Set-Rounded $btnStart 14
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.SetBounds(20, 458, 480, 22)
+$lblStatus.SetBounds(20, 488, 480, 22)
 $lblStatus.ForeColor = $C.Muted
 $lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 8.75)
 $lblStatus.TextAlign = 'MiddleCenter'
 
 # --- Kayit ---
-$cardLog = New-Card 20 486 480 134
+$cardLog = New-Card 20 516 480 134
 $lblLogCap = New-Caption 'KAYIT' 18 10 200
 $lblLogCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 $txtLog = New-Object System.Windows.Forms.TextBox
