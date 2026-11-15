@@ -1,0 +1,11 @@
+{
+  "yaziTipi": "Segoe UI",
+  "yaziRengi": "#FFFFFF",
+  "kutuRengi": "#000000",
+  "saydamlik": 1.0,
+  "alan": null,
+  "ayrintiliKayit": false,
+  "gelismisOcr": false,
+  "motor": "opus",
+  "llmModel": "aya-expanse:8b"
+}

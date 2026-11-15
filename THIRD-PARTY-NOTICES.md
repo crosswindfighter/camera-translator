@@ -58,6 +58,22 @@ Apache License 2.0 metni: https://www.apache.org/licenses/LICENSE-2.0
 
 ---
 
+## 💻 PC sürümü bileşenleri
+
+PC sürümü (`pc-prototype/`) aşağıdakileri kullanır. Hiçbiri uygulamayla birlikte
+dağıtılmaz; kullanıcı kendi makinesine kurar.
+
+| Bileşen | Kullanım | Lisans |
+|---|---|---|
+| [Windows.Media.Ocr](https://learn.microsoft.com/uwp/api/windows.media.ocr) (Microsoft) | Ekrandaki yazıyı okuma; Windows'un kendi bileşeni | Windows lisansı |
+| [ONNX Runtime](https://github.com/microsoft/onnxruntime) (Microsoft) | OPUS modelini bilgisayarda çalıştırma | MIT |
+| [NumPy](https://numpy.org/) | Sayısal işlemler | BSD-3-Clause |
+| [Ollama](https://github.com/ollama/ollama) | Yerel dil modeli sunucusu (isteğe bağlı) | MIT |
+| [Aya Expanse 8B](https://huggingface.co/CohereLabs/aya-expanse-8b) (Cohere Labs) | Gelişmiş OCR düzeltme (isteğe bağlı) | **CC-BY-NC 4.0 — ticari olmayan kullanım** |
+
+> Aya Expanse ticari olmayan kullanım için lisanslıdır. "Gelişmiş OCR düzeltme"
+> seçeneği kapalıyken uygulama bu modele hiç dokunmaz; çeviri yalnızca OPUS ile yapılır.
+
 ## Çevrimiçi servisler
 
 Google Translate, Google Cloud Translation ve Google Cloud Text-to-Speech modlarında çeviri ve seslendirme Google servisleri üzerinden yapılır; bu servisler Google'ın kendi kullanım koşullarına tabidir. Google Cloud servisleri kullanıcının kendi API anahtarıyla çalışır ve ücretlendirmesi Google Cloud'a bağlıdır.

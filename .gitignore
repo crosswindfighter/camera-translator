@@ -21,3 +21,14 @@ local.properties
 
 
 
+
+# PC uygulamasi: kod repoda, kisisel veriler degil
+/pc-prototype/kayit_*.txt
+/pc-prototype/run*.txt
+/pc-prototype/app_log.txt
+/pc-prototype/settings.json
+/pc-prototype/regions.json
+/pc-prototype/__pycache__/
+/pc-prototype/models/
+/pc-prototype/*.bmp
+/pc-prototype/*.png
