@@ -30,6 +30,13 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
+public class ShellNative {
+    // Gorev cubugu simgeyi pencereden degil surecin kimliginden aliyor; kimlik
+    // verilmezse pencere powershell.exe'nin simgesiyle gruplaniyor.
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
+    public static extern int SetCurrentProcessExplicitAppUserModelID(string id);
+}
+
 public class DpiNative {
     [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
     [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
@@ -38,6 +45,9 @@ public class DpiNative {
     [DllImport("gdi32.dll")] public static extern int GetDeviceCaps(IntPtr dc, int i);
 }
 '@
+
+# Kimlik ILK pencereden once verilmeli, sonra etkisi olmuyor
+try { [void][ShellNative]::SetCurrentProcessExplicitAppUserModelID('CameraTranslator.PC') } catch { }
 
 try {
   # PER_MONITOR_AWARE_V2; eski Windows'ta bu cagri yoksa eski yonteme duser
@@ -108,9 +118,17 @@ $settingsPath = Join-Path $root 'settings.json'
 $logPath = Join-Path $root 'app_log.txt'
 
 # Python yorumlayicisi: -Python ile verilen, CT_PYTHON, yanindaki .venv, sonra PATH
+# Tasinabilir pakette Python programin yaninda, 'python' klasorunde durur ve
+# HER ZAMAN once o kullanilir. Bulunursa listenin gerisine hic bakilmaz:
+# paket icinde kendi Python'u varken sistemdekine dusmek, paketi kuran
+# makinede sessizce calisip baska makinede 'No module named numpy' vermek
+# demek -- nitekim oyle oldu.
+$script:paketPython = Join-Path $root 'python\python.exe'
+
 function Resolve-Python([string]$given) {
   if ($given -and (Test-Path $given)) { return $given }
   if ($env:CT_PYTHON -and (Test-Path $env:CT_PYTHON)) { return $env:CT_PYTHON }
+  if (Test-Path $script:paketPython) { return $script:paketPython }
   foreach ($p in @(
       (Join-Path $root '.venv\Scripts\python.exe'),
       (Join-Path $root 'venv\Scripts\python.exe'),
@@ -1674,6 +1692,10 @@ function Start-Translator {
   $ready = $script:proc.StandardOutput.ReadLine()
   if ($ready -notlike 'READY*') {
     Write-Line ('Çeviri motoru açılmadı. Gelen yanıt: ' + $ready)
+    Write-Line ('Kullanılan Python: ' + $Python)
+    if (-not (Test-Path $script:paketPython)) {
+      Write-Line 'Paketin kendi python klasörü yok. ZIP eksik çıkarılmış olabilir — tekrar çıkarın.'
+    }
     try { Write-Line ('Python hatası: ' + $script:proc.StandardError.ReadToEnd()) } catch { }
     return $false
   }
@@ -2122,6 +2144,7 @@ if ($SelfTest) {
 }
 
 Write-Line ('— uygulama açıldı — sürüm ' + $APP_SURUM)
+Write-Line ('Python: ' + $(if ($Python -eq $script:paketPython) { 'paketin kendi sürümü' } else { $Python }))
 # Acilista bir kez bakilir; internet yoksa sessizce gecilir
 $script:acilisKontrol = New-Object System.Windows.Forms.Timer
 $script:acilisKontrol.Interval = 1500
