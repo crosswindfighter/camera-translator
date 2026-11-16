@@ -19,7 +19,7 @@ ekran alanı  →  Windows OCR  →  düzeltme  →  OPUS çeviri  →  şeffaf 
 | | |
 |---|---|
 | Windows 10 / 11 | OCR için `en-US` dil paketi kurulu olmalı |
-| Python 3.10+ | `numpy` ve `onnxruntime` paketleriyle |
+| Python 3.10+ | `numpy`, `onnxruntime` ve `rapidocr-onnxruntime` |
 | OPUS model dosyaları | aşağıda |
 | *(isteğe bağlı)* Ollama + GPU | gelişmiş OCR düzeltme için |
 
@@ -39,7 +39,7 @@ Listede `en-US` yoksa: **Ayarlar → Saat ve dil → Dil ve bölge → İngilizc
 
 ```bash
 python -m venv .venv
-.venv\Scripts\pip install numpy onnxruntime
+.venv\Scripts\pip install numpy onnxruntime rapidocr-onnxruntime
 ```
 
 Betikler Python'u şu sırayla arar: `-Python` parametresi → `CT_PYTHON` ortam
@@ -125,7 +125,11 @@ Cümlelerin yalnızca ~%22'si modele gider (şüpheli kelime içerenler), ortala
 
 ## Nasıl çalışıyor
 
-- **OCR** — Windows'un kendi motoru (`Windows.Media.Ocr`). Kurulum gerektirmez, çevrimdışıdır.
+- **OCR** — PP-OCR (PaddleOCR) modelleri, ONNX üzerinde (`rapidocr-onnxruntime`).
+  Windows'un kendi motoruyla kullanıcının gerçek oyun kareleri üzerinde karşılaştırıldı:
+  gerçek kelime oranı %76 → %83, hiç okunamayan kare 40 → 20, ve en önemlisi aynı
+  altyazıyı kareden kareye aynı okuyor (Windows motoru `Dont / Dohrt / d6n't` diye
+  her karede farklı okuyordu). Kare başı ~100-170 ms.
 - **Alan filtresi** — bir satırdaki kelimeler boşluklara göre gruplanır; yalnızca ortayı
   kapsayan gruplar tutulur, kenardaki HUD yazıları atılır.
 - **Kararlılık** — altyazı her karede biraz farklı okunur. 1,5 saniyelik pencerede iki benzer

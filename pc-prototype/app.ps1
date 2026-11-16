@@ -148,6 +148,10 @@ function Start-DevLog {
   if (-not [bool]$script:cfg.ayrintiliKayit) { $script:devPath = ''; return }
   $name = 'kayit_' + (Get-Date).ToString('yyyyMMdd_HHmmss') + '.txt'
   $script:devPath = Join-Path $root $name
+  # Ham kareler: motor kiyasi icin
+  $script:frameDir = Join-Path $root ('kareler_' + (Get-Date).ToString('yyyyMMdd_HHmmss'))
+  if (-not (Test-Path $script:frameDir)) { [void](New-Item -ItemType Directory -Path $script:frameDir) }
+  $script:frameSaved = 0
   $script:devBuf.Clear()
   $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
   $a = $script:cfg.alan
@@ -168,6 +172,10 @@ function Start-DevLog {
 }
 
 function Stop-DevLog {
+  if ($script:frameDir -ne '') {
+    Write-Line ('Ham kare kaydedildi: ' + $script:frameSaved + ' adet')
+    $script:frameDir = ''
+  }
   if ($script:devPath -eq '') { return }
   Write-Dev '------------------------------------------------------------------------------'
   Flush-Dev
@@ -297,50 +305,33 @@ function Get-TextThreshold($bitmap) {
   return $t
 }
 
+# Ayrintili kayit acikken ham kareler de saklanir: OCR motorlarini GERCEK
+# goruntuyle kiyaslayabilmek icin. JPEG, kalite 60, en fazla $FRAME_LIMIT kare.
+$FRAME_LIMIT = 500
+$script:frameDir = ''
+$script:frameSaved = 0
+
+function Save-Frame($bitmap) {
+  if ($script:frameDir -eq '' -or $script:frameSaved -ge $FRAME_LIMIT) { return }
+  try {
+    $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() | Where-Object { $_.MimeType -eq 'image/jpeg' }
+    $pars = New-Object System.Drawing.Imaging.EncoderParameters 1
+    $pars.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter ([System.Drawing.Imaging.Encoder]::Quality), ([long]60)
+    $name = 'kare_' + (Get-Date).ToString('HHmmss_fff') + '.jpg'
+    $bitmap.Save((Join-Path $script:frameDir $name), $codec, $pars)
+    $script:frameSaved++
+  } catch { }
+}
+
 function Grab-Region([int]$rx, [int]$ry, [int]$rw, [int]$rh, [string]$out) {
+  # PP-OCR ham goruntuyle calisiyor: esikleme ve buyutme gereksiz, kendi olcegini seciyor
   $raw = New-Object System.Drawing.Bitmap $rw, $rh
   $g = [System.Drawing.Graphics]::FromImage($raw)
   $g.CopyFromScreen($rx, $ry, 0, 0, (New-Object System.Drawing.Size $rw, $rh))
   $g.Dispose()
-
-  if (-not $script:sharpen) {
-    $scale = 2
-    $big = New-Object System.Drawing.Bitmap ($rw * $scale), ($rh * $scale)
-    $gb = [System.Drawing.Graphics]::FromImage($big)
-    $gb.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-    $gb.DrawImage($raw, 0, 0, $rw * $scale, $rh * $scale)
-    $gb.Dispose()
-    $big.Save($out, [System.Drawing.Imaging.ImageFormat]::Bmp)
-    $raw.Dispose(); $big.Dispose()
-    return
-  }
-
-  # 3x buyut + griye cevir + esikle: hepsi tek gecis, GDI+ tarafinda (piksel dongusu yok)
-  $t = (Get-TextThreshold $raw) / 255.0
-  $c = 24.0                      # dikligi: bu kadar sert kontrast esik gibi davranir
-  $off = 0.5 + $t * $c           # ters cevirme: parlak yazi -> siyah, arka plan -> beyaz
-  $m = New-Object 'single[][]' 5
-  for ($i = 0; $i -lt 5; $i++) { $m[$i] = New-Object single[] 5 }
-  $rr = [single](-0.299 * $c); $gg = [single](-0.587 * $c); $bb = [single](-0.114 * $c)
-  $m[0][0] = $rr; $m[0][1] = $rr; $m[0][2] = $rr
-  $m[1][0] = $gg; $m[1][1] = $gg; $m[1][2] = $gg
-  $m[2][0] = $bb; $m[2][1] = $bb; $m[2][2] = $bb
-  $m[3][3] = [single]1.0
-  $m[4][0] = [single]$off; $m[4][1] = [single]$off; $m[4][2] = [single]$off
-  $m[4][4] = [single]1.0
-  $matrix = New-Object System.Drawing.Imaging.ColorMatrix (, $m)
-  $attr = New-Object System.Drawing.Imaging.ImageAttributes
-  $attr.SetColorMatrix($matrix)
-
-  $scale = 2
-  $big = New-Object System.Drawing.Bitmap ($rw * $scale), ($rh * $scale)
-  $gb = [System.Drawing.Graphics]::FromImage($big)
-  $gb.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $dest = New-Object System.Drawing.Rectangle 0, 0, ($rw * $scale), ($rh * $scale)
-  $gb.DrawImage($raw, $dest, 0, 0, $rw, $rh, [System.Drawing.GraphicsUnit]::Pixel, $attr)
-  $gb.Dispose(); $attr.Dispose()
-  $big.Save($out, [System.Drawing.Imaging.ImageFormat]::Bmp)
-  $raw.Dispose(); $big.Dispose()
+  Save-Frame $raw
+  $raw.Save($out, [System.Drawing.Imaging.ImageFormat]::Bmp)
+  $raw.Dispose()
 }
 
 function Clear-Junk([string]$text) {
@@ -576,7 +567,7 @@ $script:lastFit = $true
 # OCR'in olctugu yazi yuksekligi karede zipliyor (alt/ust uzantili harf varsa buyuyor).
 # Punto bu zipli degeri degil, son okumalarin medyanini kullanir; yoksa yazi titriyor.
 $script:sharpen = [bool]$script:cfg.keskinlestir
-$script:captureScale = 2
+$script:captureScale = 1
 $script:lineHeights = New-Object System.Collections.ArrayList
 $script:stableLineH = 0
 # Son okumalar (pencere): altyazi bir karede bozuk okunsa bile ikinci bir benzer
@@ -988,7 +979,7 @@ $cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm, $chkSharp))
 $chkSharp.Add_CheckedChanged({
     $script:cfg.keskinlestir = [bool]$chkSharp.Checked
     $script:sharpen = [bool]$chkSharp.Checked
-    $script:captureScale = 2
+    $script:captureScale = 1
     Save-Settings
     Write-Line $(if ($chkSharp.Checked) { 'Yazı keskinleştirme açık' } else { 'Yazı keskinleştirme kapalı' })
   })
@@ -1264,8 +1255,10 @@ $timer.Add_Tick({
       Grab-Region $a.X $a.Y $a.W $a.H $script:framePath
       $swCap.Stop()
       $swOcr = [System.Diagnostics.Stopwatch]::StartNew()
-      $res = Read-ImageText $script:framePath
+      $script:writer.WriteLine("#ocr`t" + $script:framePath + "`t" + $a.W)
+      $ocrReply = $script:proc.StandardOutput.ReadLine()
       $swOcr.Stop()
+      if ($null -eq $ocrReply) { throw 'okuma sureci yanit vermedi' }
       $script:capMs = [int]$swCap.ElapsedMilliseconds
       $script:ocrMs = [int]$swOcr.ElapsedMilliseconds
       $script:frameCount++
@@ -1281,13 +1274,20 @@ $timer.Add_Tick({
     }
 
     try {
-      # Ham okuma (filtreden once) — kayitta filtrenin ne attigi gorunsun
-      $rawParts = @()
-      foreach ($l in $res.Lines) { $rawParts += [string]$l.Text }
-      $raw = ($rawParts -join ' ').Trim()
-
-      # Kenarlardaki HUD yazilarini at, sadece ortadaki altyaziyi al
-      $sub = Get-Subtitle $res $a.X $a.Y ($a.W * $script:captureScale)
+      # Yanit: ms <TAB> x,y,w,h <TAB> satir <TAB> metin  (kenardaki HUD zaten elenmis)
+      $parts = $ocrReply.Split("`t")
+      $raw = if ($parts.Count -gt 3) { $parts[3] } else { '' }
+      $sub = $null
+      if ($raw -ne '' -and $parts[1] -ne '') {
+        $xy = $parts[1].Split(',')
+        $sub = @{
+          Text  = $raw
+          Lines = [int]$parts[2]
+          Rect  = New-Object System.Drawing.Rectangle `
+            ([int]$a.X + [int]$xy[0]), ([int]$a.Y + [int]$xy[1]), ([int]$xy[2]), ([int]$xy[3])
+          Dropped = @()
+        }
+      }
       $text = if ($null -eq $sub) { '' } else { Clear-Junk $sub.Text }
       $key = Get-Key $text
       $blankLimit = [math]::Max(1, [int]($HOLD_MS / $READ_MS))

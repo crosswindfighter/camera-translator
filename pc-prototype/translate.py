@@ -444,6 +444,27 @@ def main():
             continue
         if text == "__quit__":
             break
+        # Ekran okuma: "#ocr<TAB>dosya<TAB>genislik" -> "ms<TAB>x,y,w,h<TAB>satir<TAB>metin"
+        if text.startswith("#ocr\t"):
+            parts = text.split("\t")
+            path = parts[1] if len(parts) > 1 else ''
+            width = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+            t0 = time.time()
+            try:
+                import ocr
+                found = ocr.read(path, width)
+            except Exception as exc:
+                print("ocr hatasi: %s" % exc, file=sys.stderr)
+                found = None
+            ms = int((time.time() - t0) * 1000)
+            if found is None:
+                print("%d\t\t0\t" % ms, flush=True)
+            else:
+                body, lines, rect = found
+                print("%d\t%d,%d,%d,%d\t%d\t%s" % (
+                    ms, rect[0], rect[1], rect[2], rect[3], lines,
+                    body.replace("\t", " ")), flush=True)
+            continue
         t0 = time.time()
         try:
             out = engine.translate(text)
