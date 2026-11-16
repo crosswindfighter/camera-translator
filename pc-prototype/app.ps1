@@ -404,12 +404,31 @@ function Save-Frame($bitmap) {
   } catch { }
 }
 
+# Yakalanan kare tek renk mi: 'tam ekran (exclusive)' modunda calisan oyunlarda
+# CopyFromScreen simsiyah doner, OCR hicbir sey bulamaz ve disaridan bakinca
+# program calisiyor ama ceviri gelmiyor gibi gorunur. Birkac yuz piksele
+# bakmak yeterli, kare basina maliyeti yok denecek kadar az.
+function Test-BlankFrame($bitmap) {
+  $ilk = $null
+  $adimX = [math]::Max(1, [int]($bitmap.Width / 24))
+  $adimY = [math]::Max(1, [int]($bitmap.Height / 10))
+  for ($y = 0; $y -lt $bitmap.Height; $y += $adimY) {
+    for ($x = 0; $x -lt $bitmap.Width; $x += $adimX) {
+      $px = $bitmap.GetPixel($x, $y).ToArgb()
+      if ($null -eq $ilk) { $ilk = $px }
+      elseif ($px -ne $ilk) { return $false }
+    }
+  }
+  return $true
+}
+
 function Grab-Region([int]$rx, [int]$ry, [int]$rw, [int]$rh, [string]$out) {
   # PP-OCR ham goruntuyle calisiyor: esikleme ve buyutme gereksiz, kendi olcegini seciyor
   $raw = New-Object System.Drawing.Bitmap $rw, $rh
   $g = [System.Drawing.Graphics]::FromImage($raw)
   $g.CopyFromScreen($rx, $ry, 0, 0, (New-Object System.Drawing.Size $rw, $rh))
   $g.Dispose()
+  if (Test-BlankFrame $raw) { $script:blankGrabs++ } else { $script:blankGrabs = 0 }
   Save-Frame $raw
   $raw.Save($out, [System.Drawing.Imaging.ImageFormat]::Bmp)
   $raw.Dispose()
@@ -1808,7 +1827,12 @@ function Step-Area($st) {
       $script:writer.WriteLine("#ocr`t" + $script:framePath + "`t" + $a.W + "`t" + $st.Mode)
       $ocrReply = Wait-Reply
       $swOcr.Stop()
-      if ($null -eq $ocrReply) { throw 'okuma sureci yanit vermedi' }
+      # Durdurma sirasinda sureci kapatiyoruz; bekleyen okuma bos doner,
+      # bu bir hata degil
+      if ($null -eq $ocrReply) {
+        if (-not $script:running) { return }
+        throw 'okuma sureci yanit vermedi'
+      }
       $st.capMs = [int]$swCap.ElapsedMilliseconds
       $st.ocrMs = [int]$swOcr.ElapsedMilliseconds
       $script:frameCount++
@@ -1839,6 +1863,17 @@ function Step-Area($st) {
         }
       }
       $text = if ($null -eq $sub) { '' } else { Clear-Junk $sub.Text }
+
+      # Program calisiyor ama ekrana ceviri gelmiyorsa sebebi genelde bu ikisi.
+      # Ayrintili kayit kapaliyken de gorulsun diye normal kayda, bir kere.
+      if ($raw -eq '') { $script:noTextFrames++ } else { $script:noTextFrames = 0 }
+      if ($script:blankGrabs -ge 60 -and -not $script:blankWarned) {
+        $script:blankWarned = $true
+        Write-Line 'Ekran görüntüsü bomboş geliyor. Oyun tam ekran (exclusive) modunda olabilir — kenarlıksız pencere moduna alın.'
+      } elseif ($script:noTextFrames -ge 120 -and -not $script:noTextWarned) {
+        $script:noTextWarned = $true
+        Write-Line 'Alan okunuyor ama uzun süredir hiçbir yazı bulunamadı. OCR alanı altyazının üstünde mi?'
+      }
       $key = Get-Key $text
       $blankLimit = [math]::Max(1, [int]($HOLD_MS / $READ_MS))
 
@@ -2080,6 +2115,8 @@ function Start-Run {
   $script:latencies = New-Object System.Collections.ArrayList
   $script:paused = $false; $script:prevF8 = $false; $script:errorStreak = 0
   $script:frameCount = 0; $script:cacheHits = 0; $script:warnCount = 0
+  $script:blankGrabs = 0; $script:blankWarned = $false
+  $script:noTextFrames = 0; $script:noTextWarned = $false
   $script:lastSummary = Get-Date
   $script:gameWindow = [IntPtr]::Zero
   $script:lockAt = (Get-Date).AddSeconds(4)
