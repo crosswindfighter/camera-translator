@@ -830,7 +830,7 @@ function New-Caption([string]$text, [int]$x, [int]$y, [int]$w = 150) {
 }
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'CameraTranslator PC'
+$form.Text = 'Camera Translator PC'
 $form.FormBorderStyle = 'None'
 $form.Size = New-Object System.Drawing.Size 520, 656
 $form.StartPosition = 'CenterScreen'
@@ -843,11 +843,9 @@ if (Test-Path $icoPath) { try { $form.Icon = New-Object System.Drawing.Icon($ico
 $bar = New-Object System.Windows.Forms.Panel
 $bar.SetBounds(0, 0, 520, 52)
 $bar.BackColor = $C.Bg
-$dot = New-Object System.Windows.Forms.Panel
-$dot.SetBounds(22, 20, 12, 12); $dot.BackColor = $C.Accent; Set-Rounded $dot 6
 $lblTitle = New-Object System.Windows.Forms.Label
-$lblTitle.Text = 'CameraTranslator'
-$lblTitle.SetBounds(44, 16, 260, 24)
+$lblTitle.Text = 'Camera Translator'
+$lblTitle.SetBounds(22, 16, 300, 24)
 $lblTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 11.5)
 $lblTitle.ForeColor = $C.Text
 $lblTitle.BackColor = [System.Drawing.Color]::Transparent
@@ -899,7 +897,7 @@ $btnTheme.Add_Paint({
     $ink.Dispose()
   })
 $ttTheme = New-Object System.Windows.Forms.ToolTip
-$bar.Controls.AddRange(@($dot, $lblTitle, $btnTheme, $btnMin, $btnClose))
+$bar.Controls.AddRange(@($lblTitle, $btnTheme, $btnMin, $btnClose))
 $drag = {
   param($s, $e)
   if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
