@@ -15,7 +15,8 @@ param(
   [string]$Hedef,
   [string]$Surum = '3.13.15',
   [string]$ModelKlasoru,
-  [switch]$Zip
+  [switch]$Zip,
+  [switch]$SadeceProgram
 )
 
 $ErrorActionPreference = 'Stop'
@@ -25,7 +26,42 @@ $py = Join-Path $Hedef 'python'
 
 function Say([string]$t) { Write-Host ('  ' + $t) -ForegroundColor Cyan }
 
+# Guncellenen dosyalar yalnizca bunlar. python\ ve models\ aylarca ayni kalir,
+# o yuzden -SadeceProgram onlara hic dokunmuyor.
+$PROGRAM_DOSYALARI = @('app.ps1', 'ocr.py', 'translate.py', 'corrector.py', 'slang.py',
+                       'ocrfix.py', 'llm.py', 'Baslat.vbs', 'app.ico', 'banner.png', 'README.md')
+
+# Surum app.ps1'den okunur ki tek yerde dursun
+$appKaynak = Get-Content (Join-Path $root 'app.ps1') -Raw -Encoding UTF8
+$APP_SURUM = '0.0.0'
+if ($appKaynak -match "\`$APP_SURUM\s*=\s*'([^']+)'") { $APP_SURUM = $Matches[1] }
+$ETIKET = 'pc-v' + $APP_SURUM
+
+
+# Sadece program dosyalarini tazele: Python ve model yerinde kalir, 2 saniye surer
+if ($SadeceProgram) {
+  if (-not (Test-Path (Join-Path $Hedef 'python\python.exe'))) {
+    throw ('Burada kurulu bir paket yok: ' + $Hedef)
+  }
+  foreach ($f in $PROGRAM_DOSYALARI) {
+    $src = Join-Path $root $f
+    if (Test-Path $src) { Copy-Item $src $Hedef -Force }
+  }
+  $vk = Join-Path $root '..\app\src\main\assets'
+  if (Test-Path (Join-Path $vk 'ocr_vocab.tsv')) {
+    $vh = Join-Path $Hedef 'assets'
+    New-Item -ItemType Directory -Path $vh -Force | Out-Null
+    foreach ($v in @('ocr_vocab.tsv', 'ocr_unigrams.tsv', 'ocr_bigrams.bin', 'en_words.txt')) {
+      $vs = Join-Path $vk $v
+      if (Test-Path $vs) { Copy-Item $vs $vh -Force }
+    }
+  }
+  Write-Host ('  Program dosyalari guncellendi: ' + $Hedef + '  (surum ' + $APP_SURUM + ')') -ForegroundColor Green
+  return
+}
+
 if (Test-Path $Hedef) { Remove-Item $Hedef -Recurse -Force }
+
 New-Item -ItemType Directory -Path $Hedef -Force | Out-Null
 
 # ---------- 1. Gomulu Python ----------
@@ -215,8 +251,7 @@ class Baslatici {
 
 # ---------- 4. Program dosyalari ----------
 Say 'Program dosyalari kopyalaniyor'
-foreach ($f in @('app.ps1', 'ocr.py', 'translate.py', 'corrector.py', 'slang.py',
-                 'ocrfix.py', 'llm.py', 'Baslat.vbs', 'app.ico', 'banner.png', 'README.md')) {
+foreach ($f in $PROGRAM_DOSYALARI) {
   $src = Join-Path $root $f
   if (Test-Path $src) { Copy-Item $src $Hedef -Force } else { Write-Warning "eksik: $f" }
 }
@@ -264,13 +299,30 @@ https://github.com/crosswindfighter/camera-translator/releases/tag/offline-model
 
 # ---------- 6. Ozet ----------
 if ($Zip) {
-  $zipAdi = $Hedef + '.zip'
-  Say 'ZIP hazirlaniyor'
   $eski = $ProgressPreference; $ProgressPreference = 'SilentlyContinue'
-  Compress-Archive -Path $Hedef -DestinationPath $zipAdi -Force
+  # Tam paket: ilk kurulum icin
+  $tam = Join-Path (Split-Path $Hedef -Parent) ('CameraTranslator-' + $ETIKET + '.zip')
+  Say 'Tam paket ZIP hazirlaniyor'
+  Compress-Archive -Path $Hedef -DestinationPath $tam -Force
+  # Guncelleme paketi: mevcut klasorun ustune cikarilir, ~11 MB
+  $gecici = Join-Path $env:TEMP ('ct-guncelleme-' + $APP_SURUM)
+  if (Test-Path $gecici) { Remove-Item $gecici -Recurse -Force }
+  New-Item -ItemType Directory -Path $gecici -Force | Out-Null
+  foreach ($f in $PROGRAM_DOSYALARI) {
+    $src = Join-Path $Hedef $f
+    if (Test-Path $src) { Copy-Item $src $gecici -Force }
+  }
+  if (Test-Path (Join-Path $Hedef 'assets')) { Copy-Item (Join-Path $Hedef 'assets') $gecici -Recurse -Force }
+  if (Test-Path (Join-Path $Hedef 'CameraTranslator.exe')) { Copy-Item (Join-Path $Hedef 'CameraTranslator.exe') $gecici -Force }
+  $gun = Join-Path (Split-Path $Hedef -Parent) ('CameraTranslator-' + $ETIKET + '-guncelleme.zip')
+  Say 'Guncelleme ZIP hazirlaniyor'
+  Compress-Archive -Path (Join-Path $gecici '*') -DestinationPath $gun -Force
+  Remove-Item $gecici -Recurse -Force
   $ProgressPreference = $eski
-  Write-Host ('  ZIP    : ' + $zipAdi + '  (' + [math]::Round((Get-Item $zipAdi).Length / 1MB) + ' MB)') -ForegroundColor Green
+  Write-Host ('  Tam ZIP        : ' + $tam + '  (' + [math]::Round((Get-Item $tam).Length / 1MB) + ' MB)') -ForegroundColor Green
+  Write-Host ('  Guncelleme ZIP : ' + $gun + '  (' + [math]::Round((Get-Item $gun).Length / 1MB) + ' MB)') -ForegroundColor Green
 }
+
 $mb = [math]::Round(((Get-ChildItem $Hedef -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB)
 Write-Host ''
-Write-Host ('  Klasor : ' + $Hedef + '  (' + $mb + ' MB)') -ForegroundColor Green
+Write-Host ('  Klasor : ' + $Hedef + '  (' + $mb + ' MB, surum ' + $APP_SURUM + ')') -ForegroundColor Green

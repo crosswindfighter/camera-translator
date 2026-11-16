@@ -11,6 +11,11 @@ param(
   [string]$Python = ''
 )
 
+# Surum. Yeni paket yayinlarken BURAYI ve GitHub etiketini birlikte yukselt:
+# etiket 'pc-v' + bu numara olmali (ornek: pc-v1.0.1).
+$APP_SURUM = '1.0.0'
+$GITHUB_DEPO = 'crosswindfighter/camera-translator'
+$SURUM_ONEKI = 'pc-v'
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
@@ -52,7 +57,22 @@ try {
   if ($dpi -gt 0) { $script:dpiK = [math]::Round($dpi / 96.0, 3) }
 } catch { }
 if ($script:dpiK -lt 1.0) { $script:dpiK = 1.0 }
-function S([double]$v) { return [int][math]::Round($v * $script:dpiK) }
+
+# Iki ayri katsayi var, karistirmamak lazim:
+#   dpiK : ekranin gercek olcegi. Kayitli OCR alanlari ekran koordinati
+#          oldugu icin yalnizca bu kullanilir.
+#   uiK  : arayuzun buyutme katsayisi. Normalde dpiK ile ayni, ama pencere
+#          ekrana sigmiyorsa kucultulur -- 1080p bir ekranda %125 olcekle
+#          pencere ekrandan tasiyor ve kenarindan tutup kucultulemiyordu.
+$script:uiK = $script:dpiK
+try {
+  $calisma = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+  # 890 = tasarim yuksekligi (801) + ucuncu ek alana kadar yer
+  $tavan = [math]::Round(($calisma.Height - 40) / 890.0, 3)
+  if ($tavan -lt $script:uiK) { $script:uiK = $tavan }
+} catch { }
+if ($script:uiK -lt 0.6) { $script:uiK = 0.6 }
+function S([double]$v) { return [int][math]::Round($v * $script:uiK) }
 
 
 Add-Type @"
@@ -139,6 +159,8 @@ $defaults = [ordered]@{
   ayrintiliKayit = $false
   # Arayuz temasi: 'gece' ya da 'gunduz'
   tema = 'gece'
+  # Kullaniciya bir kere haber verdigimiz surum; ayni surum icin tekrar sormuyoruz
+  sonGorulenSurum = ''
   # Gelismis OCR duzeltme: bozuk Ingilizceyi yerel GPU modeli onarir, ceviriyi yine OPUS yapar
   gelismisOcr = $false
   llmModel = 'aya-expanse:8b'
@@ -958,8 +980,73 @@ function New-MoonImage([int]$size) {
 
 $script:moonImg = New-MoonImage (S 20)
 
+# ---------------- Guncelleme ----------------
+# GitHub'daki surumlere bakar. Mobil uygulama da ayni depoda yayinlandigi icin
+# yalnizca 'pc-v' ile baslayan etiketler dikkate alinir.
+$script:yeniSurum = ''
+$script:yeniSurumUrl = ''
+
+function ConvertTo-Surum([string]$etiket) {
+  $t = $etiket -replace '^[^0-9]*', ''
+  $t = ($t -split '[^0-9.]')[0]
+  $parcalar = @($t -split '\.' | Where-Object { $_ -ne '' })
+  while ($parcalar.Count -lt 3) { $parcalar += '0' }
+  try { return [version]($parcalar[0..2] -join '.') } catch { return $null }
+}
+
+function Test-Guncelleme {
+  try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    $liste = Invoke-RestMethod -Uri ('https://api.github.com/repos/' + $GITHUB_DEPO + '/releases') `
+      -Headers @{ 'User-Agent' = 'CameraTranslator' } -TimeoutSec 6
+  } catch {
+    Write-Line ('Güncelleme kontrolü başarısız: ' + $_.Exception.Message)
+    return $false
+  }
+  $simdi = ConvertTo-Surum $APP_SURUM
+  $enIyi = $null
+  foreach ($r in @($liste)) {
+    if ($r.draft -or -not ($r.tag_name -like ($SURUM_ONEKI + '*'))) { continue }
+    $v = ConvertTo-Surum $r.tag_name
+    if ($null -ne $v -and $v -gt $simdi -and ($null -eq $enIyi -or $v -gt (ConvertTo-Surum $enIyi.tag_name))) {
+      $enIyi = $r
+    }
+  }
+  if ($null -eq $enIyi) {
+    $script:yeniSurum = ''
+    $bar.Invalidate()
+    return $false
+  }
+  $script:yeniSurum = ($enIyi.tag_name -replace ('^' + [regex]::Escape($SURUM_ONEKI)), '')
+  $script:yeniSurumUrl = $enIyi.html_url
+  $bar.Invalidate()
+  return $true
+}
+
+function Show-GuncellemeBildirimi {
+  if ($script:yeniSurum -eq '') { return }
+  # Ayni surum icin bir kere soruyoruz; isaret ust bantta kalmaya devam ediyor
+  if ([string]$script:cfg.sonGorulenSurum -eq $script:yeniSurum) { return }
+  $script:cfg.sonGorulenSurum = $script:yeniSurum
+  Save-Settings
+  $cvp = [System.Windows.Forms.MessageBox]::Show(
+    ('Yeni sürüm var: ' + $script:yeniSurum + '  (sizdeki: ' + $APP_SURUM + ')' + [Environment]::NewLine +
+     [Environment]::NewLine + 'İndirme sayfasını açayım mı?'),
+    'Camera Translator',
+    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+    [System.Windows.Forms.MessageBoxIcon]::Information)
+  if ($cvp -eq [System.Windows.Forms.DialogResult]::Yes) { Open-SurumSayfasi }
+}
+
+function Open-SurumSayfasi {
+  $adres = $(if ($script:yeniSurumUrl) { $script:yeniSurumUrl }
+             else { 'https://github.com/' + $GITHUB_DEPO + '/releases' })
+  try { Start-Process $adres } catch { Write-Line ('Sayfa açılamadı: ' + $_.Exception.Message) }
+}
+
 $script:barHover = ''
 $script:barBtns = @(
+  @{ Ad = 'guncelle'; R = (New-Object System.Drawing.Rectangle (S 368), (S 14), (S 30), (S 26)) },
   @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle (S 404), (S 14), (S 30), (S 26)) },
   @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle (S 440), (S 14), (S 30), (S 26)) },
   @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle (S 476), (S 14), (S 30), (S 26)) }
@@ -1006,6 +1093,20 @@ $bar.Add_Paint({
           $g.DrawLine($GLYPHPEN, ($cx + $k), ($cy - $k), ($cx - $k), ($cy + $k))
         }
         'kucult' { $g.DrawLine($GLYPHPEN, ($cx - 6), $cy, ($cx + 6), $cy) }
+        'guncelle' {
+          # Indirme simgesi: asagi ok + altinda taban cizgisi
+          $g.DrawLine($GLYPHPEN, $cx, ($cy - 7), $cx, ($cy + 2))
+          $g.DrawLine($GLYPHPEN, ($cx - 4), ($cy - 2), $cx, ($cy + 2))
+          $g.DrawLine($GLYPHPEN, ($cx + 4), ($cy - 2), $cx, ($cy + 2))
+          $g.DrawLine($GLYPHPEN, ($cx - 6), ($cy + 6), ($cx + 6), ($cy + 6))
+          if ($script:yeniSurum -ne '') {
+            # Windows'taki gibi: guncelleme varken kucuk turuncu nokta
+            $nokta = New-Object System.Drawing.SolidBrush $C.Accent
+            $d = [single](S 7)
+            $g.FillEllipse($nokta, ($r.Right - $d), $r.Y, $d, $d)
+            $nokta.Dispose()
+          }
+        }
         'tema' {
           if ($script:cfg.tema -eq 'gece') {
             # Hazir hilal zaten beyaz, goruntunun uzerinde oldugu gibi kullaniliyor
@@ -1057,6 +1158,14 @@ $bar.Add_MouseDown({
         switch ($b.Ad) {
           'kapat'  { $form.Close() }
           'kucult' { $form.WindowState = 'Minimized' }
+          'guncelle' {
+            if ($script:yeniSurum -ne '') { Open-SurumSayfasi }
+            else {
+              Write-Line 'Güncelleme aranıyor…'
+              if (Test-Guncelleme) { Show-GuncellemeBildirimi }
+              else { Write-Line ('En güncel sürümdesiniz (' + $APP_SURUM + ')') }
+            }
+          }
           'tema'   {
             Set-Theme $(if ($script:cfg.tema -eq 'gece') { 'gunduz' } else { 'gece' })
             Save-Settings
@@ -1424,9 +1533,14 @@ $swText.Invalidate(); $swBox.Invalidate()
 # ayrica carpmak gerekmiyor -- denendi, yazilar kutulara sigmadi.
 # Banner dugmeleri ve ek alan satirlari calisma aninda yerlestirildigi icin
 # onlar S() kullaniyor.
-if ($script:dpiK -gt 1.001) {
+if ([math]::Abs($script:uiK - 1.0) -gt 0.001) {
   $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
-  $form.Scale((New-Object System.Drawing.SizeF ([single]$script:dpiK), ([single]$script:dpiK)))
+  $form.Scale((New-Object System.Drawing.SizeF ([single]$script:uiK), ([single]$script:uiK)))
+}
+if ([math]::Abs($script:uiK - $script:dpiK) -gt 0.001) {
+  Write-Line ('Ekran ölçeği %{0}, pencere ekrana sığsın diye %{1} çizildi' -f `
+    [int]($script:dpiK * 100), [int]($script:uiK * 100))
+} elseif ($script:dpiK -gt 1.001) {
   Write-Line ('Ekran ölçeği %{0}' -f [int]($script:dpiK * 100))
 }
 
@@ -2001,7 +2115,15 @@ if ($SelfTest) {
   exit 0
 }
 
-Write-Line '— uygulama açıldı —'
+Write-Line ('— uygulama açıldı — sürüm ' + $APP_SURUM)
+# Acilista bir kez bakilir; internet yoksa sessizce gecilir
+$script:acilisKontrol = New-Object System.Windows.Forms.Timer
+$script:acilisKontrol.Interval = 1500
+$script:acilisKontrol.Add_Tick({
+    $script:acilisKontrol.Stop()
+    if (Test-Guncelleme) { Show-GuncellemeBildirimi }
+  })
+$script:acilisKontrol.Start()
 $form.Show()
 [void][Native]::ShowWindow($form.Handle, 1)
 [void][Native]::SetForegroundWindow($form.Handle)

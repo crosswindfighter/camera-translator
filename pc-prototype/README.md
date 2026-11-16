@@ -27,6 +27,8 @@ Paket hiçbir şey kurmaz. Klasörü nereye koyarsan oradan çalışır, silince
 
 > **Windows uyarı verebilir.** Paket imzasız olduğu için SmartScreen "Bilgisayarınız korundu" diyebilir — **Daha fazla bilgi → Yine de çalıştır**. Bazı antivirüsler de PowerShell çalıştıran programlara şüpheyle bakar; dosya silinirse klasörü taramadan hariç tut.
 
+Program güncelleme olup olmadığını açılışta bir kere kontrol eder. Yeni sürüm varsa başlık çubuğundaki indirme simgesinin köşesinde turuncu bir nokta belirir ve bir kere sorar; "hayır" dersen bir daha sormaz ama nokta kalır. Simgeye basınca indirme sayfası açılır.
+
 Paketi kendin üretmek istersen (depodan):
 
 ```bash
@@ -34,6 +36,37 @@ Paketi kendin üretmek istersen (depodan):
 ```
 
 Masaüstünde `CameraTranslator` klasörü oluşturur; `-Zip` eklersen ZIP de üretir.
+
+---
+
+### Sürüm yayınlama (depo sahibi için)
+
+**1.** `app.ps1` içindeki `$APP_SURUM` değerini yükselt. Tek yer burası; paket betiği sürümü oradan okur.
+
+**2.** İki ZIP'i üret:
+
+```bash
+.\paket_yap.ps1 -Zip
+```
+
+Masaüstünün yanına iki dosya çıkar:
+
+| dosya | ne zaman |
+|---|---|
+| `CameraTranslator-pc-v1.0.0.zip` | ilk kurulum — her şey içinde, ~650 MB |
+| `CameraTranslator-pc-v1.0.0-guncelleme.zip` | sonraki sürümler — sadece program, ~11 MB |
+
+**3.** GitHub'da **Releases → Draft a new release**. Etiket **`pc-v` + sürüm** olmalı (örnek: `pc-v1.0.1`). Bu önek şart: mobil APK sürümleri de aynı depoda yayınlanıyor, program yalnızca `pc-v` ile başlayanlara bakıyor.
+
+**4.** İki ZIP'i de sürüme ekle, yayınla. Kullanıcılar bir sonraki açılışta uyarıyı görür.
+
+Güncelleme ZIP'i mevcut klasörün üstüne çıkarılır — `python\` ve `models\` yerinde kalır, sadece program dosyaları değişir. Ayarlar ve OCR alanları korunur.
+
+Kendi makinendeki test paketini tazelemek için (2 saniye, Python ve modele dokunmaz):
+
+```bash
+.\paket_yap.ps1 -SadeceProgram
+```
 
 ---
 
