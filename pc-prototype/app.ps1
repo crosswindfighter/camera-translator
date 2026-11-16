@@ -18,6 +18,45 @@ Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
+# 4K ekranda Windows olceklendirmesi (%150, %200) devreye girdiginde, DPI
+# farkindaligi olmayan bir surec ekrani KUCULTULMUS gorur: 3840x2160 ekran
+# 1920x1080 olarak raporlanir ve ekran goruntusu de o cozunurlukte, bulanik
+# gelir. Altyazi yari boyuta inip bulaniklastigi icin OCR hicbir sey okuyamaz.
+# Farkindaligi acinca gercek pikselleri aliyoruz; karsiliginda arayuzu kendimiz
+# buyutmemiz gerekiyor ($script:dpiK).
+Add-Type @'
+using System;
+using System.Runtime.InteropServices;
+public class DpiNative {
+    [DllImport("user32.dll")] public static extern bool SetProcessDpiAwarenessContext(IntPtr v);
+    [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
+    [DllImport("user32.dll")] public static extern IntPtr GetDC(IntPtr h);
+    [DllImport("user32.dll")] public static extern int ReleaseDC(IntPtr h, IntPtr dc);
+    [DllImport("gdi32.dll")] public static extern int GetDeviceCaps(IntPtr dc, int i);
+}
+'@
+
+try {
+  # PER_MONITOR_AWARE_V2; eski Windows'ta bu cagri yoksa eski yonteme duser
+  if (-not [DpiNative]::SetProcessDpiAwarenessContext([IntPtr](-4))) {
+    [void][DpiNative]::SetProcessDPIAware()
+  }
+} catch {
+  try { [void][DpiNative]::SetProcessDPIAware() } catch { }
+}
+
+# Arayuz 96 dpi varsayarak yazildi; olcekli ekranda bu katsayiyla buyutuluyor
+$script:dpiK = 1.0
+try {
+  $dc = [DpiNative]::GetDC([IntPtr]::Zero)
+  $dpi = [DpiNative]::GetDeviceCaps($dc, 88)   # LOGPIXELSX
+  [void][DpiNative]::ReleaseDC([IntPtr]::Zero, $dc)
+  if ($dpi -gt 0) { $script:dpiK = [math]::Round($dpi / 96.0, 3) }
+} catch { }
+if ($script:dpiK -lt 1.0) { $script:dpiK = 1.0 }
+function S([double]$v) { return [int][math]::Round($v * $script:dpiK) }
+
+
 Add-Type @"
 using System;
 using System.Runtime.InteropServices;
@@ -263,6 +302,23 @@ function Read-ImageText([string]$path) {
 }
 
 # Alan ekran disina tasarsa CopyFromScreen hata firlatiyor; once kirpiyoruz
+# Kayitli alanlar ekran koordinatidir ve o an gecerli olan ekran olcegine
+# baglidir. %200 olcekli bir 4K ekranda DPI farkindaligi olmayan eski surum
+# her seyi yari koordinatta goruyordu; o ayarlar simdi yanlis yere isaret eder.
+# Olcegi olmayan kayitlar 1 kabul edilir, ki bu da eski davranisin ta kendisi.
+function Convert-AreaScale($a) {
+  if ($null -eq $a) { return $null }
+  $eski = 1.0
+  if ($null -ne $a.PSObject.Properties['olcek'] -and $a.olcek -gt 0) { $eski = [double]$a.olcek }
+  $k = $script:dpiK / $eski
+  if ([math]::Abs($k - 1.0) -lt 0.01) { return $a }
+  return [PSCustomObject]@{
+    X = [int][math]::Round($a.X * $k); Y = [int][math]::Round($a.Y * $k)
+    W = [int][math]::Round($a.W * $k); H = [int][math]::Round($a.H * $k)
+    olcek = $script:dpiK
+  }
+}
+
 function Get-SafeArea($a) {
   if ($null -eq $a) { return $null }
   $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
@@ -851,7 +907,9 @@ function Select-Area([string]$Hedef = 'ana') {
   if (-not $script:selOk) { return $false }
   $r = $script:selRect
   if ($r.Width -lt 40 -or $r.Height -lt 20) { return $false }
-  $yeni = [PSCustomObject]@{ X = ($r.X + $vs.X); Y = ($r.Y + $vs.Y); W = $r.Width; H = $r.Height }
+  # Olcek de saklaniyor: baska olcekteki bir ekranda acilirsa alan cevrilebilsin
+  $yeni = [PSCustomObject]@{ X = ($r.X + $vs.X); Y = ($r.Y + $vs.Y); W = $r.Width; H = $r.Height
+                             olcek = $script:dpiK }
   if ($Hedef -eq 'ek') {
     $script:cfg.ekAlanlar = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ }) + @($yeni)
     Write-Line ('Ek OCR alanı: {0}×{1} konum {2},{3}' -f $r.Width, $r.Height, $yeni.X, $yeni.Y)
@@ -1003,13 +1061,13 @@ function New-MoonImage([int]$size) {
   return $kucuk
 }
 
-$script:moonImg = New-MoonImage 20
+$script:moonImg = New-MoonImage (S 20)
 
 $script:barHover = ''
 $script:barBtns = @(
-  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle 404, 14, 30, 26) },
-  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle 440, 14, 30, 26) },
-  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle 476, 14, 30, 26) }
+  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle (S 404), (S 14), (S 30), (S 26)) },
+  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle (S 440), (S 14), (S 30), (S 26)) },
+  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle (S 476), (S 14), (S 30), (S 26)) }
 )
 
 $bar.Add_Paint({
@@ -1271,12 +1329,13 @@ function Update-AreaList {
   foreach ($eski in @($script:areaRows)) { $cardArea.Controls.Remove($eski); $eski.Dispose() }
   $script:areaRows.Clear()
   $ekler = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
-  $y = 100
+  # Koordinatlar 96 dpi'ye gore yazildi; S() olcekli ekranda buyutuyor
+  $y = S 100
   for ($i = 0; $i -lt $ekler.Count; $i++) {
     $ek = $ekler[$i]
-    $lbl = New-Caption ('Alan {0} — {1} × {2}  ·  konum {3},{4}' -f ($i + 2), [int]$ek.W, [int]$ek.H, [int]$ek.X, [int]$ek.Y) 40 ($y + 3) 320
+    $lbl = New-Caption ('Alan {0} — {1} × {2}  ·  konum {3},{4}' -f ($i + 2), [int]$ek.W, [int]$ek.H, [int]$ek.X, [int]$ek.Y) (S 40) ($y + (S 3)) (S 320)
     $sil = New-Object System.Windows.Forms.Panel
-    $sil.SetBounds(16, $y, 18, 18)
+    $sil.SetBounds((S 16), $y, (S 18), (S 18))
     $sil.BackColor = $C.Card
     $sil.Cursor = [System.Windows.Forms.Cursors]::Hand
     $sil.Add_Paint({
@@ -1311,17 +1370,17 @@ function Update-AreaList {
       }.GetNewClosure())
     [void]$script:areaRows.Add($lbl); [void]$script:areaRows.Add($sil)
     $cardArea.Controls.AddRange(@($lbl, $sil))
-    $y += 26
+    $y += S 26
   }
   # Liste buyudukce altindaki her sey asagi kayar
-  $alt = $(if ($ekler.Count -gt 0) { $y + 6 } else { 100 })
+  $alt = $(if ($ekler.Count -gt 0) { $y + (S 6) } else { S 100 })
   $swLlm.Top = $alt
-  $lblLlmCap.Top = $alt + 2
-  $cardArea.Height = $alt + 34
-  $btnStart.Top = $cardArea.Top + $cardArea.Height + 16
-  $lblStatus.Top = $btnStart.Top + 60
-  $cardLog.Top = $lblStatus.Top + 28
-  $form.Height = $cardLog.Top + $cardLog.Height + 20
+  $lblLlmCap.Top = $alt + (S 2)
+  $cardArea.Height = $alt + (S 34)
+  $btnStart.Top = $cardArea.Top + $cardArea.Height + (S 16)
+  $lblStatus.Top = $btnStart.Top + (S 60)
+  $cardLog.Top = $lblStatus.Top + (S 28)
+  $form.Height = $cardLog.Top + $cardLog.Height + (S 20)
   $cardArea.Invalidate()
 }
 
@@ -1465,6 +1524,17 @@ function Set-Theme([string]$name) {
 
 # ---------------- Doldur ----------------
 $swText.Invalidate(); $swBox.Invalidate()
+# Arayuz 96 dpi koordinatlariyla kuruldu; olcekli ekranda Scale() hem
+# denetimlerin sinirlarini hem yazi tiplerini birlikte buyutuyor. Yazi tipini
+# ayrica carpmak gerekmiyor -- denendi, yazilar kutulara sigmadi.
+# Banner dugmeleri ve ek alan satirlari calisma aninda yerlestirildigi icin
+# onlar S() kullaniyor.
+if ($script:dpiK -gt 1.001) {
+  $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::None
+  $form.Scale((New-Object System.Drawing.SizeF ([single]$script:dpiK), ([single]$script:dpiK)))
+  Write-Line ('Ekran ölçeği %{0}' -f [int]($script:dpiK * 100))
+}
+
 Update-AreaList
 Set-Theme ([string]$script:cfg.tema)
 
@@ -1958,6 +2028,12 @@ function Start-Run {
   if (-not (Start-Translator)) { $lblStatus.Text = 'Başlatılamadı · kayda bak'; return }
 
   # Ana alan Ingilizcenin ustune yazar; ek alanlar kendi cercevesinin icinde kalir
+  # Ekran olcegi degismisse alanlari cevir ve kaydet
+  $script:cfg.alan = Convert-AreaScale $script:cfg.alan
+  $script:cfg.ekAlanlar = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ } | ForEach-Object { Convert-AreaScale $_ })
+  Save-Settings
+  Update-AreaLabel
+  Update-AreaList
   $script:areas = @(New-AreaState $script:cfg.alan 'ana' 1)
   $no = 2
   foreach ($ek in @($script:cfg.ekAlanlar)) {
