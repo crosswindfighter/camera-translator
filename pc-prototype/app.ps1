@@ -87,8 +87,6 @@ $defaults = [ordered]@{
   saydamlik = 1.0
   alan = $null
   ayrintiliKayit = $false
-  # Yaziyi keskinlestir: griye cevirip esikle (dusuk kontrastli sahnelerde sart)
-  keskinlestir = $true
   # Gelismis OCR duzeltme: bozuk Ingilizceyi yerel GPU modeli onarir, ceviriyi yine OPUS yapar
   gelismisOcr = $false
   llmModel = 'aya-expanse:8b'
@@ -566,7 +564,6 @@ $script:lastFontSize = 0
 $script:lastFit = $true
 # OCR'in olctugu yazi yuksekligi karede zipliyor (alt/ust uzantili harf varsa buyuyor).
 # Punto bu zipli degeri degil, son okumalarin medyanini kullanir; yoksa yazi titriyor.
-$script:sharpen = [bool]$script:cfg.keskinlestir
 $script:captureScale = 1
 $script:lineHeights = New-Object System.Collections.ArrayList
 $script:stableLineH = 0
@@ -966,23 +963,7 @@ $chkLlm.ForeColor = $C.Muted
 $chkLlm.BackColor = [System.Drawing.Color]::Transparent
 $chkLlm.Checked = [bool]$script:cfg.gelismisOcr
 
-$chkSharp = New-Object System.Windows.Forms.CheckBox
-$chkSharp.Text = 'Yazıyı keskinleştir (düşük kontrastlı sahneler)'
-$chkSharp.SetBounds(18, 96, 340, 24)
-$chkSharp.FlatStyle = 'Flat'
-$chkSharp.ForeColor = $C.Muted
-$chkSharp.BackColor = [System.Drawing.Color]::Transparent
-$chkSharp.Checked = [bool]$script:cfg.keskinlestir
-
-$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm, $chkSharp))
-
-$chkSharp.Add_CheckedChanged({
-    $script:cfg.keskinlestir = [bool]$chkSharp.Checked
-    $script:sharpen = [bool]$chkSharp.Checked
-    $script:captureScale = 1
-    Save-Settings
-    Write-Line $(if ($chkSharp.Checked) { 'Yazı keskinleştirme açık' } else { 'Yazı keskinleştirme kapalı' })
-  })
+$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm))
 
 $chkLlm.Add_CheckedChanged({
     $script:cfg.gelismisOcr = [bool]$chkLlm.Checked
