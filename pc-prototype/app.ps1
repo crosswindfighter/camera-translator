@@ -1029,9 +1029,15 @@ function Show-GuncellemeBildirimi {
   if ([string]$script:cfg.sonGorulenSurum -eq $script:yeniSurum) { return }
   $script:cfg.sonGorulenSurum = $script:yeniSurum
   Save-Settings
+  # Hangi dosyayi indirecegini acikca yaziyoruz: sayfada iki dosya var ve
+  # elinde zaten program olan birinin 389 MB'i tekrar indirmesi gereksiz
   $cvp = [System.Windows.Forms.MessageBox]::Show(
-    ('Yeni sürüm var: ' + $script:yeniSurum + '  (sizdeki: ' + $APP_SURUM + ')' + [Environment]::NewLine +
-     [Environment]::NewLine + 'İndirme sayfasını açayım mı?'),
+    ('Yeni sürüm var: ' + $script:yeniSurum + '   (sizdeki: ' + $APP_SURUM + ')' + [Environment]::NewLine +
+     [Environment]::NewLine +
+     'Açılacak sayfada iki dosya olacak. Sizde program zaten kurulu olduğu için' + [Environment]::NewLine +
+     'küçük olanı (…-guncelleme.zip) indirip bu klasörün üstüne çıkarmanız yeterli.' + [Environment]::NewLine +
+     'Ayarlarınız ve OCR alanlarınız korunur.' + [Environment]::NewLine +
+     [Environment]::NewLine + 'Sayfayı açayım mı?'),
     'Camera Translator',
     [System.Windows.Forms.MessageBoxButtons]::YesNo,
     [System.Windows.Forms.MessageBoxIcon]::Information)
