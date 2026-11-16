@@ -1202,9 +1202,19 @@ function Stop-Translator {
 }
 
 # ---------------- Dongu ----------------
-$timer = New-Object System.Windows.Forms.Timer
-$timer.Interval = $READ_MS
-$timer.Add_Tick({
+# IPC yanitini beklerken arayuzu dondurmaz. Blocking ReadLine, kare basina
+# 230-570 ms boyunca mesaj dongusunu kilitliyordu; altyazi kutusu oyun
+# yeniden cizdiginde tazelenemedigi icin ekranda takilma gorunuyordu.
+function Wait-Reply {
+  $task = $script:proc.StandardOutput.ReadLineAsync()
+  while (-not $task.IsCompleted) {
+    [System.Windows.Forms.Application]::DoEvents()
+    [System.Threading.Thread]::Sleep(3)
+  }
+  return $task.Result
+}
+
+function Invoke-Tick {
     if (-not $script:running) { return }
 
     # Tuslar
@@ -1256,7 +1266,7 @@ $timer.Add_Tick({
       $swCap.Stop()
       $swOcr = [System.Diagnostics.Stopwatch]::StartNew()
       $script:writer.WriteLine("#ocr`t" + $script:framePath + "`t" + $a.W)
-      $ocrReply = $script:proc.StandardOutput.ReadLine()
+      $ocrReply = Wait-Reply
       $swOcr.Stop()
       if ($null -eq $ocrReply) { throw 'okuma sureci yanit vermedi' }
       $script:capMs = [int]$swCap.ElapsedMilliseconds
@@ -1374,7 +1384,7 @@ $timer.Add_Tick({
       if ($null -eq $turkish) {
         $fromCache = $false
         $script:writer.WriteLine(($text -replace "`t", ' '))
-        $reply = $script:proc.StandardOutput.ReadLine()
+        $reply = Wait-Reply
         if ($null -eq $reply) {
           Write-Line 'Çeviri süreci yanıt vermedi'
           $script:warnCount++
@@ -1475,6 +1485,16 @@ $timer.Add_Tick({
       Write-Dev ('UYARI  | çeviri hatası (' + $script:errorStreak + '): ' + $_.Exception.Message)
       if ($script:errorStreak -ge 10) { Write-Line 'Arka arkaya hata, durduruluyor'; Stop-Run }
     }
+}
+
+$timer = New-Object System.Windows.Forms.Timer
+$timer.Interval = $READ_MS
+# DoEvents yuzunden tik suresi uzarsa zamanlayici yeniden girebilir: tek kapi
+$script:inTick = $false
+$timer.Add_Tick({
+    if ($script:inTick) { return }
+    $script:inTick = $true
+    try { Invoke-Tick } finally { $script:inTick = $false }
   })
 
 function Start-Run {
