@@ -883,7 +883,9 @@ function Hide-Corners($g, [int]$w, [int]$h, [int]$r, $color) {
   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
   $ring = New-Object System.Drawing.Drawing2D.GraphicsPath
   $ring.FillMode = [System.Drawing.Drawing2D.FillMode]::Alternate
-  $ring.AddRectangle((New-Object System.Drawing.RectangleF 0, 0, $w, $h))
+  # Dis dikdortgen bir piksel disarida: duz kenarlarda ic yolla cakisirsa
+  # kenar yumusatma oraya yarim saydam bir cizgi birakiyor.
+  $ring.AddRectangle((New-Object System.Drawing.RectangleF -1, -1, ($w + 2), ($h + 2)))
   $inner = Get-RoundPath 0 0 $w $h $r
   $ring.AddPath($inner, $false)
   $br = New-Object System.Drawing.SolidBrush $color
@@ -939,25 +941,34 @@ if (Test-Path $icoPath) { try { $form.Icon = New-Object System.Drawing.Icon($ico
 # Banner, pencerenin tam ustunde. Uzerindeki dugmeler goruntunun ustunde
 # durdugu icin kendi arka planlarini cizemezler: her biri once altina denk
 # gelen banner parcasini, sonra koyu yari saydam bir yuvarlak basar.
+# Pencere dugmeleri banner goruntusunun USTUNDE, kendi seridinde duruyor.
+# Goruntunun icinde dururken hem resmi boluyorlardi hem de uzerine gelince
+# bandin tamami yeniden cizildigi icin goruntu yanip sonuyordu.
+$BAR_TOP = 38
 $BANNER_H = 195
+
 $script:bannerImg = $null
 $bannerPath = Join-Path $root 'banner.png'
 if (Test-Path $bannerPath) {
   try {
+    # Dosyayi acik tutmamak icin bellege okunup oradan aciliyor
     $baytlar = [System.IO.File]::ReadAllBytes($bannerPath)
-    $ms = New-Object System.IO.MemoryStream (, $baytlar)
-    $script:bannerImg = [System.Drawing.Image]::FromStream($ms)
+    $script:bannerStream = New-Object System.IO.MemoryStream (, $baytlar)
+    $script:bannerImg = [System.Drawing.Image]::FromStream($script:bannerStream)
   } catch { $script:bannerImg = $null }
 }
 
 $bar = New-Object System.Windows.Forms.Panel
-$bar.SetBounds(0, 0, 520, $BANNER_H)
+$bar.SetBounds(0, 0, 520, ($BAR_TOP + $BANNER_H))
+# Panel varsayilan olarak cift tamponlu degil: her yeniden cizimde once zemin,
+# sonra resim basiliyor ve arada goz bunu yanip sonme olarak goruyor.
+# DoubleBuffered korumali bir ozellik, yansimayla aciliyor.
+try {
+  $dbProp = [System.Windows.Forms.Control].GetProperty('DoubleBuffered',
+    [System.Reflection.BindingFlags]'Instance, NonPublic')
+  $dbProp.SetValue($bar, $true, $null)
+} catch { }
 $bar.BackColor = $C.Bg
-$GLYPH = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(240, 255, 255, 255))
-$GLYPHPEN = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(240, 255, 255, 255)), 1.7
-$GLYPHPEN.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-$GLYPHPEN.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-
 # Pencere dugmeleri banner'in UZERINDE duruyor. Ayri kontrol yapilirsa her biri
 # altindaki goruntu parcasini kendisi kopyalamak zorunda kaliyor ve dikisler
 # belli oluyor. Bunun yerine ucu de banner'in kendi ciziminde: tek yuzey,
@@ -989,37 +1000,37 @@ $script:moonImg = New-MoonImage 18
 
 $script:barHover = ''
 $script:barBtns = @(
-  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle 404, 14, 30, 26) },
-  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle 440, 14, 30, 26) },
-  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle 476, 14, 30, 26) }
+  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle 404, 6, 30, 26) },
+  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle 440, 6, 30, 26) },
+  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle 476, 6, 30, 26) }
 )
 
 $bar.Add_Paint({
     param($s, $e)
     $g = $e.Graphics
+    $g.Clear($C.Bg)
     if ($null -ne $script:bannerImg) {
       $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-      $g.DrawImage($script:bannerImg, 0, 0, $s.Width, $s.Height)
+      $g.DrawImage($script:bannerImg, 0, $BAR_TOP, $s.Width, ($s.Height - $BAR_TOP))
     } else {
-      $g.Clear($C.Bg)
       $f = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
       $br = New-Object System.Drawing.SolidBrush $C.Text
-      $g.DrawString('Camera Translator', $f, $br, 22, 24)
+      $g.DrawString('Camera Translator', $f, $br, 22, ($BAR_TOP + 20))
       $f.Dispose(); $br.Dispose()
     }
-    # Ust kenara karartma: dugmeler goruntunun parlak yerine denk gelse de okunur
-    $scrim = New-Object System.Drawing.Drawing2D.LinearGradientBrush `
-      (New-Object System.Drawing.Point 0, 0), (New-Object System.Drawing.Point 0, 58), `
-      ([System.Drawing.Color]::FromArgb(150, 0, 0, 0)), ([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
-    $g.FillRectangle($scrim, 0, 0, $s.Width, 58); $scrim.Dispose()
 
+    # Simgeler artik resmin degil seridin uzerinde: renkleri temaya uyuyor
+    $GLYPH = New-Object System.Drawing.SolidBrush $C.Muted
+    $GLYPHPEN = New-Object System.Drawing.Pen $C.Muted, 1.7
+    $GLYPHPEN.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+    $GLYPHPEN.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     foreach ($b in $script:barBtns) {
       $r = $b.R
       $cx = $r.X + $r.Width / 2.0; $cy = $r.Y + $r.Height / 2.0
       if ($script:barHover -eq $b.Ad) {
         $hp = Get-RoundPath ([single]$r.X) ([single]$r.Y) ([single]$r.Width) ([single]$r.Height) 9
-        $hb = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(70, 255, 255, 255))
+        $hb = New-Object System.Drawing.SolidBrush $C.Card2
         $g.FillPath($hb, $hp); $hb.Dispose(); $hp.Dispose()
       }
       switch ($b.Ad) {
@@ -1031,8 +1042,20 @@ $bar.Add_Paint({
         'kucult' { $g.DrawLine($GLYPHPEN, ($cx - 6), $cy, ($cx + 6), $cy) }
         'tema' {
           if ($script:cfg.tema -eq 'gece') {
+            # Hazir hilal beyaz; renk matrisiyle tema rengine boyaniyor
             $m = $script:moonImg
-            $g.DrawImage($m, [int]($cx - $m.Width / 2), [int]($cy - $m.Height / 2))
+            $mx = [int]($cx - $m.Width / 2); $my = [int]($cy - $m.Height / 2)
+            $cm = New-Object 'single[][]' 5
+            for ($q = 0; $q -lt 5; $q++) { $cm[$q] = New-Object single[] 5 }
+            $cm[3][3] = [single]1.0; $cm[4][4] = [single]1.0
+            $cm[4][0] = [single]($C.Muted.R / 255.0)
+            $cm[4][1] = [single]($C.Muted.G / 255.0)
+            $cm[4][2] = [single]($C.Muted.B / 255.0)
+            $attr = New-Object System.Drawing.Imaging.ImageAttributes
+            $attr.SetColorMatrix((New-Object System.Drawing.Imaging.ColorMatrix (, $cm)))
+            $hedef = New-Object System.Drawing.Rectangle $mx, $my, $m.Width, $m.Height
+            $g.DrawImage($m, $hedef, 0, 0, $m.Width, $m.Height, [System.Drawing.GraphicsUnit]::Pixel, $attr)
+            $attr.Dispose()
           } else {
             $rr = 4.4
             $g.FillEllipse($GLYPH, ($cx - $rr), ($cy - $rr), (2 * $rr), (2 * $rr))
@@ -1045,6 +1068,7 @@ $bar.Add_Paint({
         }
       }
     }
+    $GLYPH.Dispose(); $GLYPHPEN.Dispose()
   })
 
 $bar.Add_MouseMove({
@@ -1052,12 +1076,23 @@ $bar.Add_MouseMove({
     $h = ''
     foreach ($b in $script:barBtns) { if ($b.R.Contains($e.Location)) { $h = $b.Ad; break } }
     if ($h -ne $script:barHover) {
+      $onceki = $script:barHover
       $script:barHover = $h
       $s.Cursor = $(if ($h) { [System.Windows.Forms.Cursors]::Hand } else { [System.Windows.Forms.Cursors]::Default })
-      $s.Invalidate()
+      # Yalnizca degisen iki kareyi yenile: tum bandi yenilemek resmi her
+      # seferinde yeniden olceklendiriyor ve gozle gorulur sekilde oynuyor
+      foreach ($b in $script:barBtns) {
+        if ($b.Ad -eq $onceki -or $b.Ad -eq $h) { $s.Invalidate($b.R) }
+      }
     }
   })
-$bar.Add_MouseLeave({ if ($script:barHover -ne '') { $script:barHover = ''; $bar.Invalidate() } })
+$bar.Add_MouseLeave({
+    if ($script:barHover -ne '') {
+      $eski = $script:barHover
+      $script:barHover = ''
+      foreach ($b in $script:barBtns) { if ($b.Ad -eq $eski) { $bar.Invalidate($b.R) } }
+    }
+  })
 
 $bar.Add_MouseDown({
     param($s, $e)
@@ -1100,7 +1135,7 @@ $pillPaint = {
   }
 
 # --- Gorunum ---
-$cardLook = New-Card 20 205 480 130
+$cardLook = New-Card 20 243 480 130
 $lblLookCap = New-Caption 'GÖRÜNÜM' 18 12 200
 $lblLookCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 
@@ -1168,7 +1203,7 @@ $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox))
 
 # --- Alan ---
-$cardArea = New-Card 20 351 480 110
+$cardArea = New-Card 20 389 480 110
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
