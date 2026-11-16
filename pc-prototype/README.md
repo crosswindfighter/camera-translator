@@ -1,5 +1,7 @@
 # Camera Translator — PC sürümü
 
+<img src="banner-github.jpg" width="100%">
+
 Oyun altyazılarını ekrandan okur, Türkçeye çevirir ve **İngilizce yazının tam üstüne** basar.
 Oyun Türkçe altyazılıymış gibi görünür.
 
