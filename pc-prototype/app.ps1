@@ -1705,6 +1705,8 @@ function Start-Translator {
   $psi.EnvironmentVariables['PYTHONIOENCODING'] = 'utf-8'
   $psi.EnvironmentVariables['CT_LLM_MODEL'] = [string]$script:cfg.llmModel
   $psi.EnvironmentVariables['CT_OCRFIX'] = $(if ([bool]$script:cfg.gelismisOcr) { '1' } else { '0' })
+  # Calisirken ekran karti yolu yavas cikarsa bir dahaki acilista islemci zorlanir
+  $psi.EnvironmentVariables['CT_OCR_CPU'] = $(if ($script:ocrCpuZorla) { '1' } else { '0' })
   $script:proc = [System.Diagnostics.Process]::Start($psi)
   $script:writer = New-Object System.IO.StreamWriter($script:proc.StandardInput.BaseStream, (New-Object System.Text.UTF8Encoding $false))
   $script:writer.AutoFlush = $true
@@ -1720,7 +1722,9 @@ function Start-Translator {
   }
   $bits = $ready.Split(' ')
   $nerede = if ($bits.Count -gt 2 -and $bits[2] -eq 'gpu') { 'ekran kartı' } else { 'işlemci' }
-  Write-Line ('Çeviri motoru hazır (' + $bits[1] + ' ms) · okuma: ' + $nerede)
+  $olcumNotu = ''
+  if ($bits.Count -gt 3 -and [int]$bits[3] -gt 0) { $olcumNotu = ' · kare başı ' + $bits[3] + ' ms' }
+  Write-Line ('Çeviri motoru hazır (' + $bits[1] + ' ms) · okuma: ' + $nerede + $olcumNotu)
   Write-Dev ('OZET   | okuma ' + $nerede + ' üzerinde çalışıyor')
   return $true
 }
@@ -1835,6 +1839,19 @@ function Step-Area($st) {
       }
       $st.capMs = [int]$swCap.ElapsedMilliseconds
       $st.ocrMs = [int]$swOcr.ElapsedMilliseconds
+      # Acilis olcumu hizli cikip gercek karelerde yavaslayabiliyor (DirectML
+      # girdi sekli degisince yeniden derliyor). Ucuncu yavas okumada motoru
+      # islemciyle yeniden aciyoruz; 28 saniyelik kareyle ugrasmaktansa
+      # islemcinin yarim saniyesi her zaman iyidir.
+      if (-not $script:ocrCpuZorla) {
+        if ($st.ocrMs -gt 2500) { $script:yavasOkuma++ } else { $script:yavasOkuma = 0 }
+        if ($script:yavasOkuma -ge 3) {
+          $script:ocrCpuZorla = $true
+          Write-Line 'Ekran kartı yolu bu makinede yavaş — okuma işlemciye alınıyor.'
+          Stop-Translator
+          return
+        }
+      }
       $script:frameCount++
       $script:errorStreak = 0
     } catch {
@@ -2115,6 +2132,7 @@ function Start-Run {
   $script:latencies = New-Object System.Collections.ArrayList
   $script:paused = $false; $script:prevF8 = $false; $script:errorStreak = 0
   $script:frameCount = 0; $script:cacheHits = 0; $script:warnCount = 0
+  $script:ocrCpuZorla = $false; $script:yavasOkuma = 0
   $script:blankGrabs = 0; $script:blankWarned = $false
   $script:noTextFrames = 0; $script:noTextWarned = $false
   $script:lastSummary = Get-Date

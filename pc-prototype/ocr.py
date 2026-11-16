@@ -24,6 +24,13 @@ MIN_SCORE = 0.55
 
 _ORIG_INIT = None
 
+# Ekran karti yolu her makinede hizli degil. Intel tumlesik grafikte DirectML
+# olculdu: kare basi 6-28 saniye, islemci yolunun yuzlerce kati. O yuzden
+# acilista bir olcum yapiliyor ve yavassa islemciye geciliyor.
+GPU_ESIK_MS = 1200
+SECIM_MS = 0
+
+
 
 def _use_directml():
     """RapidOCR 1.2.3 yalnizca CUDA biliyor. Oturum kurulumunu degistirip ayni
@@ -82,8 +89,28 @@ def _kur():
     return motor
 
 
+def _olcum_karesi():
+    """Gercek altyazi seridine benzer bir kare: genis, alcak, beyaz uzerine siyah."""
+    import cv2
+    import numpy as np
+    img = np.full((80, 900, 3), 255, dtype=np.uint8)
+    cv2.putText(img, 'warm up test line', (20, 58), cv2.FONT_HERSHEY_SIMPLEX,
+                1.6, (0, 0, 0), 3)
+    return img
+
+
+def _olc(motor):
+    """Ilk cagri modelleri yukleyip gol derliyor; olcum ikinci cagriyla yapilir."""
+    import time
+    kare = _olcum_karesi()
+    motor(kare)
+    t0 = time.time()
+    motor(kare)
+    return (time.time() - t0) * 1000.0
+
+
 def get():
-    global _ENGINE, GPU
+    global _ENGINE, GPU, SECIM_MS
     if _ENGINE is None:
         if os.environ.get('CT_OCR_CPU') != '1':
             try:
@@ -92,6 +119,16 @@ def get():
                 GPU = False
         try:
             _ENGINE = _kur()
+            if GPU:
+                try:
+                    SECIM_MS = _olc(_ENGINE)
+                    if SECIM_MS > GPU_ESIK_MS:
+                        # Bu makinede ekran karti yolu islemciden yavas
+                        _cpu_ya_don()
+                        _ENGINE = _kur()
+                        SECIM_MS = _olc(_ENGINE)
+                except Exception:
+                    pass
         except Exception:
             # Saglayici listede gorunuyor olsa bile DirectX 12 destekleyen bir
             # ekran karti yoksa oturum burada patliyor. Baska bir makinede

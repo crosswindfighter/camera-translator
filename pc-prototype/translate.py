@@ -462,7 +462,14 @@ def main():
 
     gpu = _warm_ocr()
     load_ms = int((time.time() - started) * 1000)
-    print("READY %d %s" % (load_ms, "gpu" if gpu else "cpu"), flush=True)
+    # Dorduncu alan: okuma motorunun olculen kare suresi (ms).
+    # Ekran karti yolu yavas cikip islemciye dusuldugunde de bu gorunur.
+    try:
+        import ocr as _o
+        olcum = int(_o.SECIM_MS)
+    except Exception:
+        olcum = 0
+    print("READY %d %s %d" % (load_ms, "gpu" if gpu else "cpu", olcum), flush=True)
     for line in sys.stdin:
         # PowerShell tarafindaki akis ilk satirin basina BOM koyabiliyor;
         # suzulmezse ilk OCR istegi komut degil duz metin saniliyor ve
