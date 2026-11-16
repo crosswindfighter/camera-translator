@@ -630,41 +630,37 @@ function New-OverlayWindow($st) {
         $rect = $st.boxRect
         $text = $st.boxText
         if ($null -eq $rect -or $text -eq '') { return }
-        if ($st.Mode -eq 'ek') {
-          # Ek alanda ceviri cercevenin disina tasmaz: kutu alanin kendisi,
-          # punto da metin icine sigana kadar kucultulur.
-          $bw = $sender.ClientSize.Width
-          $bh = $sender.ClientSize.Height
-          $pad = 6
-          $inW = [math]::Max(20, $bw - $pad * 2)
-          $inH = [math]::Max(14, $bh - $pad * 2)
-          $name = [string]$script:cfg.yaziTipi
-          $size = [int][math]::Min(60, [math]::Max(12, [int]($inH * 0.62)))
-          while ($size -gt 10) {
-            $ff = New-Object System.Drawing.Font($name, $size, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
-            $mm = $e.Graphics.MeasureString($text, $ff, $inW)
-            $ff.Dispose()
-            if ($mm.Height -le $inH) { break }
-            $size -= 2
-          }
-          Draw-Subtitle $e.Graphics $text 0 0 $bw $bh $size
-          if ([bool]$script:cfg.ayrintiliKayit) {
-            Write-Dev ('CIZIM  | alan' + $st.No + ' (ek) | kutu=' + $bw + 'x' + $bh +
-              '@' + $sender.Left + ',' + $sender.Top + ' | punto=' + $size)
-          }
-          return
-        }
         $lines = [math]::Max(1, $st.boxLines)
         $lineH = [math]::Max(8, [int]($rect.Height / $lines))
-        # Pay satir boyuna oranli: ingilizcenin kenar yumusatmasi kutunun disinda kalmasin
-        $padX = [int][math]::Max(18, $lineH * 0.45)
-        $padY = [int][math]::Max(4, $lineH * 0.22)
+        # Pay satir boyuna oranli: ingilizcenin kenar yumusatmasi kutunun disinda kalmasin.
+        # Ek alanda dar tutuluyor; oradaki yazi kisa oldugu icin genis pay
+        # kocaman bir siyah blok olarak goruluyordu.
+        if ($st.Mode -eq 'ek') {
+          $padX = [int][math]::Max(8, $lineH * 0.28)
+          $padY = [int][math]::Max(3, $lineH * 0.15)
+        } else {
+          $padX = [int][math]::Max(18, $lineH * 0.45)
+          $padY = [int][math]::Max(4, $lineH * 0.22)
+        }
         $maxW = $sender.ClientSize.Width
         $maxH = $sender.ClientSize.Height
 
         # Punto SABIT: oturmus satir yuksekligine gore, karedeki zipli olcume gore degil.
         $stable = if ($st.stableLineH -gt 0) { $st.stableLineH } else { $lineH }
         $size = [int][math]::Min(64, [math]::Max(14, [math]::Round($stable * 0.95)))
+        # Ek alanda kutu cercevenin disina cikamaz. Punto once metin alana
+        # sigana kadar kucultulur; kutu sonra o puntoya gore olculur, boylece
+        # alanin tamami degil yalnizca yazinin oturdugu yer kapanir.
+        if ($st.Mode -eq 'ek') {
+          $ad = [string]$script:cfg.yaziTipi
+          while ($size -gt 10) {
+            $ff = New-Object System.Drawing.Font($ad, $size, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+            $mm = $e.Graphics.MeasureString($text, $ff, [math]::Max(20, $maxW - $padX * 2))
+            $ff.Dispose()
+            if ($mm.Height -le ($maxH - $padY * 2)) { break }
+            $size--
+          }
+        }
         $font = New-Object System.Drawing.Font([string]$script:cfg.yaziTipi, $size, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
         $single = [double]$e.Graphics.MeasureString($text, $font).Width
         $lineBox = [double]$e.Graphics.MeasureString('Ag', $font).Height
@@ -700,7 +696,8 @@ function New-OverlayWindow($st) {
         Draw-Subtitle $e.Graphics $text $bx $by $bw $bh $size
 
         if ([bool]$script:cfg.ayrintiliKayit) {
-          Write-Dev ('CIZIM  | ing=' + $rect.Width + 'x' + $rect.Height + '@' + $rect.X + ',' + $rect.Y +
+          $etiket = $(if ($st.Mode -eq 'ek') { 'alan' + $st.No + ' ' } else { '' })
+          Write-Dev ('CIZIM  | ' + $etiket + 'ing=' + $rect.Width + 'x' + $rect.Height + '@' + $rect.X + ',' + $rect.Y +
             ' | kutu=' + $bw + 'x' + $bh + '@' + ($bx + $sender.Left) + ',' + ($by + $sender.Top) +
             ' | punto=' + $script:lastFontSize + ' | satır=' + $lines)
           if (-not $script:lastFit) {
