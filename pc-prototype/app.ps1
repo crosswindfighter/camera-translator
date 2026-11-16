@@ -40,6 +40,9 @@ public class Native {
     public static extern bool ReleaseCapture();
     [DllImport("user32.dll")]
     public static extern IntPtr SendMessage(IntPtr hWnd, int msg, int wParam, int lParam);
+    // Windows 11 pencere kosesini kendi yuvarlar; Region ile kirpmaktan cok daha temiz
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmSetWindowAttribute(IntPtr hWnd, int attr, ref int val, int size);
 }
 "@
 
@@ -93,7 +96,6 @@ $defaults = [ordered]@{
   yaziTipi = 'Segoe UI'
   yaziRengi = '#FFFFFF'
   kutuRengi = '#000000'
-  saydamlik = 1.0
   alan = $null
   ayrintiliKayit = $false
   # Arayuz temasi: 'gece' ya da 'gunduz'
@@ -170,7 +172,7 @@ function Start-DevLog {
     ('Ekranlar   : ' + $vs.Width + 'x' + $vs.Height + ' (sanal), birincil ' +
       [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Width + 'x' + [System.Windows.Forms.Screen]::PrimaryScreen.Bounds.Height),
     ('OCR alanı  : ' + $a.W + 'x' + $a.H + ' konum ' + $a.X + ',' + $a.Y),
-    ('Yazı tipi  : ' + $script:cfg.yaziTipi + '   yazı ' + $script:cfg.yaziRengi + '   kutu ' + $script:cfg.kutuRengi + '   saydamlık ' + $script:cfg.saydamlik),
+    ('Yazı tipi  : ' + $script:cfg.yaziTipi + '   yazı ' + $script:cfg.yaziRengi + '   kutu ' + $script:cfg.kutuRengi),
     ('Okuma      : her ' + $READ_MS + ' ms, kutuyu tutma ' + $HOLD_MS + ' ms'),
     '',
     'Satır türleri: OKUMA (ham ve filtreli metin) · CEVIRI · ONBELLEK · CIZIM · UYARI · OZET',
@@ -594,7 +596,6 @@ function New-OverlayWindow($a) {
   $f.ShowInTaskbar = $false
   $f.BackColor = $key
   $f.TransparencyKey = $key
-  if ([double]$script:cfg.saydamlik -lt 1.0) { $f.Opacity = [double]$script:cfg.saydamlik }
   $f.Add_Paint({
       param($sender, $e)
       try {
@@ -802,6 +803,39 @@ function Select-Area {
 }
 
 # ---------------- Arayuz ----------------
+function Get-RoundPath([single]$x, [single]$y, [single]$w, [single]$h, [single]$r) {
+  $p = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $d = $r * 2
+  $p.AddArc($x, $y, $d, $d, 180, 90)
+  $p.AddArc(($x + $w - $d), $y, $d, $d, 270, 90)
+  $p.AddArc(($x + $w - $d), ($y + $h - $d), $d, $d, 0, 90)
+  $p.AddArc($x, ($y + $h - $d), $d, $d, 90, 90)
+  $p.CloseFigure()
+  return $p
+}
+
+# Kontrolun Region'ini kirpmak kenari tirtikli birakiyor: Region piksel piksel
+# keser, kenar yumusatma uygulamaz. Bunun yerine kontrol kendini cizdikten
+# SONRA dort koseyi arka plan rengiyle kapatiyoruz. FillMode Alternate, dis
+# dikdortgen ile ic yuvarlak dikdortgen arasindaki halkayi doldurur.
+function Hide-Corners($g, [int]$w, [int]$h, [int]$r, $color) {
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $ring = New-Object System.Drawing.Drawing2D.GraphicsPath
+  $ring.FillMode = [System.Drawing.Drawing2D.FillMode]::Alternate
+  $ring.AddRectangle((New-Object System.Drawing.RectangleF 0, 0, $w, $h))
+  $inner = Get-RoundPath 0 0 $w $h $r
+  $ring.AddPath($inner, $false)
+  $br = New-Object System.Drawing.SolidBrush $color
+  $g.FillPath($br, $ring)
+  $br.Dispose(); $inner.Dispose(); $ring.Dispose()
+}
+
+# $bgKey, $C icindeki anahtar adi: tema degisince renk de degissin diye
+# rengin kendisi degil adi saklaniyor.
+function Add-SoftCorners($ctrl, [int]$radius, [string]$bgKey) {
+  $ctrl.Add_Paint({ param($s, $e) Hide-Corners $e.Graphics $s.Width $s.Height $radius $C[$bgKey] }.GetNewClosure())
+}
+
 function Set-Rounded($ctrl, [int]$radius) {
   $p = New-Object System.Drawing.Drawing2D.GraphicsPath
   $w = $ctrl.Width; $h = $ctrl.Height; $d = $radius * 2
@@ -817,7 +851,7 @@ function New-Card([int]$x, [int]$y, [int]$w, [int]$h) {
   $pn = New-Object System.Windows.Forms.Panel
   $pn.SetBounds($x, $y, $w, $h)
   $pn.BackColor = $C.Card
-  Set-Rounded $pn 14
+  Add-SoftCorners $pn 14 'Bg'
   return $pn
 }
 function New-Caption([string]$text, [int]$x, [int]$y, [int]$w = 150) {
@@ -832,7 +866,7 @@ function New-Caption([string]$text, [int]$x, [int]$y, [int]$w = 150) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'Camera Translator PC'
 $form.FormBorderStyle = 'None'
-$form.Size = New-Object System.Drawing.Size 520, 656
+$form.Size = New-Object System.Drawing.Size 520, 733
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = $C.Bg
 $form.ForeColor = $C.Text
@@ -840,72 +874,150 @@ $form.Font = New-Object System.Drawing.Font('Segoe UI', 9.75)
 $icoPath = Join-Path $root 'app.ico'
 if (Test-Path $icoPath) { try { $form.Icon = New-Object System.Drawing.Icon($icoPath) } catch { } }
 
+# ---------------- Ust bant ----------------
+# Banner, pencerenin tam ustunde. Uzerindeki dugmeler goruntunun ustunde
+# durdugu icin kendi arka planlarini cizemezler: her biri once altina denk
+# gelen banner parcasini, sonra koyu yari saydam bir yuvarlak basar.
+$BANNER_H = 195
+$script:bannerImg = $null
+$bannerPath = Join-Path $root 'banner.png'
+if (Test-Path $bannerPath) {
+  try {
+    $baytlar = [System.IO.File]::ReadAllBytes($bannerPath)
+    $ms = New-Object System.IO.MemoryStream (, $baytlar)
+    $script:bannerImg = [System.Drawing.Image]::FromStream($ms)
+  } catch { $script:bannerImg = $null }
+}
+
 $bar = New-Object System.Windows.Forms.Panel
-$bar.SetBounds(0, 0, 520, 52)
+$bar.SetBounds(0, 0, 520, $BANNER_H)
 $bar.BackColor = $C.Bg
-$lblTitle = New-Object System.Windows.Forms.Label
-$lblTitle.Text = 'Camera Translator'
-$lblTitle.SetBounds(22, 16, 300, 24)
-$lblTitle.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 11.5)
-$lblTitle.ForeColor = $C.Text
-$lblTitle.BackColor = [System.Drawing.Color]::Transparent
-$btnClose = New-Object System.Windows.Forms.Button
-$btnClose.Text = '✕'; $btnClose.SetBounds(470, 12, 32, 28)
-$btnClose.FlatStyle = 'Flat'; $btnClose.FlatAppearance.BorderSize = 0
-$btnClose.BackColor = $C.Bg; $btnClose.ForeColor = $C.Muted
-$btnClose.Font = New-Object System.Drawing.Font('Segoe UI', 11); $btnClose.TabStop = $false
-$btnMin = New-Object System.Windows.Forms.Button
-$btnMin.Text = '—'; $btnMin.SetBounds(434, 12, 32, 28)
-$btnMin.FlatStyle = 'Flat'; $btnMin.FlatAppearance.BorderSize = 0
-$btnMin.BackColor = $C.Bg; $btnMin.ForeColor = $C.Muted
-$btnMin.Font = New-Object System.Drawing.Font('Segoe UI', 9); $btnMin.TabStop = $false
-# Ay/gunes kendi cizimi. Yazi tipi sembolleri (U+263D) ince ve cirkin
-# cikiyordu; ayrica ay sola bakiyordu. Hilal, dolu dairenin ustune zemin
-# renginde ikinci daire basilarak yapiliyor -- Region ile kesmek kenari
-# tirtikli birakirdi, bu yontem kenar yumusatmali.
-$btnTheme = New-Object System.Windows.Forms.Panel
-$btnTheme.SetBounds(396, 14, 28, 24)
-$btnTheme.BackColor = $C.Bg
-$btnTheme.Cursor = [System.Windows.Forms.Cursors]::Hand
-$btnTheme.Add_Paint({
+$GLYPH = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(240, 255, 255, 255))
+$GLYPHPEN = New-Object System.Drawing.Pen ([System.Drawing.Color]::FromArgb(240, 255, 255, 255)), 1.7
+$GLYPHPEN.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+$GLYPHPEN.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+
+# Pencere dugmeleri banner'in UZERINDE duruyor. Ayri kontrol yapilirsa her biri
+# altindaki goruntu parcasini kendisi kopyalamak zorunda kaliyor ve dikisler
+# belli oluyor. Bunun yerine ucu de banner'in kendi ciziminde: tek yuzey,
+# dikis yok, ustune karartma da rahatca biniyor.
+# Hilal simgesi. FillMode Alternate iki dairenin simetrik farkini doldurur,
+# yani halka cikar; bize gereken 'daireden daireyi cikar'. GDI+'ta bunun
+# dogrudan karsiligi yok, o yuzden 4 kat buyuk cizip SourceCopy ile isiriyoruz,
+# sonra kucultuyoruz: kuculturken kenar kendiliginden yumusuyor.
+function New-MoonImage([int]$size) {
+  $k = 4
+  $big = New-Object System.Drawing.Bitmap ($size * $k), ($size * $k)
+  $g = [System.Drawing.Graphics]::FromImage($big)
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $beyaz = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
+  $g.FillEllipse($beyaz, 0, 0, ($size * $k - 1), ($size * $k - 1))
+  $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
+  $bos = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+  # Isirik sag ustte: hilalin acik tarafi sag uste bakar
+  $g.FillEllipse($bos, ([int]($size * $k * 0.30)), ([int]($size * $k * -0.26)), ($size * $k - 1), ($size * $k - 1))
+  $beyaz.Dispose(); $bos.Dispose(); $g.Dispose()
+  $kucuk = New-Object System.Drawing.Bitmap $size, $size
+  $g2 = [System.Drawing.Graphics]::FromImage($kucuk)
+  $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  $g2.DrawImage($big, 0, 0, $size, $size)
+  $g2.Dispose(); $big.Dispose()
+  return $kucuk
+}
+$script:moonImg = New-MoonImage 18
+
+$script:barHover = ''
+$script:barBtns = @(
+  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle 404, 14, 30, 26) },
+  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle 440, 14, 30, 26) },
+  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle 476, 14, 30, 26) }
+)
+
+$bar.Add_Paint({
     param($s, $e)
     $g = $e.Graphics
-    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $g.Clear($C.Bg)
-    $ink = New-Object System.Drawing.SolidBrush $C.Muted
-    $cx = $s.Width / 2.0; $cy = $s.Height / 2.0
-    if ($script:cfg.tema -eq 'gece') {
-      $r = 7.5
-      $g.FillEllipse($ink, ($cx - $r), ($cy - $r), (2 * $r), (2 * $r))
-      # Isirik sag ust kosede: hilalin acik tarafi sag uste bakar
-      $bite = New-Object System.Drawing.SolidBrush $C.Bg
-      $g.FillEllipse($bite, ($cx - $r + 4.5), ($cy - $r - 4.0), (2 * $r), (2 * $r))
-      $bite.Dispose()
+    if ($null -ne $script:bannerImg) {
+      $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+      $g.DrawImage($script:bannerImg, 0, 0, $s.Width, $s.Height)
     } else {
-      $r = 4.6
-      $g.FillEllipse($ink, ($cx - $r), ($cy - $r), (2 * $r), (2 * $r))
-      $pen = New-Object System.Drawing.Pen $C.Muted, 1.6
-      $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
-      $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
-      for ($i = 0; $i -lt 8; $i++) {
-        $a = $i * [math]::PI / 4.0
-        $c = [math]::Cos($a); $sn = [math]::Sin($a)
-        $g.DrawLine($pen, ($cx + $c * 6.8), ($cy + $sn * 6.8), ($cx + $c * 9.4), ($cy + $sn * 9.4))
-      }
-      $pen.Dispose()
+      $g.Clear($C.Bg)
+      $f = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
+      $br = New-Object System.Drawing.SolidBrush $C.Text
+      $g.DrawString('Camera Translator', $f, $br, 22, 24)
+      $f.Dispose(); $br.Dispose()
     }
-    $ink.Dispose()
+    # Ust kenara karartma: dugmeler goruntunun parlak yerine denk gelse de okunur
+    $scrim = New-Object System.Drawing.Drawing2D.LinearGradientBrush `
+      (New-Object System.Drawing.Point 0, 0), (New-Object System.Drawing.Point 0, 58), `
+      ([System.Drawing.Color]::FromArgb(150, 0, 0, 0)), ([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+    $g.FillRectangle($scrim, 0, 0, $s.Width, 58); $scrim.Dispose()
+
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    foreach ($b in $script:barBtns) {
+      $r = $b.R
+      $cx = $r.X + $r.Width / 2.0; $cy = $r.Y + $r.Height / 2.0
+      if ($script:barHover -eq $b.Ad) {
+        $hp = Get-RoundPath ([single]$r.X) ([single]$r.Y) ([single]$r.Width) ([single]$r.Height) 9
+        $hb = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(70, 255, 255, 255))
+        $g.FillPath($hb, $hp); $hb.Dispose(); $hp.Dispose()
+      }
+      switch ($b.Ad) {
+        'kapat' {
+          $k = 4.5
+          $g.DrawLine($GLYPHPEN, ($cx - $k), ($cy - $k), ($cx + $k), ($cy + $k))
+          $g.DrawLine($GLYPHPEN, ($cx + $k), ($cy - $k), ($cx - $k), ($cy + $k))
+        }
+        'kucult' { $g.DrawLine($GLYPHPEN, ($cx - 6), $cy, ($cx + 6), $cy) }
+        'tema' {
+          if ($script:cfg.tema -eq 'gece') {
+            $m = $script:moonImg
+            $g.DrawImage($m, [int]($cx - $m.Width / 2), [int]($cy - $m.Height / 2))
+          } else {
+            $rr = 4.4
+            $g.FillEllipse($GLYPH, ($cx - $rr), ($cy - $rr), (2 * $rr), (2 * $rr))
+            for ($i = 0; $i -lt 8; $i++) {
+              $a = $i * [math]::PI / 4.0
+              $c = [math]::Cos($a); $sn = [math]::Sin($a)
+              $g.DrawLine($GLYPHPEN, ($cx + $c * 6.4), ($cy + $sn * 6.4), ($cx + $c * 8.8), ($cy + $sn * 8.8))
+            }
+          }
+        }
+      }
+    }
   })
-$ttTheme = New-Object System.Windows.Forms.ToolTip
-$bar.Controls.AddRange(@($lblTitle, $btnTheme, $btnMin, $btnClose))
-$drag = {
-  param($s, $e)
-  if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
+
+$bar.Add_MouseMove({
+    param($s, $e)
+    $h = ''
+    foreach ($b in $script:barBtns) { if ($b.R.Contains($e.Location)) { $h = $b.Ad; break } }
+    if ($h -ne $script:barHover) {
+      $script:barHover = $h
+      $s.Cursor = $(if ($h) { [System.Windows.Forms.Cursors]::Hand } else { [System.Windows.Forms.Cursors]::Default })
+      $s.Invalidate()
+    }
+  })
+$bar.Add_MouseLeave({ if ($script:barHover -ne '') { $script:barHover = ''; $bar.Invalidate() } })
+
+$bar.Add_MouseDown({
+    param($s, $e)
+    if ($e.Button -ne [System.Windows.Forms.MouseButtons]::Left) { return }
+    foreach ($b in $script:barBtns) {
+      if ($b.R.Contains($e.Location)) {
+        switch ($b.Ad) {
+          'kapat'  { $form.Close() }
+          'kucult' { $form.WindowState = 'Minimized' }
+          'tema'   {
+            Set-Theme $(if ($script:cfg.tema -eq 'gece') { 'gunduz' } else { 'gece' })
+            Save-Settings
+            Write-Line $(if ($script:cfg.tema -eq 'gece') { 'Gece moduna geçildi' } else { 'Gündüz moduna geçildi' })
+          }
+        }
+        return
+      }
+    }
     [void][Native]::ReleaseCapture()
     [void][Native]::SendMessage($form.Handle, 0xA1, 2, 0)
-  }
-}
-$bar.Add_MouseDown($drag); $lblTitle.Add_MouseDown($drag)
+  })
 
 # Ortak anahtar cizimi: hangi kutuya bagliysa onun durumunu gosterir
 $pillPaint = {
@@ -927,7 +1039,7 @@ $pillPaint = {
   }
 
 # --- Gorunum ---
-$cardLook = New-Card 20 62 480 196
+$cardLook = New-Card 20 205 480 130
 $lblLookCap = New-Caption 'GÖRÜNÜM' 18 12 200
 $lblLookCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 
@@ -935,7 +1047,7 @@ $fontField = New-Object System.Windows.Forms.Panel
 $fontField.SetBounds(140, 38, 324, 30)
 $fontField.BackColor = $C.Card2
 $fontField.Cursor = [System.Windows.Forms.Cursors]::Hand
-Set-Rounded $fontField 8
+Add-SoftCorners $fontField 8 'Card'
 $fontField.Add_Paint({
     param($s, $e)
     $g = $e.Graphics
@@ -992,53 +1104,10 @@ $swBox.Add_Paint($swatchPaint)
 $lblTextCol = New-Caption 'Yazı rengi' 18 86 120
 $lblBoxCol = New-Caption 'Kutu rengi' 190 86 80
 $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
-$lblOpaCap = New-Caption 'Saydamlık' 18 132 120
-
-$sld = New-Object System.Windows.Forms.Panel
-$sld.SetBounds(140, 124, 260, 32); $sld.BackColor = $C.Card
-$lblOpaVal = New-Object System.Windows.Forms.Label
-$lblOpaVal.SetBounds(410, 132, 60, 20)
-$lblOpaVal.ForeColor = $C.Accent
-$lblOpaVal.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 9.5)
-$lblOpaVal.BackColor = [System.Drawing.Color]::Transparent
-$script:opacity = [double]$script:cfg.saydamlik
-$script:sliderDrag = $false
-function Set-OpacityFromX([int]$x) {
-  $w = $sld.Width - 16
-  $v = ($x - 8) / [double]$w
-  if ($v -lt 0) { $v = 0 }
-  if ($v -gt 1) { $v = 1 }
-  $script:opacity = [math]::Round(0.4 + $v * 0.6, 2)
-  $script:cfg.saydamlik = $script:opacity
-  $lblOpaVal.Text = ('%{0}' -f [int]($script:opacity * 100))
-  $sld.Invalidate()
-  if ($null -ne $script:overlay) {
-    $script:overlay.Opacity = $(if ($script:opacity -lt 1.0) { $script:opacity } else { 1.0 })
-  }
-  Save-Settings
-}
-$sld.Add_Paint({
-    param($s, $e)
-    $g = $e.Graphics
-    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $y = [int]($s.Height / 2)
-    $trackW = $s.Width - 16
-    $track = New-Object System.Drawing.SolidBrush $C.Line
-    $g.FillRectangle($track, 8, $y - 2, $trackW, 4); $track.Dispose()
-    $t = ($script:opacity - 0.4) / 0.6
-    $px = 8 + [int]($trackW * $t)
-    $fill = New-Object System.Drawing.SolidBrush $C.Accent2
-    $g.FillRectangle($fill, 8, $y - 2, [math]::Max(0, $px - 8), 4); $fill.Dispose()
-    $knob = New-Object System.Drawing.SolidBrush $C.Accent
-    $g.FillEllipse($knob, $px - 8, $y - 8, 16, 16); $knob.Dispose()
-  })
-$sld.Add_MouseDown({ param($s, $e) $script:sliderDrag = $true; Set-OpacityFromX $e.X })
-$sld.Add_MouseMove({ param($s, $e) if ($script:sliderDrag) { Set-OpacityFromX $e.X } })
-$sld.Add_MouseUp({ $script:sliderDrag = $false })
-$cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox, $lblOpaCap, $sld, $lblOpaVal))
+$cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox))
 
 # --- Alan ---
-$cardArea = New-Card 20 272 480 110
+$cardArea = New-Card 20 351 480 110
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
@@ -1046,7 +1115,7 @@ $btnArea.FlatStyle = 'Flat'
 $btnArea.FlatAppearance.BorderSize = 1
 $btnArea.FlatAppearance.BorderColor = $C.Line
 $btnArea.BackColor = $C.Card2; $btnArea.ForeColor = $C.Text
-Set-Rounded $btnArea 10
+Add-SoftCorners $btnArea 10 'Card'
 $lblArea = New-Object System.Windows.Forms.Label
 $lblArea.SetBounds(222, 27, 240, 20)
 $lblArea.ForeColor = $C.Muted
@@ -1077,20 +1146,20 @@ $chkLlm.Add_CheckedChanged({
 # --- Baslat ---
 $btnStart = New-Object System.Windows.Forms.Button
 $btnStart.Text = 'BAŞLAT'
-$btnStart.SetBounds(20, 398, 480, 54)
+$btnStart.SetBounds(20, 477, 480, 54)
 $btnStart.FlatStyle = 'Flat'; $btnStart.FlatAppearance.BorderSize = 0
 $btnStart.BackColor = $C.Go; $btnStart.ForeColor = [System.Drawing.Color]::White
 $btnStart.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
-Set-Rounded $btnStart 14
+Add-SoftCorners $btnStart 14 'Bg'
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.SetBounds(20, 458, 480, 22)
+$lblStatus.SetBounds(20, 537, 480, 22)
 $lblStatus.ForeColor = $C.Muted
 $lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 8.75)
 $lblStatus.TextAlign = 'MiddleCenter'
 
 # --- Kayit ---
-$cardLog = New-Card 20 486 480 148
+$cardLog = New-Card 20 565 480 148
 $lblLogCap = New-Caption 'KAYIT' 18 10 200
 $lblLogCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 $txtLog = New-Object System.Windows.Forms.TextBox
@@ -1119,7 +1188,7 @@ $btnOpenLog.FlatAppearance.BorderColor = $C.Line
 $btnOpenLog.BackColor = $C.Card2
 $btnOpenLog.ForeColor = $C.Text
 $btnOpenLog.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
-Set-Rounded $btnOpenLog 8
+Add-SoftCorners $btnOpenLog 8 'Card'
 
 # $chkDev hicbir karta eklenmiyor: gorunmez kaliyor ama Checked'i degistirince
 # CheckedChanged yine calisiyor. Gorunen taraf asagidaki sessiz anahtar.
@@ -1186,21 +1255,14 @@ function Set-Theme([string]$name) {
   # Gunduzde ay, gecede gunes degil: dugme icinde bulundugun modu gosteriyor
   # Cizim $cfg.tema'yi okuyor, once onu yaz sonra yeniden cizdir
   $script:cfg.tema = $name
-  $btnTheme.Invalidate()
-  $ttTheme.SetToolTip($btnTheme, $(if ($name -eq 'gece') { 'Gece modu — gündüze geç' } else { 'Gündüz modu — geceye geç' }))
+  $bar.Invalidate()
 }
 
-$btnTheme.Add_Click({
-    Set-Theme $(if ($script:cfg.tema -eq 'gece') { 'gunduz' } else { 'gece' })
-    Save-Settings
-    Write-Line $(if ($script:cfg.tema -eq 'gece') { 'Gece moduna geçildi' } else { 'Gündüz moduna geçildi' })
-  })
 
 
 # ---------------- Doldur ----------------
 $swText.Invalidate(); $swBox.Invalidate()
 Set-Theme ([string]$script:cfg.tema)
-$lblOpaVal.Text = ('%{0}' -f [int]([double]$script:cfg.saydamlik * 100))
 
 function Update-AreaLabel {
   if ($null -eq $script:cfg.alan) { $lblArea.Text = 'henüz çizilmedi'; return }
@@ -1301,8 +1363,6 @@ $btnArea.Add_Click({
     [void][Native]::SetForegroundWindow($form.Handle)
     if ($ok) { Update-AreaLabel }
   })
-$btnClose.Add_Click({ $form.Close() })
-$btnMin.Add_Click({ $form.WindowState = 'Minimized' })
 
 # ---------------- Ceviri sureci ----------------
 function Start-Translator {
@@ -1705,7 +1765,12 @@ function Stop-Run {
 $btnStart.Add_Click({ if ($script:running) { Stop-Run } else { Start-Run } })
 $form.Add_FormClosing({ if ($script:running) { Stop-Run } })
 $form.Add_Shown({
-    Set-Rounded $form 16
+    # Windows 11'de kose yuvarlamayi isletim sistemine birakiyoruz; kendi
+    # kirptigimizda kenar tirtikli cikiyordu. Eski surumlerde eski yola duser.
+    $yuvarlak = 2
+    $ok = $false
+    try { $ok = ([Native]::DwmSetWindowAttribute($form.Handle, 33, [ref]$yuvarlak, 4) -eq 0) } catch { }
+    if (-not $ok) { Set-Rounded $form 16 }
     [void][Native]::ShowWindow($form.Handle, 1)
     [void][Native]::SetForegroundWindow($form.Handle)
   })

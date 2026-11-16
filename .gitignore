@@ -32,4 +32,5 @@ local.properties
 /pc-prototype/models/
 /pc-prototype/*.bmp
 /pc-prototype/*.png
+!/pc-prototype/banner.png
 /pc-prototype/kareler_*/
