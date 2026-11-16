@@ -148,16 +148,29 @@ değişkeniyle gösterebilirsin.
 
 1. **OCR alanını çiz** — ekran kararır, altyazının çıktığı yerin etrafına dikdörtgen
    çizersin. İçinden tutup taşıyabilir, köşelerinden boyutlandırabilirsin. `Enter` kaydeder.
-2. **BAŞLAT** — 4 saniye geri sayar, o sırada oyun penceresine geç. Uygulama o pencereyi
-   kilitler; başka pencereye geçince okumayı durdurur.
+2. **BAŞLAT** — 4 saniye geri sayar, o sırada oyuna geç.
 3. `F8` duraklat/devam, `F9` durdur.
 
-**Görünüm:** yazı tipi, yazı rengi, kutu rengi ve saydamlık ayarlanabilir. Yazı boyutu
-ayarlanmaz — İngilizce altyazının boyuna göre kendini ayarlar, böylece kutu yerinden oynamaz.
+Okuma yalnızca Camera Translator penceresi önde olduğunda durur; başka her pencerede
+devam eder. Yani ikinci ekrana tıklayıp geri döndüğünde çeviri kaldığı yerden sürer.
+
+**+ OCR alanı ekle:** ikinci, üçüncü bir alan tanımlayabilirsin — görev yazısı,
+telefon ekranı, ne okutmak istersen. Ana alanla aralarında bir fark var: ana alanda
+çeviri gerekirse alanın dışına taşarak İngilizcenin üstünü kapatır, **ek alanlarda ise
+çerçevenin içinde kalır** ve sığmazsa punto küçülür. Alanı yanındaki kırmızı çarpıyla
+silersin.
+
+**Görünüm:** yazı tipi, yazı rengi ve kutu rengi ayarlanabilir. Yazı boyutu ayarlanmaz —
+İngilizce altyazının boyuna göre kendini ayarlar, böylece kutu yerinden oynamaz.
 Başlık çubuğundaki ay/güneş düğmesi gece ve gündüz modu arasında geçer.
 
+**Güncelleme:** soldaki indirme simgesi açılışta bir kere yeni sürüm olup olmadığına
+bakar. Varsa köşesinde turuncu nokta belirir ve bir kere sorar; "hayır" dersen bir daha
+sormaz ama nokta kalır. Simgeye basınca indirme sayfası açılır.
+
 **Ayrıntılı kayıt:** her okumayı, çeviriyi, çizimi ve kusuru `kayit_TARIH.txt` dosyasına yazar.
-Bir sorunu bildirirken bu dosya işe yarar.
+Bir sorunu bildirirken bu dosya işe yarar. Açıkken okunan kareler de klasöre kaydedilir,
+o yüzden gerekmedikçe kapalı tutmakta fayda var.
 
 ---
 

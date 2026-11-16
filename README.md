@@ -65,9 +65,22 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 
 ### 💻 PC sürümü
 
-Bilgisayarda oynayanlar (ya da Xbox/PlayStation görüntüsünü uzak oynatmayla PC'ye aktaranlar) için masaüstü sürümü de var: ekrandaki altyazıyı okur, çevirir ve İngilizce yazının üstüne basar. Aynı OPUS motorunu kullanır, tamamı çevrimdışıdır.
+Bilgisayarda oynayanlar — ya da Xbox/PlayStation görüntüsünü uzak oynatmayla PC'ye aktaranlar — için masaüstü sürümü de var. Ekrandaki altyazıyı okur, Türkçeye çevirir ve **İngilizce yazının tam üstüne** basar; oyun Türkçe altyazılıymış gibi görünür. Aynı OPUS çeviri motorunu ve aynı sözlükleri kullanır, tamamı çevrimdışıdır.
 
-Kurulum adımları: **[pc-prototype/README.md](pc-prototype/README.md)**
+**Kurulum üç adım:** [Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfasından `pc-v` ile başlayan sürümün ZIP'ini indir → bir klasöre çıkar → `CameraTranslator.exe`'ye çift tıkla. Python kurmana, komut yazmana gerek yok; hepsi paketin içinde. Hiçbir şey sisteme kurulmaz, klasörü silince iz kalmaz.
+
+| | |
+|---|---|
+| Okuma | PP-OCR (PaddleOCR), ekran kartında (DirectX 12) |
+| Çeviri | OPUS-MT, çevrimdışı |
+| Gecikme | medyan ~173 ms |
+| Gereksinim | Windows 10/11 64 bit · 4 çekirdek · 8 GB RAM · ~700 MB disk |
+
+Ekran kartı DirectX 12 desteklemiyorsa işlemciyle çalışmaya devam eder, sadece yavaşlar. Birden fazla OCR alanı tanımlanabilir (altyazı + görev yazısı gibi), gece/gündüz modu vardır, yeni sürüm çıktığında kendisi haber verir.
+
+> İlk açılışta Windows "Bilgisayarınız korundu" diyebilir (paket imzasız): **Daha fazla bilgi → Yine de çalıştır**. Bazı antivirüsler de PowerShell çalıştıran programlara şüpheyle bakar; program açılmazsa klasörü taramadan hariç tutun. Açılmazsa klasörde `baslatma_kaydi.txt` oluşur, sebebi orada yazar.
+
+Ayrıntılar, elle kurulum ve sürüm yayınlama: **[pc-prototype/README.md](pc-prototype/README.md)**
 
 ### 🛠️ APK Kurulmuyorsa ("Paket ayrıştırılamadı", "Dosya bozuk", "Paket geçersiz")
 
