@@ -8,14 +8,12 @@
 
 param(
   [switch]$SelfTest,
-  [switch]$LogTest,
   [string]$Python = ''
 )
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
-Add-Type -AssemblyName System.Runtime.WindowsRuntime
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 # 4K ekranda Windows olceklendirmesi (%150, %200) devreye girdiginde, DPI
@@ -269,37 +267,11 @@ function Draw-Subtitle($g, [string]$text, [int]$bx, [int]$by, [int]$bw, [int]$bh
   $textBrush.Dispose(); $font.Dispose(); $fmt.Dispose()
 }
 
-# ---------------- OCR ----------------
-[void][Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType = WindowsRuntime]
-[void][Windows.Graphics.Imaging.BitmapDecoder, Windows.Foundation, ContentType = WindowsRuntime]
-[void][Windows.Graphics.Imaging.SoftwareBitmap, Windows.Foundation, ContentType = WindowsRuntime]
-[void][Windows.Storage.StorageFile, Windows.Foundation, ContentType = WindowsRuntime]
-[void][Windows.Storage.FileAccessMode, Windows.Foundation, ContentType = WindowsRuntime]
-[void][Windows.Globalization.Language, Windows.Foundation, ContentType = WindowsRuntime]
-
-$script:asTask = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {
-    $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and
-    $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1'
-  })[0]
-function Wait-WinRT($operation, $resultType) {
-  $task = $script:asTask.MakeGenericMethod($resultType).Invoke($null, @($operation))
-  [void]$task.Wait(-1)
-  return $task.Result
-}
-$script:ocr = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage((New-Object Windows.Globalization.Language 'en-US'))
+# ---------------- Calisma dosyalari ----------------
+# Okunan kare Python tarafina bu dosyadan veriliyor
 $script:workDir = Join-Path $env:TEMP 'ocr_probe'
 if (-not (Test-Path $script:workDir)) { [void](New-Item -ItemType Directory -Path $script:workDir) }
 $script:framePath = Join-Path $script:workDir 'app.bmp'
-
-function Read-ImageText([string]$path) {
-  $file = Wait-WinRT ([Windows.Storage.StorageFile]::GetFileFromPathAsync($path)) ([Windows.Storage.StorageFile])
-  $stream = Wait-WinRT ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
-  try {
-    $decoder = Wait-WinRT ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
-    $bitmap = Wait-WinRT ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
-    return Wait-WinRT ($script:ocr.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
-  } finally { $stream.Dispose() }
-}
 
 # Alan ekran disina tasarsa CopyFromScreen hata firlatiyor; once kirpiyoruz
 # Kayitli alanlar ekran koordinatidir ve o an gecerli olan ekran olcegine
@@ -524,82 +496,6 @@ function Approve-Group($group, $now) {
 $CENTER_TOLERANCE = 0.22
 $GAP_FACTOR = 2.0
 
-function Get-Subtitle($ocrResult, [int]$rx, [int]$ry, [int]$imageWidth) {
-  $scale = $script:captureScale
-  $center = $imageWidth / 2.0
-  $tolerance = $imageWidth * $CENTER_TOLERANCE
-  $texts = @()
-  $dropped = @()
-  $minX = [double]::MaxValue; $minY = [double]::MaxValue
-  $maxX = [double]::MinValue; $maxY = [double]::MinValue
-  $lineCount = 0
-
-  foreach ($line in $ocrResult.Lines) {
-    $words = @()
-    foreach ($w in $line.Words) {
-      $r = $w.BoundingRect
-      $words += [PSCustomObject]@{
-        Text = [string]$w.Text
-        Left = [double]$r.X; Right = [double]($r.X + $r.Width)
-        Top = [double]$r.Y; Bottom = [double]($r.Y + $r.Height)
-        Height = [double]$r.Height
-      }
-    }
-    if (@($words).Count -eq 0) { continue }
-    $sorted = @($words | Sort-Object Left)
-    $heights = @($sorted | ForEach-Object { $_.Height } | Sort-Object)
-    $lineHeight = [math]::Max(1.0, $heights[[int]([math]::Floor(@($heights).Count / 2))])
-    $maxGap = $lineHeight * $GAP_FACTOR
-
-    # Bosluklara gore grupla
-    $groups = New-Object System.Collections.ArrayList
-    $current = New-Object System.Collections.ArrayList
-    [void]$current.Add($sorted[0])
-    for ($i = 1; $i -lt @($sorted).Count; $i++) {
-      $prev = $current[$current.Count - 1]
-      if (($sorted[$i].Left - $prev.Right) -gt $maxGap) {
-        [void]$groups.Add($current)
-        $current = New-Object System.Collections.ArrayList
-      }
-      [void]$current.Add($sorted[$i])
-    }
-    [void]$groups.Add($current)
-
-    $kept = @()
-    foreach ($grp in $groups) {
-      $left = $grp[0].Left
-      $right = ($grp | Measure-Object -Property Right -Maximum).Maximum
-      $coversCenter = ($left -le $center -and $right -ge $center)
-      $midNear = ([math]::Abs((($left + $right) / 2.0) - $center) -le $tolerance)
-      if ($coversCenter -or $midNear) { $kept += , $grp }
-      else { $dropped += (($grp | ForEach-Object { $_.Text }) -join ' ') }
-    }
-    if (@($kept).Count -eq 0) { continue }
-
-    $lineText = @()
-    foreach ($grp in $kept) {
-      foreach ($w in $grp) {
-        $lineText += $w.Text
-        if ($w.Left -lt $minX) { $minX = $w.Left }
-        if ($w.Top -lt $minY) { $minY = $w.Top }
-        if ($w.Right -gt $maxX) { $maxX = $w.Right }
-        if ($w.Bottom -gt $maxY) { $maxY = $w.Bottom }
-      }
-    }
-    $texts += ($lineText -join ' ')
-    $lineCount++
-  }
-
-  if ($lineCount -eq 0) { return $null }
-  return @{
-    Text  = ($texts -join ' ')
-    Lines = $lineCount
-    Dropped = $dropped
-    Rect  = New-Object System.Drawing.Rectangle `
-      ([int]($rx + $minX / $scale)), ([int]($ry + $minY / $scale)), `
-      ([int](($maxX - $minX) / $scale)), ([int](($maxY - $minY) / $scale))
-  }
-}
 
 # ---------------- Durum ----------------
 $script:running = $false
@@ -635,7 +531,6 @@ $script:lastFontSize = 0
 $script:lastFit = $true
 # OCR'in olctugu yazi yuksekligi karede zipliyor (alt/ust uzantili harf varsa buyuyor).
 # Punto bu zipli degeri degil, son okumalarin medyanini kullanir; yoksa yazi titriyor.
-$script:captureScale = 1
 $script:lineHeights = New-Object System.Collections.ArrayList
 $script:stableLineH = 0
 # Son okumalar (pencere): altyazi bir karede bozuk okunsa bile ikinci bir benzer
@@ -2002,7 +1897,6 @@ $timer.Add_Tick({
 
 function Start-Run {
   if ($null -eq $script:cfg.alan) { $lblStatus.Text = 'Önce OCR alanını çiz'; Write-Line 'OCR alanı yok'; return }
-  if ($null -eq $script:ocr) { $lblStatus.Text = 'OCR motoru yok'; Write-Line 'en-US OCR motoru bulunamadı'; return }
   $lblStatus.Text = 'Çeviri motoru yükleniyor…'
   $form.Refresh()
   Write-Line '— başlatılıyor —'
@@ -2093,50 +1987,6 @@ $form.Add_Shown({
 
 $lblStatus.Text = 'F8 duraklat · F9 durdur'
 
-if ($LogTest) {
-  # Sahte bir oyun karesi uretip tum kayit yolunu gercekten calistirir
-  $script:cfg.ayrintiliKayit = $true
-  if ($null -eq $script:cfg.alan) { $script:cfg.alan = [PSCustomObject]@{ X = 0; Y = 0; W = 800; H = 120 } }
-  Start-DevLog
-
-  $iw = 1600; $ih = 240
-  $bmp = New-Object System.Drawing.Bitmap $iw, $ih
-  $g = [System.Drawing.Graphics]::FromImage($bmp)
-  $g.Clear([System.Drawing.Color]::Black)
-  $fBig = New-Object System.Drawing.Font('Segoe UI', 34)
-  $fSml = New-Object System.Drawing.Font('Segoe UI', 24)
-  $g.DrawString('AMMO 124', $fSml, [System.Drawing.Brushes]::White, 20, 100)
-  $g.DrawString('WANTED', $fSml, [System.Drawing.Brushes]::White, 1420, 100)
-  $g.DrawString('Keep your eyes open for Pinkertons.', $fBig, [System.Drawing.Brushes]::White, 460, 60)
-  $g.DrawString('They have patrols all over this area.', $fBig, [System.Drawing.Brushes]::White, 455, 130)
-  $g.Dispose(); $fBig.Dispose(); $fSml.Dispose()
-  $tp = Join-Path $env:TEMP 'logtest.bmp'
-  $bmp.Save($tp, [System.Drawing.Imaging.ImageFormat]::Bmp); $bmp.Dispose()
-
-  $res = Read-ImageText $tp
-  $rawParts = @(); foreach ($l in $res.Lines) { $rawParts += [string]$l.Text }
-  $raw = ($rawParts -join ' ').Trim()
-  $sub = Get-Subtitle $res 0 0 $iw
-  $text = Clear-Junk $sub.Text
-  $drop = if (@($sub.Dropped).Count -gt 0) { ' | atılan=' + (@($sub.Dropped) -join ' / ') } else { '' }
-
-  Write-Dev ('OKUMA  | yakala=31ms ocr=44ms | ham=' + $raw + ' | filtreli=' + $text + $drop)
-  Write-Dev ('CEVIRI | toplam=186ms yakala=31ms ocr=44ms çeviri=52ms | satır=' + $sub.Lines)
-  Write-Dev ('       | EN=' + $text)
-  Write-Dev ('       | TR=Gözlerini Pinkertonlara açık tut. Bu bölgede devriyeler var.')
-  $script:lastFontSize = 34; $script:lastFit = $false
-  Write-Dev ('CIZIM  | ing=' + $sub.Rect.Width + 'x' + $sub.Rect.Height + ' | punto=' + $script:lastFontSize)
-  Write-Dev 'UYARI  | yazı kutuya sığmadı, punto tabana vurdu (11)'
-  Write-Dev 'OZET   | kare=120 altyazı=8 önbellek=1 uyarı=2 medyan=183ms'
-  Stop-DevLog
-
-  $file = Get-ChildItem -Path $root -Filter 'kayit_*.txt' | Sort-Object LastWriteTime -Descending | Select-Object -First 1
-  Write-Host ('Kayıt dosyası: ' + $file.Name + '  (' + $file.Length + ' bayt)')
-  Write-Host '----------------------------------------'
-  Get-Content $file.FullName -Encoding UTF8 | ForEach-Object { Write-Host $_ }
-  $form.Dispose()
-  exit 0
-}
 
 if ($SelfTest) {
   $bmp = New-Object System.Drawing.Bitmap 900, 160

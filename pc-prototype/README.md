@@ -23,6 +23,8 @@ Sürümler sayfasındaki ZIP'i indir, bir klasöre çıkar, **`CameraTranslator.
 
 Paket hiçbir şey kurmaz. Klasörü nereye koyarsan oradan çalışır, silince de iz bırakmaz.
 
+> **Açılmazsa:** klasörde `baslatma_kaydi.txt` oluşur, hatayı orada yazar. Program ayrıca bir uyarı penceresiyle sebebini gösterir.
+
 > **Windows uyarı verebilir.** Paket imzasız olduğu için SmartScreen "Bilgisayarınız korundu" diyebilir — **Daha fazla bilgi → Yine de çalıştır**. Bazı antivirüsler de PowerShell çalıştıran programlara şüpheyle bakar; dosya silinirse klasörü taramadan hariç tut.
 
 Paketi kendin üretmek istersen (depodan):

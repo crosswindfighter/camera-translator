@@ -116,30 +116,86 @@ if (Test-Path $csc) {
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Text;
 using System.Windows.Forms;
 
+// Baslatici sessiz kalmamali. Onceki surum PowerShell'i baslatip hemen
+// cikiyordu; app.ps1 acilista bir hata verirse ekranda hicbir sey olmuyor,
+// kullanici neden acilmadigini goremiyordu. Simdi surec boyunca ayakta kalip
+// ciktiyi dosyaya yaziyor, kotu bir cikis olursa hatayi gosteriyor.
 class Baslatici {
+    static StringBuilder kayit = new StringBuilder();
+    static StringBuilder hata = new StringBuilder();
+
     [STAThread]
     static void Main() {
         string dizin = AppDomain.CurrentDomain.BaseDirectory;
         string betik = Path.Combine(dizin, "app.ps1");
+        string gunluk = Path.Combine(dizin, "baslatma_kaydi.txt");
+
         if (!File.Exists(betik)) {
-            MessageBox.Show("app.ps1 bulunamadi:\n" + betik, "Camera Translator",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Goster("app.ps1 bulunamadi:" + Environment.NewLine + betik +
+                   Environment.NewLine + Environment.NewLine +
+                   "Antivirus silmis olabilir. Klasoru taramadan haric tutun.");
             return;
         }
+
         var psi = new ProcessStartInfo();
         psi.FileName = "powershell.exe";
-        psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -STA -File \"" + betik + "\"";
+        psi.Arguments = "-NoProfile -ExecutionPolicy Bypass -STA -File QBETIKQ".Replace("QBETIKQ", QUOTE + betik + QUOTE);
         psi.WorkingDirectory = dizin;
         psi.UseShellExecute = false;
         psi.CreateNoWindow = true;
+        psi.RedirectStandardError = true;
+        psi.RedirectStandardOutput = true;
+
+        Process p;
         try {
-            Process.Start(psi);
+            p = Process.Start(psi);
         } catch (Exception ex) {
-            MessageBox.Show("Baslatilamadi:\n" + ex.Message, "Camera Translator",
-                MessageBoxButtons.OK, MessageBoxIcon.Error);
+            Goster("PowerShell baslatilamadi:" + Environment.NewLine + ex.Message);
+            return;
         }
+
+        p.OutputDataReceived += delegate(object s, DataReceivedEventArgs e) {
+            if (e.Data != null) Ekle(kayit, e.Data);
+        };
+        // Karar yalnizca hata akisina ve cikis koduna bakiyor; normal ciktiyi
+        // sadece kayda yaziyoruz ki bos bir satir yuzunden uyari cikmasin.
+        p.ErrorDataReceived += delegate(object s, DataReceivedEventArgs e) {
+            if (e.Data != null) { Ekle(kayit, e.Data); Ekle(hata, e.Data); }
+        };
+        p.BeginOutputReadLine();
+        p.BeginErrorReadLine();
+        p.WaitForExit();
+
+        string metin = kayit.ToString();
+        string hataMetni = hata.ToString();
+        try {
+            if (metin.Length > 0) {
+                File.WriteAllText(gunluk, DateTime.Now + Environment.NewLine + metin);
+            }
+        } catch { }
+
+        if (p.ExitCode != 0 || hataMetni.Trim().Length > 0) {
+            string son = hataMetni.Trim();
+            if (son.Length == 0) son = metin.Trim();
+            if (son.Length > 1500) son = son.Substring(son.Length - 1500);
+            if (son.Length == 0) son = "(cikis kodu " + p.ExitCode + ")";
+            Goster("Uygulama acilamadi." + Environment.NewLine + Environment.NewLine + son +
+                   Environment.NewLine + Environment.NewLine + "Ayrinti: baslatma_kaydi.txt");
+        }
+    }
+
+    static readonly string QUOTE = ((char)34).ToString();
+
+    static void Ekle(StringBuilder hedef, string satir) {
+        lock (hedef) { hedef.AppendLine(satir); }
+    }
+
+    static void Goster(string mesaj) {
+        MessageBox.Show(mesaj, "Camera Translator",
+            MessageBoxButtons.OK, MessageBoxIcon.Error);
     }
 }
 '@ | Set-Content $cs -Encoding UTF8
