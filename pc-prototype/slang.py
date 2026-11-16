@@ -183,6 +183,15 @@ RULES = [
     _r(r"\bgot the boot\b", "got fired"),
     _r(r"\bdeputy(?= (?-i:[A-Z]))", "Officer"),
     _r(r"(?:^|(?<=[.!?]\s))'?sup\b", "What's up"),
+
+    # --- Kufur kaliplari (gercek oyun kayitlarinda olculdu) ---
+    # "fuck with" = ugrasmak; OPUS cinsel anlamda cevirip "onlarla yatabilirsin" diyordu
+    _r(r"\bfuck(ing|s|ed)?\s+with\b", lambda m: "mess" + (m.group(1) or "") + " with"),
+    # "Fucking my girl, man." suclama; OPUS emir kipi sanip "Kizimi sikeyim" diyordu
+    _r(r"(?:^|(?<=[.!?]\s))fucking (my|your|his|her|our|their)\b",
+       lambda m: "You are fucking " + m.group(1)),
+    # "Damn, man, that sucks." -> OPUS "that sucks" kismini tamamen dusuruyordu
+    _r(r"\bthat sucks\b", "that is terrible"),
 ]
 
 # Kekeleme: "p-p-pretend", "A-A-And" -> pretend, And (OPUS donguye giriyordu)
@@ -198,6 +207,11 @@ def _keep_case(original, replacement):
 
 def _apply(rules, text):
     for rx, replacement, pre in rules:
+        # Karsilik bir fonksiyon olabilir (yakalanan grubu kullanan kurallar icin)
+        if callable(replacement):
+            text = rx.sub(replacement, text)
+            continue
+
         def sub(m, replacement=replacement, pre=pre):
             prefix = m.group(1) if pre else ""
             if prefix is None:
