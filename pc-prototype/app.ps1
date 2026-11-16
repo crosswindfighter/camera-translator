@@ -1638,7 +1638,7 @@ function Invoke-Tick {
       if ((Get-Date) -ge $script:lockAt) {
         $script:gameWindow = [Native]::GetForegroundWindow()
         $script:lockAt = $null
-        Write-Line 'Oyun penceresi kilitlendi'
+        Write-Line 'Okumaya başlandı'
         $lblStatus.Text = 'Çalışıyor'
       } else {
         $left = [int]((New-TimeSpan -Start (Get-Date) -End $script:lockAt).TotalSeconds) + 1
@@ -1646,9 +1646,27 @@ function Invoke-Tick {
         return
       }
     }
-    if ($script:gameWindow -ne [IntPtr]::Zero -and [Native]::GetForegroundWindow() -ne $script:gameWindow) {
-      foreach ($o in $script:areas) { $o.boxText = ''; $o.boxRect = $null }; Update-Overlays
+    # Pencere takibi. Eskiden baslangicta tek bir pencereye kilitleniyor ve
+    # yalnizca o pencere ondeyken okunuyordu; kullanici ikinci ekrana tiklayip
+    # geri donunce ceviri bir daha gelmiyordu. Artik kural ters: yalnizca KENDI
+    # penceremiz ondeyken duruyoruz, baska her pencereden okumaya devam.
+    $on = [Native]::GetForegroundWindow()
+    $bizim = ($on -eq $form.Handle)
+    if (-not $bizim) {
+      foreach ($o in $script:areas) {
+        if ($null -ne $o.Overlay -and $o.Overlay.Handle -eq $on) { $bizim = $true; break }
+      }
+    }
+    if ($bizim) {
+      foreach ($o in $script:areas) { $o.boxText = ''; $o.boxRect = $null }
+      Update-Overlays
+      $lblStatus.Text = 'Beklemede · oyun penceresine dön'
       return
+    }
+    if ($on -ne $script:gameWindow) {
+      $script:gameWindow = $on
+      $lblStatus.Text = 'Çalışıyor'
+      Write-Dev ('OZET   | pencere değişti, okumaya devam ediliyor')
     }
 
     # Ceviri sureci yasiyor mu
@@ -1680,7 +1698,7 @@ function Step-Area($st) {
       Grab-Region $a.X $a.Y $a.W $a.H $script:framePath
       $swCap.Stop()
       $swOcr = [System.Diagnostics.Stopwatch]::StartNew()
-      $script:writer.WriteLine("#ocr`t" + $script:framePath + "`t" + $a.W)
+      $script:writer.WriteLine("#ocr`t" + $script:framePath + "`t" + $a.W + "`t" + $st.Mode)
       $ocrReply = Wait-Reply
       $swOcr.Stop()
       if ($null -eq $ocrReply) { throw 'okuma sureci yanit vermedi' }

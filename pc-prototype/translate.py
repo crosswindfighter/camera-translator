@@ -469,15 +469,19 @@ def main():
             continue
         if text == "__quit__":
             break
-        # Ekran okuma: "#ocr<TAB>dosya<TAB>genislik" -> "ms<TAB>x,y,w,h<TAB>satir<TAB>metin"
+        # Ekran okuma: "#ocr<TAB>dosya<TAB>genislik<TAB>kip"
+        #   -> "ms<TAB>x,y,w,h<TAB>satir<TAB>metin"
+        # Kip 'ek' ise ortaya denk gelme sarti aranmaz: o cerceveyi kullanici
+        # zaten dar cizdi, kenardaki satirlari atmak dogru degil.
         if text.startswith("#ocr\t"):
             parts = text.split("\t")
             path = parts[1] if len(parts) > 1 else ''
             width = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else None
+            kip = parts[3].strip() if len(parts) > 3 else 'ana'
             t0 = time.time()
             try:
                 import ocr
-                found = ocr.read(path, width)
+                found = ocr.read(path, width, center=(kip != 'ek'))
             except Exception as exc:
                 print("ocr hatasi: %s" % exc, file=sys.stderr)
                 found = None

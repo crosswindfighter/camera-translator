@@ -81,12 +81,22 @@ def _box_bounds(box):
     return min(xs), min(ys), max(xs), max(ys)
 
 
-def read(path, width=None):
+def read(path, width=None, center=True):
     """Kareyi okur. Doner: (metin, satir sayisi, (x, y, w, h)) ya da None.
-    Dikdortgen kare pikselleriyle; cagiran taraf ekran koordinatina cevirir."""
+    Dikdortgen kare pikselleriyle; cagiran taraf ekran koordinatina cevirir.
+
+    center=False: ortaya denk gelme sarti aranmaz. Kullanicinin elle cizdigi
+    ek alanlarda cerceve zaten dar, filtre orada sola yaslanmis kisa satirlari
+    (gorev yazisinin son kelimesi gibi) atiyordu."""
     res, _ = get()(path)
     if not res:
         return None
+
+    # Elle cizilen dar cercevede guven esigi dusuk tutulur: tek harflik tus
+    # istemleri ("W", "E", "Q") kisa oldugu icin dusuk skor aliyor ve normal
+    # esikte eleniyordu. Genis altyazi seridinde esik yuksek kalir, orada
+    # dusurmek kenardaki gurultuyu iceri alirdi.
+    esik = MIN_SCORE if center else 0.35
 
     blocks = []
     for item in res:
@@ -96,24 +106,26 @@ def read(path, width=None):
             score = float(item[2]) if len(item) > 2 else 1.0
         except (TypeError, ValueError):
             score = 1.0
-        if score < MIN_SCORE or not text.strip():
+        if score < esik or not text.strip():
             continue
         x0, y0, x1, y1 = _box_bounds(box)
         blocks.append({'text': text.strip(), 'x0': x0, 'y0': y0, 'x1': x1, 'y1': y1})
     if not blocks:
         return None
 
-    if width is None:
-        width = max(b['x1'] for b in blocks)
-    center = width / 2.0
-    tolerance = width * CENTER_TOLERANCE
-
-    kept = []
-    for b in blocks:
-        covers = b['x0'] <= center <= b['x1']
-        mid_near = abs((b['x0'] + b['x1']) / 2.0 - center) <= tolerance
-        if covers or mid_near:
-            kept.append(b)
+    if center:
+        if width is None:
+            width = max(b['x1'] for b in blocks)
+        orta = width / 2.0
+        tolerance = width * CENTER_TOLERANCE
+        kept = []
+        for b in blocks:
+            covers = b['x0'] <= orta <= b['x1']
+            mid_near = abs((b['x0'] + b['x1']) / 2.0 - orta) <= tolerance
+            if covers or mid_near:
+                kept.append(b)
+    else:
+        kept = blocks
     if not kept:
         return None
 
