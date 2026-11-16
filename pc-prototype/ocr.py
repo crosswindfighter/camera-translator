@@ -90,12 +90,23 @@ def _kur():
 
 
 def _olcum_karesi():
-    """Gercek altyazi seridine benzer bir kare: genis, alcak, beyaz uzerine siyah."""
+    """Olcum karesi, KULLANICININ cizdigi alanla ayni olculerde olmali.
+
+    DirectML girdi sekli degisince yeniden derliyor. Rastgele bir kareyle
+    olcup gecmek yetmiyordu: olcum 73 ms cikip gercek karede 30 saniye
+    surdugu goruldu, cunku gercek kare baska olcudeydi ve derleme bir daha
+    bastan yapildi. Alan olculeri CT_WARM_W/CT_WARM_H ile geliyor.
+    """
     import cv2
     import numpy as np
-    img = np.full((80, 900, 3), 255, dtype=np.uint8)
-    cv2.putText(img, 'warm up test line', (20, 58), cv2.FONT_HERSHEY_SIMPLEX,
-                1.6, (0, 0, 0), 3)
+    w = int(os.environ.get('CT_WARM_W', '900') or 900)
+    h = int(os.environ.get('CT_WARM_H', '80') or 80)
+    w = max(120, min(w, 4000))
+    h = max(30, min(h, 600))
+    img = np.full((h, w, 3), 255, dtype=np.uint8)
+    olcek = max(0.6, min(h / 50.0, 2.2))
+    cv2.putText(img, 'warm up test line', (10, int(h * 0.7)),
+                cv2.FONT_HERSHEY_SIMPLEX, olcek, (0, 0, 0), 2)
     return img
 
 
@@ -119,16 +130,16 @@ def get():
                 GPU = False
         try:
             _ENGINE = _kur()
-            if GPU:
-                try:
+            try:
+                # Olcum her iki yolda da yapiliyor: kayitta kare basi sure
+                # gorunsun diye. Ekran karti yolunda ayrica karar veriyor.
+                SECIM_MS = _olc(_ENGINE)
+                if GPU and SECIM_MS > GPU_ESIK_MS:
+                    _cpu_ya_don()
+                    _ENGINE = _kur()
                     SECIM_MS = _olc(_ENGINE)
-                    if SECIM_MS > GPU_ESIK_MS:
-                        # Bu makinede ekran karti yolu islemciden yavas
-                        _cpu_ya_don()
-                        _ENGINE = _kur()
-                        SECIM_MS = _olc(_ENGINE)
-                except Exception:
-                    pass
+            except Exception:
+                pass
         except Exception:
             # Saglayici listede gorunuyor olsa bile DirectX 12 destekleyen bir
             # ekran karti yoksa oturum burada patliyor. Baska bir makinede

@@ -179,6 +179,8 @@ $defaults = [ordered]@{
   tema = 'gece'
   # Kullaniciya bir kere haber verdigimiz surum; ayni surum icin tekrar sormuyoruz
   sonGorulenSurum = ''
+  # Bu makinede ekran karti yolu yavas cikti; bir daha olcme, dogrudan islemci
+  okumaIslemci = $false
   # Gelismis OCR duzeltme: bozuk Ingilizceyi yerel GPU modeli onarir, ceviriyi yine OPUS yapar
   gelismisOcr = $false
   llmModel = 'aya-expanse:8b'
@@ -1706,7 +1708,13 @@ function Start-Translator {
   $psi.EnvironmentVariables['CT_LLM_MODEL'] = [string]$script:cfg.llmModel
   $psi.EnvironmentVariables['CT_OCRFIX'] = $(if ([bool]$script:cfg.gelismisOcr) { '1' } else { '0' })
   # Calisirken ekran karti yolu yavas cikarsa bir dahaki acilista islemci zorlanir
-  $psi.EnvironmentVariables['CT_OCR_CPU'] = $(if ($script:ocrCpuZorla) { '1' } else { '0' })
+  $psi.EnvironmentVariables['CT_OCR_CPU'] = $(if ($script:ocrCpuZorla -or [bool]$script:cfg.okumaIslemci) { '1' } else { '0' })
+  # Isinma karesi kullanicinin alaniyla ayni olcude olsun ki DirectML'in
+  # sekil degisiminde yaptigi yeniden derleme olcume dahil olsun
+  if ($null -ne $script:cfg.alan) {
+    $psi.EnvironmentVariables['CT_WARM_W'] = [string][int]$script:cfg.alan.W
+    $psi.EnvironmentVariables['CT_WARM_H'] = [string][int]$script:cfg.alan.H
+  }
   $script:proc = [System.Diagnostics.Process]::Start($psi)
   $script:writer = New-Object System.IO.StreamWriter($script:proc.StandardInput.BaseStream, (New-Object System.Text.UTF8Encoding $false))
   $script:writer.AutoFlush = $true
@@ -1725,6 +1733,13 @@ function Start-Translator {
   $olcumNotu = ''
   if ($bits.Count -gt 3 -and [int]$bits[3] -gt 0) { $olcumNotu = ' · kare başı ' + $bits[3] + ' ms' }
   Write-Line ('Çeviri motoru hazır (' + $bits[1] + ' ms) · okuma: ' + $nerede + $olcumNotu)
+  # Python tarafi olcup islemciye dustuyse bunu ayarlara yaz: bir dahaki
+  # acilista bastan islemciyle baslasin, 30 saniyelik derlemeyi bir daha yasama
+  if ($bits.Count -gt 2 -and $bits[2] -eq 'cpu' -and -not [bool]$script:cfg.okumaIslemci -and -not $script:ocrCpuZorla) {
+    $script:cfg.okumaIslemci = $true
+    Save-Settings
+    Write-Line 'Bu makinede okuma işlemcide daha hızlı; bundan sonra doğrudan öyle başlayacak.'
+  }
   Write-Dev ('OZET   | okuma ' + $nerede + ' üzerinde çalışıyor')
   return $true
 }
@@ -1845,9 +1860,11 @@ function Step-Area($st) {
       # islemcinin yarim saniyesi her zaman iyidir.
       if (-not $script:ocrCpuZorla) {
         if ($st.ocrMs -gt 2500) { $script:yavasOkuma++ } else { $script:yavasOkuma = 0 }
-        if ($script:yavasOkuma -ge 3) {
+        if ($script:yavasOkuma -ge 2) {
           $script:ocrCpuZorla = $true
           Write-Line 'Ekran kartı yolu bu makinede yavaş — okuma işlemciye alınıyor.'
+          $script:cfg.okumaIslemci = $true
+          Save-Settings
           Stop-Translator
           return
         }
