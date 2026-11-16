@@ -87,6 +87,8 @@ $defaults = [ordered]@{
   saydamlik = 1.0
   alan = $null
   ayrintiliKayit = $false
+  # Yaziyi keskinlestir: griye cevirip esikle (dusuk kontrastli sahnelerde sart)
+  keskinlestir = $true
   # Gelismis OCR duzeltme: bozuk Ingilizceyi yerel GPU modeli onarir, ceviriyi yine OPUS yapar
   gelismisOcr = $false
   llmModel = 'aya-expanse:8b'
@@ -252,17 +254,91 @@ function Get-SafeArea {
   return @{ X = $x; Y = $y; W = $w; H = $h }
 }
 
+# Altyazinin parlakligini tahmin et: kucuk bir orneklemden en parlak dilimin esigi.
+# Oyun sahnesi acik ya da koyu olsun, yazi her zaman en parlak piksellerdedir.
+function Get-TextThreshold($bitmap) {
+  $sw = 256; $sh = 32
+  $small = New-Object System.Drawing.Bitmap $sw, $sh
+  $g = [System.Drawing.Graphics]::FromImage($small)
+  # En yakin komsu sart: ortalama alan kuculmede ince yazinin parlakligi siliniyor
+  # (olcumde tepe deger 255 yerine 179 cikiyordu, esik da buna gore yanlis seciliyordu)
+  $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
+  $g.DrawImage($bitmap, 0, 0, $sw, $sh)
+  $g.Dispose()
+  $rect = New-Object System.Drawing.Rectangle 0, 0, $sw, $sh
+  $data = $small.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $len = $data.Stride * $sh
+  $buf = New-Object byte[] $len
+  [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $buf, 0, $len)
+  $small.UnlockBits($data); $small.Dispose()
+
+  $hist = New-Object int[] 256
+  $count = 0
+  $sum = 0
+  for ($i = 0; $i -lt $len; $i += 4) {
+    $lum = [int](0.114 * $buf[$i] + 0.587 * $buf[$i + 1] + 0.299 * $buf[$i + 2])
+    $hist[$lum]++
+    $sum += $lum
+    $count++
+  }
+  if ($count -eq 0) { return 190 }
+  $mean = $sum / $count
+  # Yazi en parlak %0.4'te; tek sicak pikselden etkilenmemek icin yuzdelik kullaniliyor
+  $target = [math]::Max(1, [int]($count * 0.004))
+  $seen = 0
+  $peak = 255
+  for ($v = 255; $v -ge 0; $v--) {
+    $seen += $hist[$v]
+    if ($seen -ge $target) { $peak = $v; break }
+  }
+  $t = [int]($mean + 0.55 * ($peak - $mean))
+  if ($t -lt 140) { $t = 140 }
+  if ($t -gt 240) { $t = 240 }
+  return $t
+}
+
 function Grab-Region([int]$rx, [int]$ry, [int]$rw, [int]$rh, [string]$out) {
-  $scale = 2
   $raw = New-Object System.Drawing.Bitmap $rw, $rh
   $g = [System.Drawing.Graphics]::FromImage($raw)
   $g.CopyFromScreen($rx, $ry, 0, 0, (New-Object System.Drawing.Size $rw, $rh))
   $g.Dispose()
+
+  if (-not $script:sharpen) {
+    $scale = 2
+    $big = New-Object System.Drawing.Bitmap ($rw * $scale), ($rh * $scale)
+    $gb = [System.Drawing.Graphics]::FromImage($big)
+    $gb.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+    $gb.DrawImage($raw, 0, 0, $rw * $scale, $rh * $scale)
+    $gb.Dispose()
+    $big.Save($out, [System.Drawing.Imaging.ImageFormat]::Bmp)
+    $raw.Dispose(); $big.Dispose()
+    return
+  }
+
+  # 3x buyut + griye cevir + esikle: hepsi tek gecis, GDI+ tarafinda (piksel dongusu yok)
+  $t = (Get-TextThreshold $raw) / 255.0
+  $c = 24.0                      # dikligi: bu kadar sert kontrast esik gibi davranir
+  $off = 0.5 + $t * $c           # ters cevirme: parlak yazi -> siyah, arka plan -> beyaz
+  $m = New-Object 'single[][]' 5
+  for ($i = 0; $i -lt 5; $i++) { $m[$i] = New-Object single[] 5 }
+  $rr = [single](-0.299 * $c); $gg = [single](-0.587 * $c); $bb = [single](-0.114 * $c)
+  $m[0][0] = $rr; $m[0][1] = $rr; $m[0][2] = $rr
+  $m[1][0] = $gg; $m[1][1] = $gg; $m[1][2] = $gg
+  $m[2][0] = $bb; $m[2][1] = $bb; $m[2][2] = $bb
+  $m[3][3] = [single]1.0
+  $m[4][0] = [single]$off; $m[4][1] = [single]$off; $m[4][2] = [single]$off
+  $m[4][4] = [single]1.0
+  $matrix = New-Object System.Drawing.Imaging.ColorMatrix (, $m)
+  $attr = New-Object System.Drawing.Imaging.ImageAttributes
+  $attr.SetColorMatrix($matrix)
+
+  $scale = 2
   $big = New-Object System.Drawing.Bitmap ($rw * $scale), ($rh * $scale)
   $gb = [System.Drawing.Graphics]::FromImage($big)
   $gb.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $gb.DrawImage($raw, 0, 0, $rw * $scale, $rh * $scale)
-  $gb.Dispose()
+  $dest = New-Object System.Drawing.Rectangle 0, 0, ($rw * $scale), ($rh * $scale)
+  $gb.DrawImage($raw, $dest, 0, 0, $rw, $rh, [System.Drawing.GraphicsUnit]::Pixel, $attr)
+  $gb.Dispose(); $attr.Dispose()
   $big.Save($out, [System.Drawing.Imaging.ImageFormat]::Bmp)
   $raw.Dispose(); $big.Dispose()
 }
@@ -389,7 +465,7 @@ $CENTER_TOLERANCE = 0.22
 $GAP_FACTOR = 2.0
 
 function Get-Subtitle($ocrResult, [int]$rx, [int]$ry, [int]$imageWidth) {
-  $scale = 2
+  $scale = $script:captureScale
   $center = $imageWidth / 2.0
   $tolerance = $imageWidth * $CENTER_TOLERANCE
   $texts = @()
@@ -499,6 +575,8 @@ $script:lastFontSize = 0
 $script:lastFit = $true
 # OCR'in olctugu yazi yuksekligi karede zipliyor (alt/ust uzantili harf varsa buyuyor).
 # Punto bu zipli degeri degil, son okumalarin medyanini kullanir; yoksa yazi titriyor.
+$script:sharpen = [bool]$script:cfg.keskinlestir
+$script:captureScale = 2
 $script:lineHeights = New-Object System.Collections.ArrayList
 $script:stableLineH = 0
 # Son okumalar (pencere): altyazi bir karede bozuk okunsa bile ikinci bir benzer
@@ -755,7 +833,7 @@ function New-Caption([string]$text, [int]$x, [int]$y, [int]$w = 150) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'CameraTranslator PC'
 $form.FormBorderStyle = 'None'
-$form.Size = New-Object System.Drawing.Size 520, 640
+$form.Size = New-Object System.Drawing.Size 520, 670
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = $C.Bg
 $form.ForeColor = $C.Text
@@ -876,7 +954,7 @@ $sld.Add_MouseUp({ $script:sliderDrag = $false })
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox, $lblOpaCap, $sld, $lblOpaVal))
 
 # --- Alan ---
-$cardArea = New-Card 20 272 480 112
+$cardArea = New-Card 20 272 480 142
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
@@ -897,7 +975,23 @@ $chkLlm.ForeColor = $C.Muted
 $chkLlm.BackColor = [System.Drawing.Color]::Transparent
 $chkLlm.Checked = [bool]$script:cfg.gelismisOcr
 
-$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm))
+$chkSharp = New-Object System.Windows.Forms.CheckBox
+$chkSharp.Text = 'Yazıyı keskinleştir (düşük kontrastlı sahneler)'
+$chkSharp.SetBounds(18, 96, 340, 24)
+$chkSharp.FlatStyle = 'Flat'
+$chkSharp.ForeColor = $C.Muted
+$chkSharp.BackColor = [System.Drawing.Color]::Transparent
+$chkSharp.Checked = [bool]$script:cfg.keskinlestir
+
+$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm, $chkSharp))
+
+$chkSharp.Add_CheckedChanged({
+    $script:cfg.keskinlestir = [bool]$chkSharp.Checked
+    $script:sharpen = [bool]$chkSharp.Checked
+    $script:captureScale = 2
+    Save-Settings
+    Write-Line $(if ($chkSharp.Checked) { 'Yazı keskinleştirme açık' } else { 'Yazı keskinleştirme kapalı' })
+  })
 
 $chkLlm.Add_CheckedChanged({
     $script:cfg.gelismisOcr = [bool]$chkLlm.Checked
@@ -908,20 +1002,20 @@ $chkLlm.Add_CheckedChanged({
 # --- Baslat ---
 $btnStart = New-Object System.Windows.Forms.Button
 $btnStart.Text = 'BAŞLAT'
-$btnStart.SetBounds(20, 398, 480, 54)
+$btnStart.SetBounds(20, 428, 480, 54)
 $btnStart.FlatStyle = 'Flat'; $btnStart.FlatAppearance.BorderSize = 0
 $btnStart.BackColor = $C.Go; $btnStart.ForeColor = [System.Drawing.Color]::White
 $btnStart.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
 Set-Rounded $btnStart 14
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.SetBounds(20, 458, 480, 22)
+$lblStatus.SetBounds(20, 488, 480, 22)
 $lblStatus.ForeColor = $C.Muted
 $lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 8.75)
 $lblStatus.TextAlign = 'MiddleCenter'
 
 # --- Kayit ---
-$cardLog = New-Card 20 486 480 134
+$cardLog = New-Card 20 516 480 134
 $lblLogCap = New-Caption 'KAYIT' 18 10 200
 $lblLogCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 $txtLog = New-Object System.Windows.Forms.TextBox
@@ -1193,7 +1287,7 @@ $timer.Add_Tick({
       $raw = ($rawParts -join ' ').Trim()
 
       # Kenarlardaki HUD yazilarini at, sadece ortadaki altyaziyi al
-      $sub = Get-Subtitle $res $a.X $a.Y ($a.W * 2)
+      $sub = Get-Subtitle $res $a.X $a.Y ($a.W * $script:captureScale)
       $text = if ($null -eq $sub) { '' } else { Clear-Junk $sub.Text }
       $key = Get-Key $text
       $blankLimit = [math]::Max(1, [int]($HOLD_MS / $READ_MS))

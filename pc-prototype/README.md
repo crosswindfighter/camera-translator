@@ -82,6 +82,11 @@ kısayol yapıp `app.ico` simgesini verebilirsin.
 **Görünüm:** yazı tipi, yazı rengi, kutu rengi ve saydamlık ayarlanabilir. Yazı boyutu
 ayarlanmaz — İngilizce altyazının boyuna göre kendini ayarlar, böylece kutu yerinden oynamaz.
 
+**Yazıyı keskinleştir:** okunan alanı griye çevirip eşikler. Düşük kontrastlı sahnelerde
+(yazı ile arka plan birbirine yakınken) OCR ham görüntüden hiçbir şey okuyamıyor; eşikleme
+aynı kareyi okunur hale getiriyor. Eşik her karede görüntüden hesaplanır, sabit değildir.
+Açık olması önerilir; bazı oyunlarda kapatmak gerekirse kutu oradadır.
+
 **Ayrıntılı kayıt:** her okumayı, çeviriyi, çizimi ve kusuru `kayit_TARIH.txt` dosyasına yazar.
 Bir sorunu bildirirken bu dosya işe yarar.
 
