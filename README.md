@@ -65,6 +65,8 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 
 ### 💻 PC sürümü
 
+<img src="pc-prototype/banner-github.jpg" width="100%">
+
 Bilgisayarda oynayanlar — ya da Xbox/PlayStation görüntüsünü uzak oynatmayla PC'ye aktaranlar — için masaüstü sürümü de var. Ekrandaki altyazıyı okur, Türkçeye çevirir ve **İngilizce yazının tam üstüne** basar; oyun Türkçe altyazılıymış gibi görünür. Aynı OPUS çeviri motorunu ve aynı sözlükleri kullanır, tamamı çevrimdışıdır.
 
 **Kurulum üç adım:** [Releases](https://github.com/crosswindfighter/camera-translator/releases) sayfasından `pc-v` ile başlayan sürümün ZIP'ini indir → bir klasöre çıkar → `CameraTranslator.exe`'ye çift tıkla. Python kurmana, komut yazmana gerek yok; hepsi paketin içinde. Hiçbir şey sisteme kurulmaz, klasörü silince iz kalmaz.
