@@ -64,6 +64,14 @@ def get():
         # algilamayi tamamen atlayip seridi tek satir saniyor, altyazi alani 9:1
         _ENGINE = RapidOCR(width_height_ratio=-1, det_model_path=None,
                            det_limit_type='max', det_limit_side_len=DET_SIDE)
+        # Aci siniflandiricisi kapali. Isi, yan yatmis ya da ters taranmis
+        # belgeleri duzeltmek; oyun altyazisi hicbir zaman donuk degil. Buna
+        # karsilik ara sira duzgun duran satiri "ters" sanip 180 derece
+        # ceviriyordu: "I just saw a fucking ghost..." -> "...isoue buiyonj e
+        # mes jsn! I". O cop okuma bos kare sayilip kutuyu kapatiyor, altyazi
+        # yeniden onaylanip ikinci kez ciziliyordu. 125 gercek karede kapatmak
+        # tek bir okumayi degistirmedi, kare basi 81 ms -> 47 ms.
+        _ENGINE.use_angle_cls = False
     return _ENGINE
 
 
