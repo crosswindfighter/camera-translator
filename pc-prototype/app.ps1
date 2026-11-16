@@ -946,7 +946,7 @@ if (Test-Path $icoPath) { try { $form.Icon = New-Object System.Drawing.Icon($ico
 # gelen banner parcasini, sonra koyu yari saydam bir yuvarlak basar.
 # Banner pencerenin ust kismini kapliyor; dugmeler goruntunun uzerinde,
 # okunakli kalsinlar diye ust kenara ince bir karartma seriliyor.
-$BANNER_H = 221
+$BANNER_H = 239
 
 $script:bannerImg = $null
 $bannerPath = Join-Path $root 'banner.png'
@@ -1131,7 +1131,7 @@ $pillPaint = {
   }
 
 # --- Gorunum ---
-$cardLook = New-Card 20 231 480 130
+$cardLook = New-Card 20 249 480 130
 $lblLookCap = New-Caption 'GÖRÜNÜM' 18 12 200
 $lblLookCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 
@@ -1199,7 +1199,7 @@ $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox))
 
 # --- Alan ---
-$cardArea = New-Card 20 377 480 110
+$cardArea = New-Card 20 395 480 110
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
