@@ -34,4 +34,6 @@ local.properties
 /pc-prototype/*.png
 !/pc-prototype/banner.png
 !/pc-prototype/banner-github.jpg
+/pc-prototype/paket/
+/pc-prototype/yayin/
 /pc-prototype/kareler_*/
