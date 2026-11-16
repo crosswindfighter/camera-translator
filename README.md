@@ -63,6 +63,12 @@ Ayarlar'da iki seçenek vardır: **📷 Kamera** (çevirinin Sinematik olarak m�
 3. Uygulamayı açıp kamera iznini verin. İnternetsiz çeviri isterseniz ilk açılışta **⚡ OPUS** çeviri motorunu bir kez indirin (355 MB) — ya da dilerseniz Google Translate ile hemen başlayın.
 4. Oyundaki altyazı alanını seçin ve çevirinin tadını çıkarın! Yeni sürümler yayınlandığında uygulama sizi bir kez bilgilendirir.
 
+### 💻 PC sürümü
+
+Bilgisayarda oynayanlar (ya da Xbox/PlayStation görüntüsünü uzak oynatmayla PC'ye aktaranlar) için masaüstü sürümü de var: ekrandaki altyazıyı okur, çevirir ve İngilizce yazının üstüne basar. Aynı OPUS motorunu kullanır, tamamı çevrimdışıdır.
+
+Kurulum adımları: **[pc-prototype/README.md](pc-prototype/README.md)**
+
 ### 🛠️ APK Kurulmuyorsa ("Paket ayrıştırılamadı", "Dosya bozuk", "Paket geçersiz")
 
 Bu hatanın en sık nedeni dosyanın eksik inmesidir. Sırayla şunları deneyin:
