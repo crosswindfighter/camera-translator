@@ -861,12 +861,43 @@ $btnMin.Text = '—'; $btnMin.SetBounds(434, 12, 32, 28)
 $btnMin.FlatStyle = 'Flat'; $btnMin.FlatAppearance.BorderSize = 0
 $btnMin.BackColor = $C.Bg; $btnMin.ForeColor = $C.Muted
 $btnMin.Font = New-Object System.Drawing.Font('Segoe UI', 9); $btnMin.TabStop = $false
-$btnTheme = New-Object System.Windows.Forms.Button
-$btnTheme.SetBounds(398, 12, 32, 28)
-$btnTheme.FlatStyle = 'Flat'; $btnTheme.FlatAppearance.BorderSize = 0
-$btnTheme.BackColor = $C.Bg; $btnTheme.ForeColor = $C.Muted
-$btnTheme.Font = New-Object System.Drawing.Font('Segoe UI Symbol', 10)
-$btnTheme.TabStop = $false
+# Ay/gunes kendi cizimi. Yazi tipi sembolleri (U+263D) ince ve cirkin
+# cikiyordu; ayrica ay sola bakiyordu. Hilal, dolu dairenin ustune zemin
+# renginde ikinci daire basilarak yapiliyor -- Region ile kesmek kenari
+# tirtikli birakirdi, bu yontem kenar yumusatmali.
+$btnTheme = New-Object System.Windows.Forms.Panel
+$btnTheme.SetBounds(396, 14, 28, 24)
+$btnTheme.BackColor = $C.Bg
+$btnTheme.Cursor = [System.Windows.Forms.Cursors]::Hand
+$btnTheme.Add_Paint({
+    param($s, $e)
+    $g = $e.Graphics
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.Clear($C.Bg)
+    $ink = New-Object System.Drawing.SolidBrush $C.Muted
+    $cx = $s.Width / 2.0; $cy = $s.Height / 2.0
+    if ($script:cfg.tema -eq 'gece') {
+      $r = 7.5
+      $g.FillEllipse($ink, ($cx - $r), ($cy - $r), (2 * $r), (2 * $r))
+      # Isirik sag ust kosede: hilalin acik tarafi sag uste bakar
+      $bite = New-Object System.Drawing.SolidBrush $C.Bg
+      $g.FillEllipse($bite, ($cx - $r + 4.5), ($cy - $r - 4.0), (2 * $r), (2 * $r))
+      $bite.Dispose()
+    } else {
+      $r = 4.6
+      $g.FillEllipse($ink, ($cx - $r), ($cy - $r), (2 * $r), (2 * $r))
+      $pen = New-Object System.Drawing.Pen $C.Muted, 1.6
+      $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+      $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+      for ($i = 0; $i -lt 8; $i++) {
+        $a = $i * [math]::PI / 4.0
+        $c = [math]::Cos($a); $sn = [math]::Sin($a)
+        $g.DrawLine($pen, ($cx + $c * 6.8), ($cy + $sn * 6.8), ($cx + $c * 9.4), ($cy + $sn * 9.4))
+      }
+      $pen.Dispose()
+    }
+    $ink.Dispose()
+  })
 $ttTheme = New-Object System.Windows.Forms.ToolTip
 $bar.Controls.AddRange(@($dot, $lblTitle, $btnTheme, $btnMin, $btnClose))
 $drag = {
@@ -934,7 +965,7 @@ $swatchPaint = {
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
     $g.Clear($C.Card)
     $col = if ($s.Name -eq 'swText') { $script:colText } else { $script:colBox }
-    $w = $s.Width - 1; $h = $s.Height - 1; $d = 12
+    $w = $s.Width - 1; $h = $s.Height - 1; $d = 10
     $path = New-Object System.Drawing.Drawing2D.GraphicsPath
     $path.AddArc(0, 0, $d, $d, 180, 90)
     $path.AddArc($w - $d, 0, $d, $d, 270, 90)
@@ -950,18 +981,18 @@ $swatchPaint = {
   }
 $swText = New-Object System.Windows.Forms.Panel
 $swText.Name = 'swText'
-$swText.SetBounds(140, 82, 54, 26)
-$swText.BackColor = [System.Drawing.Color]::Transparent
+$swText.SetBounds(140, 81, 28, 28)
+$swText.BackColor = $C.Card
 $swText.Cursor = [System.Windows.Forms.Cursors]::Hand
 $swText.Add_Paint($swatchPaint)
 $swBox = New-Object System.Windows.Forms.Panel
 $swBox.Name = 'swBox'
-$swBox.SetBounds(300, 82, 54, 26)
-$swBox.BackColor = [System.Drawing.Color]::Transparent
+$swBox.SetBounds(272, 81, 28, 28)
+$swBox.BackColor = $C.Card
 $swBox.Cursor = [System.Windows.Forms.Cursors]::Hand
 $swBox.Add_Paint($swatchPaint)
-$lblTextCol = New-Caption 'Yazı rengi' 18 84 120
-$lblBoxCol = New-Caption 'Kutu rengi' 226 84 80
+$lblTextCol = New-Caption 'Yazı rengi' 18 86 120
+$lblBoxCol = New-Caption 'Kutu rengi' 190 86 80
 $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
 $lblOpaCap = New-Caption 'Saydamlık' 18 132 120
 
@@ -1094,7 +1125,7 @@ Set-Rounded $btnOpenLog 8
 
 # $chkDev hicbir karta eklenmiyor: gorunmez kaliyor ama Checked'i degistirince
 # CheckedChanged yine calisiyor. Gorunen taraf asagidaki sessiz anahtar.
-$lblDevCap = New-Caption 'ayrıntılı' 246 11 60
+$lblDevCap = New-Caption 'Ayrıntılı' 246 11 60
 $lblDevCap.Font = New-Object System.Drawing.Font('Segoe UI', 8)
 $swDev = New-Object System.Windows.Forms.Panel
 $swDev.SetBounds(310, 9, 34, 18)
@@ -1155,9 +1186,10 @@ function Set-Theme([string]$name) {
   Update-ControlColors $form $map
   $form.ResumeLayout()
   # Gunduzde ay, gecede gunes degil: dugme icinde bulundugun modu gosteriyor
-  $btnTheme.Text = $(if ($name -eq 'gece') { [char]0x263D } else { [char]0x2600 })
-  $ttTheme.SetToolTip($btnTheme, $(if ($name -eq 'gece') { 'Gece modu — gündüze geç' } else { 'Gündüz modu — geceye geç' }))
+  # Cizim $cfg.tema'yi okuyor, once onu yaz sonra yeniden cizdir
   $script:cfg.tema = $name
+  $btnTheme.Invalidate()
+  $ttTheme.SetToolTip($btnTheme, $(if ($name -eq 'gece') { 'Gece modu — gündüze geç' } else { 'Gündüz modu — geceye geç' }))
 }
 
 $btnTheme.Add_Click({
