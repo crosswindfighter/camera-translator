@@ -26,6 +26,30 @@ $py = Join-Path $Hedef 'python'
 
 function Say([string]$t) { Write-Host ('  ' + $t) -ForegroundColor Cyan }
 
+# Compress-Archive bu boyutta (binlerce kucuk dosya, 650 MB) dakikalarca
+# suruyor. CreateFromDirectory hizli ama .NET Framework'te girdi adlarini ters
+# egik cizgiyle yaziyor; ZIP bicimi duz egik cizgi istiyor ve bazi arsiv
+# programlari o dosyalari acamiyor. O yuzden girdileri kendimiz ekliyoruz.
+function New-Zip([string]$kaynak, [string]$hedefZip, [string]$kokAdi) {
+  Add-Type -AssemblyName System.IO.Compression.FileSystem
+  if (Test-Path $hedefZip) { Remove-Item $hedefZip -Force }
+  # Kok ve dosyalar AYNI kaynaktan gelmeli: $env:TEMP kisa ad (ADMINI~1)
+  # dondururken Resolve-Path uzun adi veriyor, aradaki fark kadar karakter
+  # kirpilip girdi adlari bozuluyordu (.0.0/app.ps1 gibi).
+  $kokItem = Get-Item $kaynak
+  $kok = $kokItem.FullName.TrimEnd('\')
+  $zip = [System.IO.Compression.ZipFile]::Open($hedefZip, 'Create')
+  try {
+    foreach ($f in (Get-ChildItem $kokItem.FullName -Recurse -File)) {
+      $bagil = $f.FullName.Substring($kok.Length + 1).Replace('\', '/')
+      if ($kokAdi) { $bagil = $kokAdi + '/' + $bagil }
+      [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile(
+        $zip, $f.FullName, $bagil, [System.IO.Compression.CompressionLevel]::Optimal)
+    }
+  } finally { $zip.Dispose() }
+}
+
+
 # Guncellenen dosyalar yalnizca bunlar. python\ ve models\ aylarca ayni kalir,
 # o yuzden -SadeceProgram onlara hic dokunmuyor.
 $PROGRAM_DOSYALARI = @('app.ps1', 'ocr.py', 'translate.py', 'corrector.py', 'slang.py',
@@ -303,7 +327,7 @@ if ($Zip) {
   # Tam paket: ilk kurulum icin
   $tam = Join-Path (Split-Path $Hedef -Parent) ('CameraTranslator-' + $ETIKET + '.zip')
   Say 'Tam paket ZIP hazirlaniyor'
-  Compress-Archive -Path $Hedef -DestinationPath $tam -Force
+  New-Zip $Hedef $tam (Split-Path $Hedef -Leaf)
   # Guncelleme paketi: mevcut klasorun ustune cikarilir, ~11 MB
   $gecici = Join-Path $env:TEMP ('ct-guncelleme-' + $APP_SURUM)
   if (Test-Path $gecici) { Remove-Item $gecici -Recurse -Force }
@@ -316,7 +340,7 @@ if ($Zip) {
   if (Test-Path (Join-Path $Hedef 'CameraTranslator.exe')) { Copy-Item (Join-Path $Hedef 'CameraTranslator.exe') $gecici -Force }
   $gun = Join-Path (Split-Path $Hedef -Parent) ('CameraTranslator-' + $ETIKET + '-guncelleme.zip')
   Say 'Guncelleme ZIP hazirlaniyor'
-  Compress-Archive -Path (Join-Path $gecici '*') -DestinationPath $gun -Force
+  New-Zip $gecici $gun ''
   Remove-Item $gecici -Recurse -Force
   $ProgressPreference = $eski
   Write-Host ('  Tam ZIP        : ' + $tam + '  (' + [math]::Round((Get-Item $tam).Length / 1MB) + ' MB)') -ForegroundColor Green
