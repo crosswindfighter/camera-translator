@@ -107,9 +107,8 @@ ollama pull aya-expanse:8b
 Sonra uygulamada **Gelişmiş OCR düzeltme** kutusunu işaretle. Ollama kapalıysa uygulama
 kendisi başlatır; model yanıt vermezse sessizce normal yola düşer.
 
-Altındaki **Çeviriyi de model yapsın (deneysel)** kutusu ise çeviriyi de modele bırakır.
-Ölçümde OPUS'la başa baş çıktı: deyimlerde daha iyi, kelime düşürme ve küfrü yumuşatma
-riski var, gecikme ~77 ms yerine ~230 ms. Varsayılan kapalı.
+Model yalnızca **İngilizceyi onarır**; Türkçeye çeviren her zaman OPUS'tur. Modelin
+çeviri yapması da denendi ve vazgeçildi: küfrü ve argoyu yumuşatıyor, kelime düşürüyor.
 
 Cümlelerin yalnızca ~%22'si modele gider (şüpheli kelime içerenler), ortalama ek maliyet
 **+34 ms**. Modelin cevabı orijinale yeterince benzemiyorsa reddedilir — uydurmaya karşı koruma.
@@ -156,7 +155,7 @@ Cümlelerin yalnızca ~%22'si modele gider (şüpheli kelime içerenler), ortala
 | `slang.py` | argo/deyim sadeleştirici |
 | `ocrfix.py` | isteğe bağlı LLM OCR düzelticisi |
 | `llm.py` | Ollama istemcisi |
-| `compare.py`, `compare_llm.py` | A/B ölçüm araçları |
+| `compare.py` | A/B ölçüm aracı |
 | `ocr_probe.ps1` | OCR hız/doğruluk sondası (tanı için) |
 
 Lisans: deponun kökündeki [LICENSE.md](../LICENSE.md) (MIT). Üçüncü taraf bileşenler için

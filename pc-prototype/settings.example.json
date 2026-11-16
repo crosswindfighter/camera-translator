@@ -6,6 +6,5 @@
   "alan": null,
   "ayrintiliKayit": false,
   "gelismisOcr": false,
-  "motor": "opus",
   "llmModel": "aya-expanse:8b"
 }

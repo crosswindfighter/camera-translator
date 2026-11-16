@@ -210,17 +210,14 @@ def trim_repetition(output):
 
 
 class Engine:
-    def __init__(self, model_dir=MODEL_DIR, use_slang=True, use_corrector=True, use_beam=True,
-                 mode=None):
+    def __init__(self, model_dir=MODEL_DIR, use_slang=True, use_corrector=True, use_beam=True):
         self.use_slang = use_slang
         self.use_corrector = use_corrector
         self.use_beam = use_beam
         # 'opus' = hizli, 'llm' = kaliteli (yerel GPU modeli), 'auto' = LLM varsa onu kullan
-        self.mode = mode or os.environ.get('CT_ENGINE', 'opus')
         self.llm_model = os.environ.get('CT_LLM_MODEL') or llm.MODEL
         # Gelismis OCR duzeltme: Ingilizceyi LLM onarir, ceviriyi yine OPUS yapar
         self.use_ocrfix = os.environ.get('CT_OCRFIX', '0') == '1'
-        self.history = []
         if self.use_ocrfix and llm.available() is None:
             print("ollama yok, gelismis OCR duzeltme kapatildi", file=sys.stderr)
             self.use_ocrfix = False
@@ -230,14 +227,6 @@ class Engine:
             except Exception as exc:
                 print("gelismis duzeltme isitilamadi: %s" % exc, file=sys.stderr)
                 self.use_ocrfix = False
-        if self.mode == 'auto':
-            self.mode = 'llm' if llm.available() else 'opus'
-        if self.mode == 'llm':
-            try:
-                llm.warm()
-            except Exception as exc:
-                print("llm isitilamadi, OPUS'a dusuluyor: %s" % exc, file=sys.stderr)
-                self.mode = 'opus'
         if use_corrector:
             try:
                 corrector.get()
@@ -387,22 +376,6 @@ class Engine:
         trim_repetition(out)
         return self.tok.decode(out)
 
-    def _llm(self, cleaned):
-        """Yerel LLM ile cevir; onceki satirlar baglam olarak verilir (konu takibi).
-        LLM yanit vermezse sessizce OPUS'a duser."""
-        try:
-            out = llm.translate(cleaned, self.history)
-            if out:
-                self.history.append((cleaned, out))
-                del self.history[:-6]
-                return LANGUAGE_NOTE.sub("", out).strip()
-        except Exception as exc:
-            print("llm hatasi, OPUS'a dusuluyor: %s" % exc, file=sys.stderr)
-        source = slang.normalize(cleaned) if self.use_slang else cleaned
-        parts = [p for p in SENTENCE_SPLIT.split(source) if p.strip()]
-        pieces = [p.strip() if STANDALONE_HEY.match(p.strip()) else self._sentence(p) for p in parts]
-        return LANGUAGE_NOTE.sub("", " ".join(pieces)).strip()
-
     def _sentence(self, sentence):
         """Once acgozlu; cikti supheliyse bir de dikkatli cevirip az supheli olani sec."""
         fast = self._greedy(sentence)
@@ -437,10 +410,6 @@ class Engine:
                 cleaned = trimmed
             except Exception:
                 pass
-        # LLM argoyu zaten biliyor; sadelestirme onun isini bozar, sadece OPUS'ta uygulanir
-        if self.mode == 'llm':
-            return self._llm(cleaned)
-
         # OPUS'un bilmedigi argoyu modele vermeden once sade Ingilizceye cevir
         if self.use_slang:
             cleaned = slang.normalize(cleaned)
