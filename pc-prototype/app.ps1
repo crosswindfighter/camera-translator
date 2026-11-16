@@ -1191,7 +1191,10 @@ function Start-Translator {
     try { Write-Line ('Python hatası: ' + $script:proc.StandardError.ReadToEnd()) } catch { }
     return $false
   }
-  Write-Line ('Çeviri motoru hazır (' + $ready.Split(' ')[1] + ' ms)')
+  $bits = $ready.Split(' ')
+  $nerede = if ($bits.Count -gt 2 -and $bits[2] -eq 'gpu') { 'ekran kartı' } else { 'işlemci' }
+  Write-Line ('Çeviri motoru hazır (' + $bits[1] + ' ms) · okuma: ' + $nerede)
+  Write-Dev ('OZET   | okuma ' + $nerede + ' üzerinde çalışıyor')
   return $true
 }
 

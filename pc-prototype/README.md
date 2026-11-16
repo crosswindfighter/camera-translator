@@ -19,7 +19,7 @@ ekran alanı  →  Windows OCR  →  düzeltme  →  OPUS çeviri  →  şeffaf 
 | | |
 |---|---|
 | Windows 10 / 11 | OCR için `en-US` dil paketi kurulu olmalı |
-| Python 3.10+ | `numpy`, `onnxruntime` ve `rapidocr-onnxruntime` |
+| Python 3.10+ | `numpy`, `onnxruntime` ve `rapidocr-onnxruntime` (ekran kartı için `onnxruntime` yerine `onnxruntime-directml`) |
 | OPUS model dosyaları | aşağıda |
 | *(isteğe bağlı)* Ollama + GPU | gelişmiş OCR düzeltme için |
 
@@ -41,6 +41,16 @@ Listede `en-US` yoksa: **Ayarlar → Saat ve dil → Dil ve bölge → İngilizc
 python -m venv .venv
 .venv\Scripts\pip install numpy onnxruntime rapidocr-onnxruntime
 ```
+
+Ekran kartı varsa okuma 3-4 kat hızlanır. `onnxruntime` yerine DirectML sürümü kurulur:
+
+```
+.venv\Scripts\pip uninstall -y onnxruntime
+.venv\Scripts\pip install onnxruntime-directml
+```
+
+Kurulu değilse program işlemciyle çalışmaya devam eder; okuma aynı, sadece yavaştır. Hangisini kullandığını açılışta kayıt penceresine yazar.
+
 
 Betikler Python'u şu sırayla arar: `-Python` parametresi → `CT_PYTHON` ortam
 değişkeni → yanındaki `.venv` → `PATH`.

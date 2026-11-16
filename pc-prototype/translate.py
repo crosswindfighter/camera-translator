@@ -240,8 +240,14 @@ class Engine:
             os.path.join(model_dir, "source_pieces.tsv"),
             os.path.join(model_dir, "vocab.json"),
         )
-        self.encoder = ort.InferenceSession(os.path.join(model_dir, "encoder_model.onnx"), opts)
-        self.decoder = ort.InferenceSession(os.path.join(model_dir, "decoder_model_merged.onnx"), opts)
+        # OPUS islemcide kalir. Kurulu onnxruntime DirectML surumu oldugu icin
+        # saglayici yazilmazsa oturum kendini ekran kartina alir; int8 agirliklarla
+        # bu kazanc getirmiyor, olculene kadar acik tercih CPU.
+        cpu = ["CPUExecutionProvider"]
+        self.encoder = ort.InferenceSession(
+            os.path.join(model_dir, "encoder_model.onnx"), opts, providers=cpu)
+        self.decoder = ort.InferenceSession(
+            os.path.join(model_dir, "decoder_model_merged.onnx"), opts, providers=cpu)
         self.decoder_outputs = [o.name for o in self.decoder.get_outputs()]
 
     def _greedy(self, sentence):
@@ -423,6 +429,23 @@ class Engine:
         return LANGUAGE_NOTE.sub("", " ".join(pieces)).strip()
 
 
+def _warm_ocr():
+    """Ekran karti yolunda modellerin yuklenmesi ve gol derlemesi ~2,5 sn
+    suruyor. Bu bedeli acilista odeyelim, ilk altyazida degil."""
+    try:
+        import cv2
+        import numpy as np
+        import ocr
+        img = np.full((64, 320, 3), 255, dtype=np.uint8)
+        cv2.putText(img, "warm up", (10, 45), cv2.FONT_HERSHEY_SIMPLEX,
+                    1.2, (0, 0, 0), 2)
+        ocr.get()(img)
+        return ocr.GPU
+    except Exception as exc:
+        print("ocr isinmasi atlandi: %s" % exc, file=sys.stderr)
+        return False
+
+
 def main():
     started = time.time()
     engine = Engine()
@@ -437,7 +460,9 @@ def main():
             print("%4d ms | %s\n        | %s" % (int((time.time() - t0) * 1000), text, out))
         return
 
-    print("READY %d" % load_ms, flush=True)
+    gpu = _warm_ocr()
+    load_ms = int((time.time() - started) * 1000)
+    print("READY %d %s" % (load_ms, "gpu" if gpu else "cpu"), flush=True)
     for line in sys.stdin:
         text = line.rstrip("\n")
         if not text:
