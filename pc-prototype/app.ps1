@@ -978,26 +978,35 @@ $bar.BackColor = $C.Bg
 # yani halka cikar; bize gereken 'daireden daireyi cikar'. GDI+'ta bunun
 # dogrudan karsiligi yok, o yuzden 4 kat buyuk cizip SourceCopy ile isiriyoruz,
 # sonra kucultuyoruz: kuculturken kenar kendiliginden yumusuyor.
+#
+# Kenar boslugu sart: ilk surumde daire resmin tam kenarina degiyordu ve
+# kuculturken kenarda yarim saydam bir tortu kaliyordu -- ekranda ayin altinda
+# ve yaninda ince bir cizgi olarak goruluyordu.
 function New-MoonImage([int]$size) {
   $k = 4
-  $big = New-Object System.Drawing.Bitmap ($size * $k), ($size * $k)
+  $w = $size * $k
+  $big = New-Object System.Drawing.Bitmap $w, $w
   $g = [System.Drawing.Graphics]::FromImage($big)
   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $m = [int]($w * 0.10)
+  $d = $w - 2 * $m
   $beyaz = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
-  $g.FillEllipse($beyaz, 0, 0, ($size * $k - 1), ($size * $k - 1))
+  $g.FillEllipse($beyaz, $m, $m, $d, $d)
   $g.CompositingMode = [System.Drawing.Drawing2D.CompositingMode]::SourceCopy
   $bos = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
   # Isirik sag ustte: hilalin acik tarafi sag uste bakar
-  $g.FillEllipse($bos, ([int]($size * $k * 0.30)), ([int]($size * $k * -0.26)), ($size * $k - 1), ($size * $k - 1))
+  $g.FillEllipse($bos, ($m + [int]($d * 0.32)), ($m - [int]($d * 0.28)), $d, $d)
   $beyaz.Dispose(); $bos.Dispose(); $g.Dispose()
   $kucuk = New-Object System.Drawing.Bitmap $size, $size
   $g2 = [System.Drawing.Graphics]::FromImage($kucuk)
-  $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+  # Bicubic kuculturken keskin kenarin iki yaninda tasma yapiyor; bilinear yapmiyor
+  $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
   $g2.DrawImage($big, 0, 0, $size, $size)
   $g2.Dispose(); $big.Dispose()
   return $kucuk
 }
-$script:moonImg = New-MoonImage 18
+
+$script:moonImg = New-MoonImage 20
 
 $script:barHover = ''
 $script:barBtns = @(
