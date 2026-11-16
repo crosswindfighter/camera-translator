@@ -58,7 +58,11 @@ Masaüstünün yanına iki dosya çıkar:
 
 **3.** GitHub'da **Releases → Draft a new release**. Etiket **`pc-v` + sürüm** olmalı (örnek: `pc-v1.0.1`). Bu önek şart: mobil APK sürümleri de aynı depoda yayınlanıyor, program yalnızca `pc-v` ile başlayanlara bakıyor.
 
-**4.** İki ZIP'i de sürüme ekle, yayınla. Kullanıcılar bir sonraki açılışta uyarıyı görür.
+**4.** **"Set as the latest release" kutusunu İŞARETLEME.** Mobil uygulama güncelleme ararken `/releases/latest` adresine bakıyor (`UpdateChecker.kt`). PC sürümü "latest" olursa mobil uygulama bir daha yeni APK göremez — yayınlasan bile "güncelsiniz" der. PC sürümleri bu kutu kapalı yayınlanmalı; `pc-v` etiketlerini zaten tüm sürüm listesinden buluyoruz.
+
+**5.** İki ZIP'i de sürüme ekle, yayınla. Kullanıcılar bir sonraki açılışta uyarıyı görür.
+
+İlk sürümde (`pc-v1.0.0`) güncelleme ZIP'ini yüklemeye gerek yok: kimsede önceki kurulum olmadığı için işe yaramaz, sadece hangisini indireceği konusunda kafa karıştırır.
 
 Güncelleme ZIP'i mevcut klasörün üstüne çıkarılır — `python\` ve `models\` yerinde kalır, sadece program dosyaları değişir. Ayarlar ve OCR alanları korunur.
 
