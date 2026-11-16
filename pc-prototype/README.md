@@ -17,6 +17,26 @@ kadar): **medyan 173 ms**, onda dokuzu 331 ms'nin altında.
 
 ## Kurulum
 
+### Hazır paket (önerilen)
+
+Sürümler sayfasındaki ZIP'i indir, bir klasöre çıkar, **`CameraTranslator.exe`**'ye çift tıkla. Bu kadar — Python kurmana, komut yazmana, model indirmene gerek yok; hepsi paketin içinde.
+
+Paket hiçbir şey kurmaz. Klasörü nereye koyarsan oradan çalışır, silince de iz bırakmaz.
+
+> **Windows uyarı verebilir.** Paket imzasız olduğu için SmartScreen "Bilgisayarınız korundu" diyebilir — **Daha fazla bilgi → Yine de çalıştır**. Bazı antivirüsler de PowerShell çalıştıran programlara şüpheyle bakar; dosya silinirse klasörü taramadan hariç tut.
+
+Paketi kendin üretmek istersen (depodan):
+
+```bash
+.\paket_yap.ps1
+```
+
+Masaüstünde `CameraTranslator` klasörü oluşturur; `-Zip` eklersen ZIP de üretir.
+
+---
+
+### Elle kurulum (geliştirici)
+
 Beş adım. Hepsi bir kere yapılır.
 
 ### 1. Python kur
@@ -184,6 +204,7 @@ Modelin cevabı orijinale yeterince benzemiyorsa reddedilir — uydurmaya karş�
 | `ocrfix.py` | isteğe bağlı LLM OCR düzelticisi |
 | `llm.py` | Ollama istemcisi |
 | `compare.py` | A/B ölçüm aracı |
+| `paket_yap.ps1` | taşınabilir paketi üretir |
 
 Lisans: deponun kökündeki [LICENSE.md](../LICENSE.md) (MIT). Üçüncü taraf bileşenler için
 [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md).

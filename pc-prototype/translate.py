@@ -464,7 +464,10 @@ def main():
     load_ms = int((time.time() - started) * 1000)
     print("READY %d %s" % (load_ms, "gpu" if gpu else "cpu"), flush=True)
     for line in sys.stdin:
-        text = line.rstrip("\n")
+        # PowerShell tarafindaki akis ilk satirin basina BOM koyabiliyor;
+        # suzulmezse ilk OCR istegi komut degil duz metin saniliyor ve
+        # dosya yolu ceviriye gidiyor
+        text = line.lstrip("\ufeff").rstrip("\n")
         if not text:
             continue
         if text == "__quit__":
