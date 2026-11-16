@@ -55,6 +55,19 @@ if ($yeni -notcontains '..') { $yeni += '..' }
 $yeni | Set-Content $pth.FullName -Encoding ASCII
 Say ('Python hazir: ' + $pth.Name)
 
+# Gomulu paket vcruntime140 getiriyor ama msvcp140'i getirmiyor; onnxruntime ve
+# opencv ona bagli. Visual C++ dagitilabilir paketi kurulu olmayan bir makinede
+# program hic acilmiyor. Bu DLL'ler Microsoft'un uygulama yaninda dagitilmasina
+# izin verdigi dosyalar.
+$sistem = Join-Path $env:WINDIR 'System32'
+foreach ($dll in @('msvcp140.dll', 'msvcp140_1.dll', 'msvcp140_2.dll', 'concrt140.dll',
+                   'vcruntime140.dll', 'vcruntime140_1.dll')) {
+  $kaynak = Join-Path $sistem $dll
+  $varis = Join-Path $py $dll
+  if ((Test-Path $kaynak) -and -not (Test-Path $varis)) { Copy-Item $kaynak $varis -Force }
+}
+Say 'C++ calisma zamani kopyalandi'
+
 # ---------- 2. Paketler ----------
 # Bu makinedeki pip ile kuruluyor; --target dogrudan gomulu Python'un icine yazar.
 $hostPy = $null

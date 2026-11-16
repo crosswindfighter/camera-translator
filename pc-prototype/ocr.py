@@ -22,6 +22,9 @@ CENTER_TOLERANCE = 0.22
 MIN_SCORE = 0.55
 
 
+_ORIG_INIT = None
+
+
 def _use_directml():
     """RapidOCR 1.2.3 yalnizca CUDA biliyor. Oturum kurulumunu degistirip ayni
     modelleri DirectML uzerinde calistiriyoruz: on isleme ve modeller ayni
@@ -31,6 +34,9 @@ def _use_directml():
     if 'DmlExecutionProvider' not in ort.get_available_providers():
         return False
     import rapidocr_onnxruntime.utils as u
+    global _ORIG_INIT
+    if _ORIG_INIT is None:
+        _ORIG_INIT = u.OrtInferSession.__init__
 
     def _init(self, config):
         opt = ort.SessionOptions()
@@ -50,6 +56,32 @@ def _use_directml():
     return True
 
 
+def _cpu_ya_don():
+    """DirectML yamasini geri alir."""
+    global GPU
+    GPU = False
+    if _ORIG_INIT is not None:
+        import rapidocr_onnxruntime.utils as u
+        u.OrtInferSession.__init__ = _ORIG_INIT
+
+
+def _kur():
+    from rapidocr_onnxruntime import RapidOCR
+    # width_height_ratio=-1 sart: kutuphane en/boy orani 8'i gecen goruntulerde
+    # algilamayi tamamen atlayip seridi tek satir saniyor, altyazi alani 9:1
+    motor = RapidOCR(width_height_ratio=-1, det_model_path=None,
+                     det_limit_type='max', det_limit_side_len=DET_SIDE)
+    # Aci siniflandiricisi kapali. Isi, yan yatmis ya da ters taranmis
+    # belgeleri duzeltmek; oyun altyazisi hicbir zaman donuk degil. Buna
+    # karsilik ara sira duzgun duran satiri "ters" sanip 180 derece
+    # ceviriyordu: "I just saw a fucking ghost..." -> "...isoue buiyonj e
+    # mes jsn! I". O cop okuma bos kare sayilip kutuyu kapatiyor, altyazi
+    # yeniden onaylanip ikinci kez ciziliyordu. 125 gercek karede kapatmak
+    # tek bir okumayi degistirmedi, kare basi 81 ms -> 47 ms.
+    motor.use_angle_cls = False
+    return motor
+
+
 def get():
     global _ENGINE, GPU
     if _ENGINE is None:
@@ -57,21 +89,17 @@ def get():
             try:
                 GPU = _use_directml()
             except Exception:
-                # Ekran karti yolu kurulamadi: islemciyle devam, okuma yine dogru
                 GPU = False
-        from rapidocr_onnxruntime import RapidOCR
-        # width_height_ratio=-1 sart: kutuphane en/boy orani 8'i gecen goruntulerde
-        # algilamayi tamamen atlayip seridi tek satir saniyor, altyazi alani 9:1
-        _ENGINE = RapidOCR(width_height_ratio=-1, det_model_path=None,
-                           det_limit_type='max', det_limit_side_len=DET_SIDE)
-        # Aci siniflandiricisi kapali. Isi, yan yatmis ya da ters taranmis
-        # belgeleri duzeltmek; oyun altyazisi hicbir zaman donuk degil. Buna
-        # karsilik ara sira duzgun duran satiri "ters" sanip 180 derece
-        # ceviriyordu: "I just saw a fucking ghost..." -> "...isoue buiyonj e
-        # mes jsn! I". O cop okuma bos kare sayilip kutuyu kapatiyor, altyazi
-        # yeniden onaylanip ikinci kez ciziliyordu. 125 gercek karede kapatmak
-        # tek bir okumayi degistirmedi, kare basi 81 ms -> 47 ms.
-        _ENGINE.use_angle_cls = False
+        try:
+            _ENGINE = _kur()
+        except Exception:
+            # Saglayici listede gorunuyor olsa bile DirectX 12 destekleyen bir
+            # ekran karti yoksa oturum burada patliyor. Baska bir makinede
+            # programin hic okuyamamasi yerine islemciyle devam ediyoruz.
+            if not GPU:
+                raise
+            _cpu_ya_don()
+            _ENGINE = _kur()
     return _ENGINE
 
 
