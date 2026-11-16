@@ -944,11 +944,9 @@ if (Test-Path $icoPath) { try { $form.Icon = New-Object System.Drawing.Icon($ico
 # Banner, pencerenin tam ustunde. Uzerindeki dugmeler goruntunun ustunde
 # durdugu icin kendi arka planlarini cizemezler: her biri once altina denk
 # gelen banner parcasini, sonra koyu yari saydam bir yuvarlak basar.
-# Pencere dugmeleri banner goruntusunun USTUNDE, kendi seridinde duruyor.
-# Goruntunun icinde dururken hem resmi boluyorlardi hem de uzerine gelince
-# bandin tamami yeniden cizildigi icin goruntu yanip sonuyordu.
-$BAR_TOP = 38
-$BANNER_H = 195
+# Banner pencerenin ust kismini kapliyor; dugmeler goruntunun uzerinde,
+# okunakli kalsinlar diye ust kenara ince bir karartma seriliyor.
+$BANNER_H = 221
 
 $script:bannerImg = $null
 $bannerPath = Join-Path $root 'banner.png'
@@ -962,7 +960,7 @@ if (Test-Path $bannerPath) {
 }
 
 $bar = New-Object System.Windows.Forms.Panel
-$bar.SetBounds(0, 0, 520, ($BAR_TOP + $BANNER_H))
+$bar.SetBounds(0, 0, 520, $BANNER_H)
 # Panel varsayilan olarak cift tamponlu degil: her yeniden cizimde once zemin,
 # sonra resim basiliyor ve arada goz bunu yanip sonme olarak goruyor.
 # DoubleBuffered korumali bir ozellik, yansimayla aciliyor.
@@ -1003,9 +1001,9 @@ $script:moonImg = New-MoonImage 18
 
 $script:barHover = ''
 $script:barBtns = @(
-  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle 404, 6, 30, 26) },
-  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle 440, 6, 30, 26) },
-  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle 476, 6, 30, 26) }
+  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle 404, 14, 30, 26) },
+  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle 440, 14, 30, 26) },
+  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle 476, 14, 30, 26) }
 )
 
 $bar.Add_Paint({
@@ -1014,17 +1012,23 @@ $bar.Add_Paint({
     $g.Clear($C.Bg)
     if ($null -ne $script:bannerImg) {
       $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-      $g.DrawImage($script:bannerImg, 0, $BAR_TOP, $s.Width, ($s.Height - $BAR_TOP))
+      $g.DrawImage($script:bannerImg, 0, 0, $s.Width, $s.Height)
     } else {
       $f = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
       $br = New-Object System.Drawing.SolidBrush $C.Text
-      $g.DrawString('Camera Translator', $f, $br, 22, ($BAR_TOP + 20))
+      $g.DrawString('Camera Translator', $f, $br, 22, 24)
       $f.Dispose(); $br.Dispose()
     }
+    # Ust kenara karartma: dugmeler goruntunun parlak yerine denk gelse de okunur
+    $scrim = New-Object System.Drawing.Drawing2D.LinearGradientBrush `
+      (New-Object System.Drawing.Point 0, 0), (New-Object System.Drawing.Point 0, 62), `
+      ([System.Drawing.Color]::FromArgb(140, 0, 0, 0)), ([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+    $g.FillRectangle($scrim, 0, 0, $s.Width, 62); $scrim.Dispose()
 
-    # Simgeler artik resmin degil seridin uzerinde: renkleri temaya uyuyor
-    $GLYPH = New-Object System.Drawing.SolidBrush $C.Muted
-    $GLYPHPEN = New-Object System.Drawing.Pen $C.Muted, 1.7
+    # Simgeler goruntunun uzerinde: tema ne olursa olsun beyaz
+    $beyaz = [System.Drawing.Color]::FromArgb(240, 255, 255, 255)
+    $GLYPH = New-Object System.Drawing.SolidBrush $beyaz
+    $GLYPHPEN = New-Object System.Drawing.Pen $beyaz, 1.7
     $GLYPHPEN.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
     $GLYPHPEN.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
     $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
@@ -1033,7 +1037,7 @@ $bar.Add_Paint({
       $cx = $r.X + $r.Width / 2.0; $cy = $r.Y + $r.Height / 2.0
       if ($script:barHover -eq $b.Ad) {
         $hp = Get-RoundPath ([single]$r.X) ([single]$r.Y) ([single]$r.Width) ([single]$r.Height) 9
-        $hb = New-Object System.Drawing.SolidBrush $C.Card2
+        $hb = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(70, 255, 255, 255))
         $g.FillPath($hb, $hp); $hb.Dispose(); $hp.Dispose()
       }
       switch ($b.Ad) {
@@ -1045,20 +1049,9 @@ $bar.Add_Paint({
         'kucult' { $g.DrawLine($GLYPHPEN, ($cx - 6), $cy, ($cx + 6), $cy) }
         'tema' {
           if ($script:cfg.tema -eq 'gece') {
-            # Hazir hilal beyaz; renk matrisiyle tema rengine boyaniyor
+            # Hazir hilal zaten beyaz, goruntunun uzerinde oldugu gibi kullaniliyor
             $m = $script:moonImg
-            $mx = [int]($cx - $m.Width / 2); $my = [int]($cy - $m.Height / 2)
-            $cm = New-Object 'single[][]' 5
-            for ($q = 0; $q -lt 5; $q++) { $cm[$q] = New-Object single[] 5 }
-            $cm[3][3] = [single]1.0; $cm[4][4] = [single]1.0
-            $cm[4][0] = [single]($C.Muted.R / 255.0)
-            $cm[4][1] = [single]($C.Muted.G / 255.0)
-            $cm[4][2] = [single]($C.Muted.B / 255.0)
-            $attr = New-Object System.Drawing.Imaging.ImageAttributes
-            $attr.SetColorMatrix((New-Object System.Drawing.Imaging.ColorMatrix (, $cm)))
-            $hedef = New-Object System.Drawing.Rectangle $mx, $my, $m.Width, $m.Height
-            $g.DrawImage($m, $hedef, 0, 0, $m.Width, $m.Height, [System.Drawing.GraphicsUnit]::Pixel, $attr)
-            $attr.Dispose()
+            $g.DrawImage($m, [int]($cx - $m.Width / 2), [int]($cy - $m.Height / 2))
           } else {
             $rr = 4.4
             $g.FillEllipse($GLYPH, ($cx - $rr), ($cy - $rr), (2 * $rr), (2 * $rr))
@@ -1138,7 +1131,7 @@ $pillPaint = {
   }
 
 # --- Gorunum ---
-$cardLook = New-Card 20 243 480 130
+$cardLook = New-Card 20 231 480 130
 $lblLookCap = New-Caption 'GÖRÜNÜM' 18 12 200
 $lblLookCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 
@@ -1206,7 +1199,7 @@ $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox))
 
 # --- Alan ---
-$cardArea = New-Card 20 389 480 110
+$cardArea = New-Card 20 377 480 110
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
@@ -1250,6 +1243,22 @@ $cardArea.Controls.AddRange(@($btnArea, $lblArea, $btnAddArea, $lblAddHint, $swL
 
 # Ek alan satirlari calisma aninda olusturuluyor; kart ve altindaki her sey
 # listenin boyuna gore kayiyor.
+# DIKKAT: $script:cfg ozelliklerine GetNewClosure ile uretilmis bir kapanisin
+# ICINDEN yazilamiyor -- okumak calisiyor ama atama 'property cannot be found'
+# hatasi veriyor, cunku kapanis kendi oturum durumunu tasiyor. Yazma islemi
+# bu yuzden adlandirilmis bir fonksiyonda; kapanis yalnizca onu cagiriyor.
+function Remove-ExtraArea([int]$idx) {
+  $kalan = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
+  if ($idx -lt 0 -or $idx -ge $kalan.Count) { return $false }
+  # Nesne karsilastirmasiyla degil sirayla eliyoruz: iki alan ayni olcude
+  # olursa IndexOf ikisini birden bulur
+  $yeniListe = @()
+  for ($q = 0; $q -lt $kalan.Count; $q++) { if ($q -ne $idx) { $yeniListe += $kalan[$q] } }
+  $script:cfg.ekAlanlar = $yeniListe
+  Save-Settings
+  return $true
+}
+
 $script:areaRows = New-Object System.Collections.ArrayList
 function Update-AreaList {
   # Dikkat: dongu degiskeni $c olamaz, palet $C ile ayni ada gelir (buyuk/kucuk fark etmez)
@@ -1283,13 +1292,7 @@ function Update-AreaList {
         # ne oldugunu goremiyor; burada yakalayip kayda yaziyoruz
         try {
           if ($script:running) { Write-Line 'Önce durdur, sonra alanı sil'; return }
-          $kalan = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
-          # Nesne karsilastirmasiyla degil sirayla eliyoruz: iki alan ayni
-          # olcude olursa IndexOf ikisini birden bulur
-          $yeniListe = @()
-          for ($q = 0; $q -lt $kalan.Count; $q++) { if ($q -ne $idx) { $yeniListe += $kalan[$q] } }
-          $script:cfg.ekAlanlar = $yeniListe
-          Save-Settings
+          if (-not (Remove-ExtraArea $idx)) { Write-Line 'Alan bulunamadı'; return }
           Write-Line ('Alan {0} silindi' -f ($idx + 2))
           # Listeyi tiklama olayi bittikten SONRA yenile: Update-AreaList tiklanan
           # kontrolu de yok ediyor, olay hala onun icindeyken yapilirsa hata verir
