@@ -66,18 +66,27 @@ $Python = Resolve-Python $Python
 # Arayuzde gosterilen yazi tipleri: hepsi Windows'ta kurulu ve Turkce harfleri destekliyor
 $FONTS = @('Segoe UI', 'Bahnschrift', 'Trebuchet MS', 'Verdana', 'Georgia')
 
-$C = @{
-  Bg      = [System.Drawing.Color]::FromArgb(255, 18, 18, 22)
-  Card    = [System.Drawing.Color]::FromArgb(255, 28, 28, 34)
-  Card2   = [System.Drawing.Color]::FromArgb(255, 36, 36, 44)
-  Line    = [System.Drawing.Color]::FromArgb(255, 48, 48, 58)
-  Text    = [System.Drawing.Color]::FromArgb(255, 235, 235, 242)
-  Muted   = [System.Drawing.Color]::FromArgb(255, 132, 132, 148)
-  Accent  = [System.Drawing.Color]::FromArgb(255, 255, 206, 122)
-  Accent2 = [System.Drawing.Color]::FromArgb(255, 234, 170, 80)
-  Go      = [System.Drawing.Color]::FromArgb(255, 58, 170, 110)
-  Stop    = [System.Drawing.Color]::FromArgb(255, 196, 76, 76)
+function New-Rgb([int]$r, [int]$g, [int]$b) { [System.Drawing.Color]::FromArgb(255, $r, $g, $b) }
+
+# Iki tema. Anahtarlar ayni; tema degisince $C'nin degerleri yerinde degisir ve
+# Set-Theme kontrolleri eski renkten yeni renge esleyerek gezer. Boylece Paint
+# icinde $C.X okuyan her cizim kendiliginden yeni temaya gecer.
+$PALETTES = @{
+  gece   = [ordered]@{
+    Bg = (New-Rgb 18 18 22); Card = (New-Rgb 28 28 34); Card2 = (New-Rgb 36 36 44)
+    Line = (New-Rgb 48 48 58); Text = (New-Rgb 235 235 242); Muted = (New-Rgb 132 132 148)
+    Accent = (New-Rgb 255 206 122); Accent2 = (New-Rgb 234 170 80)
+    Go = (New-Rgb 58 170 110); Stop = (New-Rgb 196 76 76)
+  }
+  gunduz = [ordered]@{
+    Bg = (New-Rgb 244 245 249); Card = (New-Rgb 255 255 255); Card2 = (New-Rgb 237 239 245)
+    Line = (New-Rgb 214 217 226); Text = (New-Rgb 24 26 33); Muted = (New-Rgb 104 109 124)
+    Accent = (New-Rgb 176 118 16); Accent2 = (New-Rgb 214 152 48)
+    Go = (New-Rgb 38 146 92); Stop = (New-Rgb 192 62 62)
+  }
 }
+$C = @{}
+foreach ($k in $PALETTES.gece.Keys) { $C[$k] = $PALETTES.gece[$k] }
 
 # ---------------- Ayarlar ----------------
 $defaults = [ordered]@{
@@ -87,6 +96,8 @@ $defaults = [ordered]@{
   saydamlik = 1.0
   alan = $null
   ayrintiliKayit = $false
+  # Arayuz temasi: 'gece' ya da 'gunduz'
+  tema = 'gece'
   # Gelismis OCR duzeltme: bozuk Ingilizceyi yerel GPU modeli onarir, ceviriyi yine OPUS yapar
   gelismisOcr = $false
   llmModel = 'aya-expanse:8b'
@@ -821,7 +832,7 @@ function New-Caption([string]$text, [int]$x, [int]$y, [int]$w = 150) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = 'CameraTranslator PC'
 $form.FormBorderStyle = 'None'
-$form.Size = New-Object System.Drawing.Size 520, 670
+$form.Size = New-Object System.Drawing.Size 520, 656
 $form.StartPosition = 'CenterScreen'
 $form.BackColor = $C.Bg
 $form.ForeColor = $C.Text
@@ -850,7 +861,14 @@ $btnMin.Text = '—'; $btnMin.SetBounds(434, 12, 32, 28)
 $btnMin.FlatStyle = 'Flat'; $btnMin.FlatAppearance.BorderSize = 0
 $btnMin.BackColor = $C.Bg; $btnMin.ForeColor = $C.Muted
 $btnMin.Font = New-Object System.Drawing.Font('Segoe UI', 9); $btnMin.TabStop = $false
-$bar.Controls.AddRange(@($dot, $lblTitle, $btnMin, $btnClose))
+$btnTheme = New-Object System.Windows.Forms.Button
+$btnTheme.SetBounds(398, 12, 32, 28)
+$btnTheme.FlatStyle = 'Flat'; $btnTheme.FlatAppearance.BorderSize = 0
+$btnTheme.BackColor = $C.Bg; $btnTheme.ForeColor = $C.Muted
+$btnTheme.Font = New-Object System.Drawing.Font('Segoe UI Symbol', 10)
+$btnTheme.TabStop = $false
+$ttTheme = New-Object System.Windows.Forms.ToolTip
+$bar.Controls.AddRange(@($dot, $lblTitle, $btnTheme, $btnMin, $btnClose))
 $drag = {
   param($s, $e)
   if ($e.Button -eq [System.Windows.Forms.MouseButtons]::Left) {
@@ -859,6 +877,25 @@ $drag = {
   }
 }
 $bar.Add_MouseDown($drag); $lblTitle.Add_MouseDown($drag)
+
+# Ortak anahtar cizimi: hangi kutuya bagliysa onun durumunu gosterir
+$pillPaint = {
+    param($s, $e)
+    $g = $e.Graphics
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.Clear($C.Card)
+    $on = [bool]$s.Tag.Checked
+    $h = $s.Height; $w = $s.Width
+    $track = New-Object System.Drawing.SolidBrush $(if ($on) { $C.Accent2 } else { $C.Line })
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $path.AddArc(0, 0, $h, $h, 90, 180)
+    $path.AddArc($w - $h - 1, 0, $h, $h, 270, 180)
+    $path.CloseFigure()
+    $g.FillPath($track, $path); $track.Dispose(); $path.Dispose()
+    $knob = New-Object System.Drawing.SolidBrush $(if ($on) { $C.Card } else { $C.Muted })
+    $kx = if ($on) { $w - $h + 2 } else { 2 }
+    $g.FillEllipse($knob, $kx, 2, $h - 4, $h - 4); $knob.Dispose()
+  }
 
 # --- Gorunum ---
 $cardLook = New-Card 20 62 480 196
@@ -887,12 +924,42 @@ $fontField.Add_Paint({
     $pen.Dispose()
   })
 
+# Renk kutusu: kendi cizdigi yuvarlak kose. Region ile kirpmak kenari
+# tirtikli birakiyordu, ayrica koyu renkte kartin zemini kosede siziyordu.
+$script:colText = ConvertTo-Color $script:cfg.yaziRengi ([System.Drawing.Color]::White)
+$script:colBox = ConvertTo-Color $script:cfg.kutuRengi ([System.Drawing.Color]::Black)
+$swatchPaint = {
+    param($s, $e)
+    $g = $e.Graphics
+    $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+    $g.Clear($C.Card)
+    $col = if ($s.Name -eq 'swText') { $script:colText } else { $script:colBox }
+    $w = $s.Width - 1; $h = $s.Height - 1; $d = 12
+    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
+    $path.AddArc(0, 0, $d, $d, 180, 90)
+    $path.AddArc($w - $d, 0, $d, $d, 270, 90)
+    $path.AddArc($w - $d, $h - $d, $d, $d, 0, 90)
+    $path.AddArc(0, $h - $d, $d, $d, 90, 90)
+    $path.CloseFigure()
+    $br = New-Object System.Drawing.SolidBrush $col
+    $g.FillPath($br, $path); $br.Dispose()
+    # Ince cerceve: beyaz kutu beyaz kartta, siyah kutu siyah kartta kaybolmasin
+    $pen = New-Object System.Drawing.Pen $C.Line, 1
+    $g.DrawPath($pen, $path); $pen.Dispose()
+    $path.Dispose()
+  }
 $swText = New-Object System.Windows.Forms.Panel
-$swText.SetBounds(140, 82, 70, 26); Set-Rounded $swText 7
+$swText.Name = 'swText'
+$swText.SetBounds(140, 82, 54, 26)
+$swText.BackColor = [System.Drawing.Color]::Transparent
 $swText.Cursor = [System.Windows.Forms.Cursors]::Hand
+$swText.Add_Paint($swatchPaint)
 $swBox = New-Object System.Windows.Forms.Panel
-$swBox.SetBounds(300, 82, 70, 26); Set-Rounded $swBox 7
+$swBox.Name = 'swBox'
+$swBox.SetBounds(300, 82, 54, 26)
+$swBox.BackColor = [System.Drawing.Color]::Transparent
 $swBox.Cursor = [System.Windows.Forms.Cursors]::Hand
+$swBox.Add_Paint($swatchPaint)
 $lblTextCol = New-Caption 'Yazı rengi' 18 84 120
 $lblBoxCol = New-Caption 'Kutu rengi' 226 84 80
 $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
@@ -942,7 +1009,7 @@ $sld.Add_MouseUp({ $script:sliderDrag = $false })
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox, $lblOpaCap, $sld, $lblOpaVal))
 
 # --- Alan ---
-$cardArea = New-Card 20 272 480 142
+$cardArea = New-Card 20 272 480 110
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
@@ -955,15 +1022,22 @@ $lblArea = New-Object System.Windows.Forms.Label
 $lblArea.SetBounds(222, 27, 240, 20)
 $lblArea.ForeColor = $C.Muted
 $lblArea.BackColor = [System.Drawing.Color]::Transparent
+# Gorunmez kutu: mantigi tasiyor, gorunen taraf yanindaki anahtar
 $chkLlm = New-Object System.Windows.Forms.CheckBox
-$chkLlm.Text = 'Gelişmiş OCR düzeltme (GPU modeli)'
-$chkLlm.SetBounds(18, 66, 320, 24)
-$chkLlm.FlatStyle = 'Flat'
-$chkLlm.ForeColor = $C.Muted
-$chkLlm.BackColor = [System.Drawing.Color]::Transparent
 $chkLlm.Checked = [bool]$script:cfg.gelismisOcr
+$lblLlmCap = New-Caption 'Gelişmiş OCR düzeltme (GPU modeli)' 60 68 260
+$lblLlmCap.Cursor = [System.Windows.Forms.Cursors]::Hand
+$swLlm = New-Object System.Windows.Forms.Panel
+$swLlm.SetBounds(18, 66, 34, 18)
+$swLlm.BackColor = [System.Drawing.Color]::Transparent
+$swLlm.Cursor = [System.Windows.Forms.Cursors]::Hand
+$swLlm.Add_Paint($pillPaint)
+$swLlm.Tag = $chkLlm
+$toggleLlm = { $chkLlm.Checked = -not $chkLlm.Checked; $swLlm.Invalidate() }
+$swLlm.Add_Click($toggleLlm)
+$lblLlmCap.Add_Click($toggleLlm)
 
-$cardArea.Controls.AddRange(@($btnArea, $lblArea, $chkLlm))
+$cardArea.Controls.AddRange(@($btnArea, $lblArea, $swLlm, $lblLlmCap))
 
 $chkLlm.Add_CheckedChanged({
     $script:cfg.gelismisOcr = [bool]$chkLlm.Checked
@@ -974,26 +1048,26 @@ $chkLlm.Add_CheckedChanged({
 # --- Baslat ---
 $btnStart = New-Object System.Windows.Forms.Button
 $btnStart.Text = 'BAŞLAT'
-$btnStart.SetBounds(20, 428, 480, 54)
+$btnStart.SetBounds(20, 398, 480, 54)
 $btnStart.FlatStyle = 'Flat'; $btnStart.FlatAppearance.BorderSize = 0
 $btnStart.BackColor = $C.Go; $btnStart.ForeColor = [System.Drawing.Color]::White
 $btnStart.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 13)
 Set-Rounded $btnStart 14
 
 $lblStatus = New-Object System.Windows.Forms.Label
-$lblStatus.SetBounds(20, 488, 480, 22)
+$lblStatus.SetBounds(20, 458, 480, 22)
 $lblStatus.ForeColor = $C.Muted
 $lblStatus.Font = New-Object System.Drawing.Font('Segoe UI', 8.75)
 $lblStatus.TextAlign = 'MiddleCenter'
 
 # --- Kayit ---
-$cardLog = New-Card 20 516 480 134
+$cardLog = New-Card 20 486 480 148
 $lblLogCap = New-Caption 'KAYIT' 18 10 200
 $lblLogCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 $txtLog = New-Object System.Windows.Forms.TextBox
-$txtLog.SetBounds(14, 32, 452, 90)
+$txtLog.SetBounds(14, 34, 452, 102)
 $txtLog.Multiline = $true
-$txtLog.ScrollBars = 'Vertical'
+$txtLog.ScrollBars = 'None'
 $txtLog.ReadOnly = $true
 $txtLog.BorderStyle = 'None'
 $txtLog.BackColor = $C.Card2
@@ -1018,7 +1092,20 @@ $btnOpenLog.ForeColor = $C.Text
 $btnOpenLog.Font = New-Object System.Drawing.Font('Segoe UI', 8.5)
 Set-Rounded $btnOpenLog 8
 
-$cardLog.Controls.AddRange(@($lblLogCap, $chkDev, $btnOpenLog, $txtLog))
+# $chkDev hicbir karta eklenmiyor: gorunmez kaliyor ama Checked'i degistirince
+# CheckedChanged yine calisiyor. Gorunen taraf asagidaki sessiz anahtar.
+$lblDevCap = New-Caption 'ayrıntılı' 246 11 60
+$lblDevCap.Font = New-Object System.Drawing.Font('Segoe UI', 8)
+$swDev = New-Object System.Windows.Forms.Panel
+$swDev.SetBounds(310, 9, 34, 18)
+$swDev.BackColor = [System.Drawing.Color]::Transparent
+$swDev.Cursor = [System.Windows.Forms.Cursors]::Hand
+$swDev.Tag = $chkDev
+$swDev.Add_Paint($pillPaint)
+$swDev.Add_Click({ $chkDev.Checked = -not $chkDev.Checked; $swDev.Invalidate() })
+$lblDevCap.Cursor = [System.Windows.Forms.Cursors]::Hand
+$lblDevCap.Add_Click({ $chkDev.Checked = -not $chkDev.Checked; $swDev.Invalidate() })
+$cardLog.Controls.AddRange(@($lblLogCap, $lblDevCap, $swDev, $btnOpenLog, $txtLog))
 $script:logBox = $txtLog
 
 $chkDev.Add_CheckedChanged({
@@ -1041,9 +1128,48 @@ $btnOpenLog.Add_Click({
 
 $form.Controls.AddRange(@($bar, $cardLook, $cardArea, $btnStart, $lblStatus, $cardLog))
 
+# ---------------- Tema ----------------
+# Renkler kontrollere tek tek yazildigi icin tema degisiminde hepsini gezmek
+# gerekiyor. Her kontrolun mevcut rengini eski paletten yeni palete esliyoruz;
+# Transparent ve kullanicinin sectigi altyazi renkleri hicbir anahtara
+# uymadigi icin dokunulmadan kaliyor.
+function Update-ControlColors($ctrl, $map) {
+  $bg = $ctrl.BackColor.ToArgb()
+  if ($map.ContainsKey($bg)) { $ctrl.BackColor = $map[$bg] }
+  $fg = $ctrl.ForeColor.ToArgb()
+  if ($map.ContainsKey($fg)) { $ctrl.ForeColor = $map[$fg] }
+  if ($ctrl -is [System.Windows.Forms.Button]) {
+    $bc = $ctrl.FlatAppearance.BorderColor.ToArgb()
+    if ($map.ContainsKey($bc)) { $ctrl.FlatAppearance.BorderColor = $map[$bc] }
+  }
+  foreach ($child in $ctrl.Controls) { Update-ControlColors $child $map }
+  $ctrl.Invalidate()
+}
+
+function Set-Theme([string]$name) {
+  if (-not $PALETTES.ContainsKey($name)) { $name = 'gece' }
+  $map = @{}
+  foreach ($k in $PALETTES[$name].Keys) { $map[$C[$k].ToArgb()] = $PALETTES[$name][$k] }
+  foreach ($k in $PALETTES[$name].Keys) { $C[$k] = $PALETTES[$name][$k] }
+  $form.SuspendLayout()
+  Update-ControlColors $form $map
+  $form.ResumeLayout()
+  # Gunduzde ay, gecede gunes degil: dugme icinde bulundugun modu gosteriyor
+  $btnTheme.Text = $(if ($name -eq 'gece') { [char]0x263D } else { [char]0x2600 })
+  $ttTheme.SetToolTip($btnTheme, $(if ($name -eq 'gece') { 'Gece modu — gündüze geç' } else { 'Gündüz modu — geceye geç' }))
+  $script:cfg.tema = $name
+}
+
+$btnTheme.Add_Click({
+    Set-Theme $(if ($script:cfg.tema -eq 'gece') { 'gunduz' } else { 'gece' })
+    Save-Settings
+    Write-Line $(if ($script:cfg.tema -eq 'gece') { 'Gece moduna geçildi' } else { 'Gündüz moduna geçildi' })
+  })
+
+
 # ---------------- Doldur ----------------
-$swText.BackColor = ConvertTo-Color $script:cfg.yaziRengi ([System.Drawing.Color]::White)
-$swBox.BackColor = ConvertTo-Color $script:cfg.kutuRengi ([System.Drawing.Color]::Black)
+$swText.Invalidate(); $swBox.Invalidate()
+Set-Theme ([string]$script:cfg.tema)
 $lblOpaVal.Text = ('%{0}' -f [int]([double]$script:cfg.saydamlik * 100))
 
 function Update-AreaLabel {
@@ -1124,7 +1250,7 @@ $swText.Add_Click({
     $d.Color = ConvertTo-Color $script:cfg.yaziRengi ([System.Drawing.Color]::White); $d.FullOpen = $true
     if ($d.ShowDialog() -eq 'OK') {
       $script:cfg.yaziRengi = [System.Drawing.ColorTranslator]::ToHtml($d.Color)
-      $swText.BackColor = $d.Color; Save-Settings
+      $script:colText = $d.Color; $swText.Invalidate(); Save-Settings
       if ($null -ne $script:overlay) { $script:overlay.Invalidate() }
     }
   })
@@ -1133,7 +1259,7 @@ $swBox.Add_Click({
     $d.Color = ConvertTo-Color $script:cfg.kutuRengi ([System.Drawing.Color]::Black); $d.FullOpen = $true
     if ($d.ShowDialog() -eq 'OK') {
       $script:cfg.kutuRengi = [System.Drawing.ColorTranslator]::ToHtml($d.Color)
-      $swBox.BackColor = $d.Color; Save-Settings
+      $script:colBox = $d.Color; $swBox.Invalidate(); Save-Settings
       if ($null -ne $script:overlay) { $script:overlay.Invalidate() }
     }
   })
