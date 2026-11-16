@@ -33,4 +33,5 @@ local.properties
 /pc-prototype/*.bmp
 /pc-prototype/*.png
 !/pc-prototype/banner.png
+!/pc-prototype/banner-github.jpg
 /pc-prototype/kareler_*/
