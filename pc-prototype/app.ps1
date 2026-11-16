@@ -97,6 +97,8 @@ $defaults = [ordered]@{
   yaziRengi = '#FFFFFF'
   kutuRengi = '#000000'
   alan = $null
+  # Ek OCR alanlari: cevirileri kendi cercevelerinin icinde kalir
+  ekAlanlar = @()
   ayrintiliKayit = $false
   # Arayuz temasi: 'gece' ya da 'gunduz'
   tema = 'gece'
@@ -261,9 +263,9 @@ function Read-ImageText([string]$path) {
 }
 
 # Alan ekran disina tasarsa CopyFromScreen hata firlatiyor; once kirpiyoruz
-function Get-SafeArea {
+function Get-SafeArea($a) {
+  if ($null -eq $a) { return $null }
   $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
-  $a = $script:cfg.alan
   $x = [int]$a.X; $y = [int]$a.Y; $w = [int]$a.W; $h = [int]$a.H
   if ($x -lt $vs.Left) { $w -= ($vs.Left - $x); $x = $vs.Left }
   if ($y -lt $vs.Top) { $h -= ($vs.Top - $y); $y = $vs.Top }
@@ -547,7 +549,7 @@ function Get-Subtitle($ocrResult, [int]$rx, [int]$ry, [int]$imageWidth) {
 $script:running = $false
 $script:proc = $null
 $script:writer = $null
-$script:overlay = $null
+$script:areas = @()
 $script:gameWindow = [IntPtr]::Zero
 $script:lockAt = $null
 $script:boxRect = $null
@@ -586,7 +588,31 @@ $script:readings = New-Object System.Collections.ArrayList
 # Altyazi kaybolurken onaylanan aday (bir sonraki karede cevrilir)
 $script:lateCandidate = $null
 
-function New-OverlayWindow($a) {
+# Her OCR alani kendi durumunu tasir: okuma penceresi, onaylanan metin, cizilen
+# kutu, punto gecmisi. Tek alanli surumde bunlarin hepsi $script: degiskeniydi;
+# birden fazla alan olunca alanlar birbirinin durumunu ezerdi.
+#   Mode 'ana' : ceviri Ingilizcenin ustune, kutu gerekirse alanin disina tasar
+#   Mode 'ek'  : ceviri alanin ICINDE kalir, sigmazsa punto kuculur
+function New-AreaState($alan, [string]$mod, [int]$no) {
+  return @{
+    Area = $alan; Mode = $mod; No = $no; Overlay = $null
+    readings = (New-Object System.Collections.ArrayList)
+    lineHeights = (New-Object System.Collections.ArrayList)
+    firstSeen = $null; prevKey = ''; shownKey = ''; blankFrames = 0
+    boxText = ''; boxRect = $null; boxLines = 1; lateCandidate = $null
+    warnedPending = $false; lastRaw = ''; lastEn = ''; lastTr = ''
+    stableLineH = 0; capMs = 0; ocrMs = 0
+  }
+}
+
+function Update-Overlays {
+  foreach ($o in $script:areas) {
+    if ($null -ne $o.Overlay) { try { $o.Overlay.Invalidate() } catch { } }
+  }
+}
+
+function New-OverlayWindow($st) {
+  $a = $st.Area
   $key = [System.Drawing.Color]::Magenta
   $f = New-Object System.Windows.Forms.Form
   $f.FormBorderStyle = 'None'
@@ -596,13 +622,39 @@ function New-OverlayWindow($a) {
   $f.ShowInTaskbar = $false
   $f.BackColor = $key
   $f.TransparencyKey = $key
+  $f.Tag = $st
   $f.Add_Paint({
       param($sender, $e)
       try {
-        $rect = $script:boxRect
-        $text = $script:boxText
+        $st = $sender.Tag
+        $rect = $st.boxRect
+        $text = $st.boxText
         if ($null -eq $rect -or $text -eq '') { return }
-        $lines = [math]::Max(1, $script:boxLines)
+        if ($st.Mode -eq 'ek') {
+          # Ek alanda ceviri cercevenin disina tasmaz: kutu alanin kendisi,
+          # punto da metin icine sigana kadar kucultulur.
+          $bw = $sender.ClientSize.Width
+          $bh = $sender.ClientSize.Height
+          $pad = 6
+          $inW = [math]::Max(20, $bw - $pad * 2)
+          $inH = [math]::Max(14, $bh - $pad * 2)
+          $name = [string]$script:cfg.yaziTipi
+          $size = [int][math]::Min(60, [math]::Max(12, [int]($inH * 0.62)))
+          while ($size -gt 10) {
+            $ff = New-Object System.Drawing.Font($name, $size, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
+            $mm = $e.Graphics.MeasureString($text, $ff, $inW)
+            $ff.Dispose()
+            if ($mm.Height -le $inH) { break }
+            $size -= 2
+          }
+          Draw-Subtitle $e.Graphics $text 0 0 $bw $bh $size
+          if ([bool]$script:cfg.ayrintiliKayit) {
+            Write-Dev ('CIZIM  | alan' + $st.No + ' (ek) | kutu=' + $bw + 'x' + $bh +
+              '@' + $sender.Left + ',' + $sender.Top + ' | punto=' + $size)
+          }
+          return
+        }
+        $lines = [math]::Max(1, $st.boxLines)
         $lineH = [math]::Max(8, [int]($rect.Height / $lines))
         # Pay satir boyuna oranli: ingilizcenin kenar yumusatmasi kutunun disinda kalmasin
         $padX = [int][math]::Max(18, $lineH * 0.45)
@@ -611,7 +663,7 @@ function New-OverlayWindow($a) {
         $maxH = $sender.ClientSize.Height
 
         # Punto SABIT: oturmus satir yuksekligine gore, karedeki zipli olcume gore degil.
-        $stable = if ($script:stableLineH -gt 0) { $script:stableLineH } else { $lineH }
+        $stable = if ($st.stableLineH -gt 0) { $st.stableLineH } else { $lineH }
         $size = [int][math]::Min(64, [math]::Max(14, [math]::Round($stable * 0.95)))
         $font = New-Object System.Drawing.Font([string]$script:cfg.yaziTipi, $size, [System.Drawing.FontStyle]::Regular, [System.Drawing.GraphicsUnit]::Pixel)
         $single = [double]$e.Graphics.MeasureString($text, $font).Width
@@ -674,7 +726,7 @@ function New-OverlayWindow($a) {
 }
 
 # ---------------- Alan secici ----------------
-function Select-Area {
+function Select-Area([string]$Hedef = 'ana') {
   $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
   $script:selStart = $null
   $script:selRect = New-Object System.Drawing.Rectangle 0, 0, 0, 0
@@ -709,15 +761,18 @@ function Select-Area {
         $r = $script:selRect
         if ($r.Width -gt 2 -and $r.Height -gt 2) {
           $accent = [System.Drawing.Color]::FromArgb(255, 255, 206, 122)
+          # Kenar yumusatma: duz DrawRectangle kenarlari tirtikli birakiyordu
+          $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+          $cerceve = Get-RoundPath ([single]$r.X) ([single]$r.Y) ([single]$r.Width) ([single]$r.Height) 10
           $pen = New-Object System.Drawing.Pen $accent, 3
-          $g.DrawRectangle($pen, $r); $pen.Dispose()
-          # Kose tutamaklari
+          $g.DrawPath($pen, $cerceve); $pen.Dispose(); $cerceve.Dispose()
+          # Kose tutamaklari: yuvarlak
           $hb = New-Object System.Drawing.SolidBrush $accent
           $k = 7
-          foreach ($c in @(
+          foreach ($nokta in @(
               @{ x = $r.Left; y = $r.Top }, @{ x = $r.Right; y = $r.Top },
               @{ x = $r.Left; y = $r.Bottom }, @{ x = $r.Right; y = $r.Bottom })) {
-            $g.FillRectangle($hb, ($c.x - $k), ($c.y - $k), ($k * 2), ($k * 2))
+            $g.FillEllipse($hb, ($nokta.x - $k), ($nokta.y - $k), ($k * 2), ($k * 2))
           }
           $hb.Dispose()
           $ly = if ($r.Y -gt 40) { $r.Y - 32 } else { $r.Y + $r.Height + 8 }
@@ -796,9 +851,15 @@ function Select-Area {
   if (-not $script:selOk) { return $false }
   $r = $script:selRect
   if ($r.Width -lt 40 -or $r.Height -lt 20) { return $false }
-  $script:cfg.alan = [PSCustomObject]@{ X = ($r.X + $vs.X); Y = ($r.Y + $vs.Y); W = $r.Width; H = $r.Height }
+  $yeni = [PSCustomObject]@{ X = ($r.X + $vs.X); Y = ($r.Y + $vs.Y); W = $r.Width; H = $r.Height }
+  if ($Hedef -eq 'ek') {
+    $script:cfg.ekAlanlar = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ }) + @($yeni)
+    Write-Line ('Ek OCR alanı: {0}×{1} konum {2},{3}' -f $r.Width, $r.Height, $yeni.X, $yeni.Y)
+  } else {
+    $script:cfg.alan = $yeni
+    Write-Line ('OCR alanı: {0}×{1} konum {2},{3}' -f $r.Width, $r.Height, $yeni.X, $yeni.Y)
+  }
   Save-Settings
-  Write-Line ('OCR alanı: {0}×{1} konum {2},{3}' -f $r.Width, $r.Height, ($r.X + $vs.X), ($r.Y + $vs.Y))
   return $true
 }
 
@@ -1135,7 +1196,83 @@ $toggleLlm = { $chkLlm.Checked = -not $chkLlm.Checked; $swLlm.Invalidate() }
 $swLlm.Add_Click($toggleLlm)
 $lblLlmCap.Add_Click($toggleLlm)
 
-$cardArea.Controls.AddRange(@($btnArea, $lblArea, $swLlm, $lblLlmCap))
+$btnAddArea = New-Object System.Windows.Forms.Button
+$btnAddArea.Text = '+  OCR alanı ekle'
+$btnAddArea.SetBounds(16, 60, 190, 32)
+$btnAddArea.FlatStyle = 'Flat'
+$btnAddArea.FlatAppearance.BorderSize = 1
+$btnAddArea.FlatAppearance.BorderColor = $C.Line
+$btnAddArea.BackColor = $C.Card2
+$btnAddArea.ForeColor = $C.Text
+$btnAddArea.Font = New-Object System.Drawing.Font('Segoe UI', 9)
+Add-SoftCorners $btnAddArea 10 'Card'
+$lblAddHint = New-Caption 'çeviri bu çerçevenin içinde kalır' 222 69 250
+
+$cardArea.Controls.AddRange(@($btnArea, $lblArea, $btnAddArea, $lblAddHint, $swLlm, $lblLlmCap))
+
+# Ek alan satirlari calisma aninda olusturuluyor; kart ve altindaki her sey
+# listenin boyuna gore kayiyor.
+$script:areaRows = New-Object System.Collections.ArrayList
+function Update-AreaList {
+  # Dikkat: dongu degiskeni $c olamaz, palet $C ile ayni ada gelir (buyuk/kucuk fark etmez)
+  foreach ($eski in @($script:areaRows)) { $cardArea.Controls.Remove($eski); $eski.Dispose() }
+  $script:areaRows.Clear()
+  $ekler = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
+  $y = 100
+  for ($i = 0; $i -lt $ekler.Count; $i++) {
+    $ek = $ekler[$i]
+    $lbl = New-Caption ('Alan {0} — {1} × {2}  ·  konum {3},{4}' -f ($i + 2), [int]$ek.W, [int]$ek.H, [int]$ek.X, [int]$ek.Y) 40 ($y + 3) 320
+    $sil = New-Object System.Windows.Forms.Panel
+    $sil.SetBounds(16, $y, 18, 18)
+    $sil.BackColor = $C.Card
+    $sil.Cursor = [System.Windows.Forms.Cursors]::Hand
+    $sil.Add_Paint({
+        param($se, $ev)
+        $g = $ev.Graphics
+        $g.Clear($C.Card)
+        $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+        $pen = New-Object System.Drawing.Pen $C.Muted, 1.6
+        $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
+        $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
+        $k = 4.0; $cx = $se.Width / 2.0; $cy = $se.Height / 2.0
+        $g.DrawLine($pen, ($cx - $k), ($cy - $k), ($cx + $k), ($cy + $k))
+        $g.DrawLine($pen, ($cx + $k), ($cy - $k), ($cx - $k), ($cy + $k))
+        $pen.Dispose()
+      })
+    $idx = $i
+    $sil.Add_Click({
+        if ($script:running) { Write-Line 'Önce durdur, sonra alanı sil'; return }
+        $kalan = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
+        $script:cfg.ekAlanlar = @($kalan | Where-Object { $kalan.IndexOf($_) -ne $idx })
+        Save-Settings
+        Update-AreaList
+        Write-Line ('Alan {0} silindi' -f ($idx + 2))
+      }.GetNewClosure())
+    [void]$script:areaRows.Add($lbl); [void]$script:areaRows.Add($sil)
+    $cardArea.Controls.AddRange(@($lbl, $sil))
+    $y += 26
+  }
+  # Liste buyudukce altindaki her sey asagi kayar
+  $alt = $(if ($ekler.Count -gt 0) { $y + 6 } else { 100 })
+  $swLlm.Top = $alt
+  $lblLlmCap.Top = $alt + 2
+  $cardArea.Height = $alt + 34
+  $btnStart.Top = $cardArea.Top + $cardArea.Height + 16
+  $lblStatus.Top = $btnStart.Top + 60
+  $cardLog.Top = $lblStatus.Top + 28
+  $form.Height = $cardLog.Top + $cardLog.Height + 20
+  $cardArea.Invalidate()
+}
+
+$btnAddArea.Add_Click({
+    if ($script:running) { Write-Line 'Önce durdur, sonra alan ekle'; return }
+    $form.WindowState = 'Minimized'
+    Start-Sleep -Milliseconds 350
+    $ok = Select-Area 'ek'
+    $form.WindowState = 'Normal'
+    [void][Native]::SetForegroundWindow($form.Handle)
+    if ($ok) { Update-AreaList }
+  })
 
 $chkLlm.Add_CheckedChanged({
     $script:cfg.gelismisOcr = [bool]$chkLlm.Checked
@@ -1262,6 +1399,7 @@ function Set-Theme([string]$name) {
 
 # ---------------- Doldur ----------------
 $swText.Invalidate(); $swBox.Invalidate()
+Update-AreaList
 Set-Theme ([string]$script:cfg.tema)
 
 function Update-AreaLabel {
@@ -1288,7 +1426,7 @@ function Set-Font([string]$name) {
   $script:cfg.yaziTipi = $name
   Save-Settings
   try { $script:fontField.Invalidate() } catch { }
-  if ($null -ne $script:overlay) { try { $script:overlay.Invalidate() } catch { } }
+  Update-Overlays
   Write-Line ('Yazı tipi: ' + $name)
 }
 
@@ -1343,7 +1481,7 @@ $swText.Add_Click({
     if ($d.ShowDialog() -eq 'OK') {
       $script:cfg.yaziRengi = [System.Drawing.ColorTranslator]::ToHtml($d.Color)
       $script:colText = $d.Color; $swText.Invalidate(); Save-Settings
-      if ($null -ne $script:overlay) { $script:overlay.Invalidate() }
+      Update-Overlays
     }
   })
 $swBox.Add_Click({
@@ -1352,7 +1490,7 @@ $swBox.Add_Click({
     if ($d.ShowDialog() -eq 'OK') {
       $script:cfg.kutuRengi = [System.Drawing.ColorTranslator]::ToHtml($d.Color)
       $script:colBox = $d.Color; $swBox.Invalidate(); Save-Settings
-      if ($null -ne $script:overlay) { $script:overlay.Invalidate() }
+      Update-Overlays
     }
   })
 $btnArea.Add_Click({
@@ -1424,7 +1562,7 @@ function Invoke-Tick {
       $script:paused = -not $script:paused
       Write-Line $(if ($script:paused) { 'Duraklatıldı' } else { 'Devam' })
       $lblStatus.Text = $(if ($script:paused) { 'Duraklatıldı · F8 ile devam' } else { 'Çalışıyor' })
-      if ($script:paused -and $null -ne $script:overlay) { $script:boxText = ''; $script:boxRect = $null; $script:overlay.Invalidate() }
+      if ($script:paused) { foreach ($o in $script:areas) { $o.boxText = ''; $o.boxRect = $null }; Update-Overlays }
     }
     $script:prevF8 = $f8
     if ($script:paused) { return }
@@ -1443,7 +1581,7 @@ function Invoke-Tick {
       }
     }
     if ($script:gameWindow -ne [IntPtr]::Zero -and [Native]::GetForegroundWindow() -ne $script:gameWindow) {
-      if ($script:boxText -ne '') { $script:boxText = ''; $script:boxRect = $null; $script:overlay.Invalidate() }
+      foreach ($o in $script:areas) { $o.boxText = ''; $o.boxRect = $null }; Update-Overlays
       return
     }
 
@@ -1456,10 +1594,21 @@ function Invoke-Tick {
       return
     }
 
+
+    # Her alan sirayla okunur. Okuma ve ceviri tek bir Python surecinden
+    # gectigi icin paralel calistirmanin anlami yok; alan sayisi arttikca
+    # tur suresi dogrusal uzar.
+    foreach ($st in $script:areas) {
+      if (-not $script:running -or $script:paused) { return }
+      Step-Area $st
+    }
+}
+
+function Step-Area($st) {
     # --- Oku ---
     $res = $null
     try {
-      $a = Get-SafeArea
+      $a = Get-SafeArea $st.Area
       if ($null -eq $a) { Write-Line 'OCR alanı ekran dışında kaldı'; Stop-Run; return }
       $swCap = [System.Diagnostics.Stopwatch]::StartNew()
       Grab-Region $a.X $a.Y $a.W $a.H $script:framePath
@@ -1469,8 +1618,8 @@ function Invoke-Tick {
       $ocrReply = Wait-Reply
       $swOcr.Stop()
       if ($null -eq $ocrReply) { throw 'okuma sureci yanit vermedi' }
-      $script:capMs = [int]$swCap.ElapsedMilliseconds
-      $script:ocrMs = [int]$swOcr.ElapsedMilliseconds
+      $st.capMs = [int]$swCap.ElapsedMilliseconds
+      $st.ocrMs = [int]$swOcr.ElapsedMilliseconds
       $script:frameCount++
       $script:errorStreak = 0
     } catch {
@@ -1502,11 +1651,11 @@ function Invoke-Tick {
       $key = Get-Key $text
       $blankLimit = [math]::Max(1, [int]($HOLD_MS / $READ_MS))
 
-      if ([bool]$script:cfg.ayrintiliKayit -and $raw -ne $script:lastRaw) {
-        $script:lastRaw = $raw
+      if ([bool]$script:cfg.ayrintiliKayit -and $raw -ne $st.lastRaw) {
+        $st.lastRaw = $raw
         if ($raw -ne '') {
           $drop = if ($null -ne $sub -and @($sub.Dropped).Count -gt 0) { ' | atılan=' + (@($sub.Dropped) -join ' / ') } else { '' }
-          Write-Dev ('OKUMA  | yakala=' + $script:capMs + 'ms ocr=' + $script:ocrMs + 'ms | ham=' + $raw + ' | filtreli=' + $text + $drop)
+          Write-Dev ('OKUMA  | yakala=' + $st.capMs + 'ms ocr=' + $st.ocrMs + 'ms | ham=' + $raw + ' | filtreli=' + $text + $drop)
           if ($text -eq '' ) {
             $script:warnCount++
             Write-Dev ('UYARI  | filtre tüm satırları attı, çeviri yapılmadı | ham=' + $raw)
@@ -1515,67 +1664,67 @@ function Invoke-Tick {
       }
 
       # Ekranda yazi var ama uzun suredir onaylanamiyor (OCR her karede farkli okuyor)
-      if ($text.Length -ge 3 -and $null -ne $script:firstSeen) {
-        $waited = ((Get-Date) - $script:firstSeen).TotalMilliseconds
-        if ($waited -gt 1500 -and -not $script:warnedPending) {
-          $script:warnedPending = $true
+      if ($text.Length -ge 3 -and $null -ne $st.firstSeen) {
+        $waited = ((Get-Date) - $st.firstSeen).TotalMilliseconds
+        if ($waited -gt 1500 -and -not $st.warnedPending) {
+          $st.warnedPending = $true
           $script:warnCount++
           Write-Dev ('UYARI  | ' + [int]$waited + ' ms boyunca onaylanamadı, OCR her karede farklı okuyor | son=' + $text)
         }
       }
 
       if ($text.Length -lt 3) {
-        $script:blankFrames++
-        if ($script:blankFrames -ge $blankLimit) {
+        $st.blankFrames++
+        if ($st.blankFrames -ge $blankLimit) {
           # Altyazi onay beklerken kayboldu: elimizdeki en iyi adayi yine de goster,
           # yoksa kisa suren altyazilar hic cevrilmeden geciyor
-          if ($script:readings.Count -ge $REQUIRED_HITS -and $script:boxText -eq '') {
+          if ($st.readings.Count -ge $REQUIRED_HITS -and $st.boxText -eq '') {
             $pending = $null
-            foreach ($r in $script:readings) {
-              $g = @($script:readings | Where-Object { Test-SameEnough $_.Key $r.Key })
+            foreach ($r in $st.readings) {
+              $g = @($st.readings | Where-Object { Test-SameEnough $_.Key $r.Key })
               if ($null -eq $pending -or $g.Count -gt $pending.Count) { $pending = $g }
             }
             if ($null -ne $pending -and $pending.Count -ge $REQUIRED_HITS) {
-              $script:lateCandidate = Select-Best $pending
-              Write-Dev ('ONAY   | altyazı kaybolurken onaylandı (' + $pending.Count + ' okuma) | EN=' + $script:lateCandidate.Text)
+              $st.lateCandidate = Select-Best $pending
+              Write-Dev ('ONAY   | altyazı kaybolurken onaylandı (' + $pending.Count + ' okuma) | EN=' + $st.lateCandidate.Text)
             }
           }
-          $script:readings.Clear()
-          if ($script:boxText -ne '') {
-            $script:boxText = ''; $script:boxRect = $null; $script:overlay.Invalidate(); $script:shownKey = ''
+          $st.readings.Clear()
+          if ($st.boxText -ne '') {
+            $st.boxText = ''; $st.boxRect = $null; $st.Overlay.Invalidate(); $st.shownKey = ''
           }
         }
-        $script:prevKey = ''; $script:firstSeen = $null; $script:warnedPending = $false
-        if ($null -eq $script:lateCandidate) { return }
+        $st.prevKey = ''; $st.firstSeen = $null; $st.warnedPending = $false
+        if ($null -eq $st.lateCandidate) { return }
         # Kaybolurken onaylanan adayi cevir
-        $chosen = $script:lateCandidate
-        $script:lateCandidate = $null
+        $chosen = $st.lateCandidate
+        $st.lateCandidate = $null
         $text = $chosen.Text; $sub = $chosen.Sub; $key = $chosen.Key
-        if ($null -eq $script:firstSeen) { $script:firstSeen = $chosen.At }
+        if ($null -eq $st.firstSeen) { $st.firstSeen = $chosen.At }
       } else {
-      $script:blankFrames = 0
+      $st.blankFrames = 0
       # Ekranda duran altyazinin kucuk oynamalari: kilitli kal
-      if (Test-SameEnough $key $script:shownKey) { $script:readings.Clear(); return }
-      if ($null -eq $script:firstSeen) { $script:firstSeen = Get-Date; $script:warnedPending = $false }
+      if (Test-SameEnough $key $st.shownKey) { $st.readings.Clear(); return }
+      if ($null -eq $st.firstSeen) { $st.firstSeen = Get-Date; $st.warnedPending = $false }
 
       # Mobildeki OcrStabilizer mantigi: arka arkaya degil, PENCERE icinde benzer
       # iki okuma ariyoruz. Araya tamamen bozuk kareler girse bile altyazi onaylanir.
       $now = Get-Date
-      while ($script:readings.Count -gt 0 -and ($now - $script:readings[0].At).TotalMilliseconds -gt $WINDOW_MS) {
-        $script:readings.RemoveAt(0)
+      while ($st.readings.Count -gt 0 -and ($now - $st.readings[0].At).TotalMilliseconds -gt $WINDOW_MS) {
+        $st.readings.RemoveAt(0)
       }
       $entry = @{ Key = $key; Text = $text; Sub = $sub; At = $now }
-      $group = @($script:readings | Where-Object { Test-SameEnough $_.Key $key })
+      $group = @($st.readings | Where-Object { Test-SameEnough $_.Key $key })
       $group += $entry
-      [void]$script:readings.Add($entry)
-      while ($script:readings.Count -gt $WINDOW_SIZE) { $script:readings.RemoveAt(0) }
+      [void]$st.readings.Add($entry)
+      while ($st.readings.Count -gt $WINDOW_SIZE) { $st.readings.RemoveAt(0) }
 
         $chosen = Approve-Group $group $now
         if ($null -eq $chosen) { return }
         $text = $chosen.Text
         $sub = $chosen.Sub
         $key = $chosen.Key
-        $script:readings.Clear()
+        $st.readings.Clear()
       }
 
       $turkish = $script:cache[$key]
@@ -1598,14 +1747,14 @@ function Invoke-Tick {
         # Okuma cok bozuk: gosterme, onbellege alma; temiz okuma birazdan gelir
         if ($turkish -eq '__atla__') {
           Write-Dev ('ATLANDI| okuma çok bozuk, çevrilmedi | EN=' + $text)
-          $script:prevKey = $key
-          $script:firstSeen = $null
+          $st.prevKey = $key
+          $st.firstSeen = $null
           return
         }
         if ($turkish -eq '') {
           $script:warnCount++
           Write-Dev ('UYARI  | çeviri boş döndü, altyazı gösterilmedi | EN=' + $text)
-          $script:prevKey = $key
+          $st.prevKey = $key
           return
         }
         $script:cache[$key] = $turkish
@@ -1613,46 +1762,46 @@ function Invoke-Tick {
         $script:cacheHits++
       }
 
-      $total = [int]((Get-Date) - $script:firstSeen).TotalMilliseconds
+      $total = [int]((Get-Date) - $st.firstSeen).TotalMilliseconds
       [void]$script:latencies.Add($total)
-      $script:boxRect = $sub.Rect
-      $script:boxLines = [math]::Max(1, [int]$sub.Lines)
+      $st.boxRect = $sub.Rect
+      $st.boxLines = [math]::Max(1, [int]$sub.Lines)
 
       # Punto icin oturmus satir yuksekligi: son 40 okumanin medyani, 2 pikselden
       # kucuk oynamalar yok sayilir. Boylece yazi boyu sabit kalir.
       $lh = [int]($sub.Rect.Height / [math]::Max(1, [int]$sub.Lines))
       if ($lh -ge 8 -and $lh -le 200) {
-        [void]$script:lineHeights.Add($lh)
-        while ($script:lineHeights.Count -gt 40) { $script:lineHeights.RemoveAt(0) }
-        $hs = @($script:lineHeights | Sort-Object)
+        [void]$st.lineHeights.Add($lh)
+        while ($st.lineHeights.Count -gt 40) { $st.lineHeights.RemoveAt(0) }
+        $hs = @($st.lineHeights | Sort-Object)
         $medH = [int]$hs[[int]([math]::Floor($hs.Count / 2))]
-        if ($script:stableLineH -eq 0 -or [math]::Abs($medH - $script:stableLineH) -gt 2) {
-          if ($script:stableLineH -ne 0) {
-            Write-Dev ('CIZIM  | yazı boyu güncellendi: ' + $script:stableLineH + ' -> ' + $medH + ' (son 40 okumanın medyanı)')
+        if ($st.stableLineH -eq 0 -or [math]::Abs($medH - $st.stableLineH) -gt 2) {
+          if ($st.stableLineH -ne 0) {
+            Write-Dev ('CIZIM  | yazı boyu güncellendi: ' + $st.stableLineH + ' -> ' + $medH + ' (son 40 okumanın medyanı)')
           }
-          $script:stableLineH = $medH
+          $st.stableLineH = $medH
         }
       }
-      $script:boxText = $turkish
-      $script:overlay.Invalidate()
+      $st.boxText = $turkish
+      $st.Overlay.Invalidate()
       $sorted = @($script:latencies | Sort-Object)
       $med = $sorted[[int]([math]::Floor($sorted.Count / 2))]
       $lblStatus.Text = ('{0} altyazı · {1} ms' -f $script:latencies.Count, $med)
 
       if ([bool]$script:cfg.ayrintiliKayit) {
         $tag = if ($fromCache) { 'ONBELLEK' } else { 'CEVIRI ' }
-        Write-Dev ($tag + '| toplam=' + $total + 'ms yakala=' + $script:capMs + 'ms ocr=' + $script:ocrMs + 'ms çeviri=' + $trMs + 'ms | satır=' + $sub.Lines)
+        Write-Dev ($tag + '| toplam=' + $total + 'ms yakala=' + $st.capMs + 'ms ocr=' + $st.ocrMs + 'ms çeviri=' + $trMs + 'ms | satır=' + $sub.Lines)
         Write-Dev ('       | EN=' + $text)
         Write-Dev ('       | TR=' + $turkish)
         if ($total -gt 800) {
           $script:warnCount++
           Write-Dev ('UYARI  | gecikme yüksek: ' + $total + ' ms')
         }
-        if ($turkish -eq $script:lastTr -and $text -ne $script:lastEn) {
+        if ($turkish -eq $st.lastTr -and $text -ne $st.lastEn) {
           $script:warnCount++
-          Write-Dev ('UYARI  | farklı İngilizce aynı Türkçeye çevrildi | önceki EN=' + $script:lastEn)
+          Write-Dev ('UYARI  | farklı İngilizce aynı Türkçeye çevrildi | önceki EN=' + $st.lastEn)
         }
-        if ($text -eq $script:lastEn) {
+        if ($text -eq $st.lastEn) {
           $script:warnCount++
           Write-Dev ('UYARI  | aynı altyazı tekrar çevrildi (üst üste)')
         }
@@ -1665,12 +1814,12 @@ function Invoke-Tick {
             $r.Width + 'x' + $r.Height + '@' + $r.X + ',' + $r.Y + ' | alan=' + $a.W + 'x' + $a.H + '@' + $a.X + ',' + $a.Y)
         }
       }
-      $script:lastEn = $text
-      $script:lastTr = $turkish
-      $script:shownKey = $key
-      $script:firstSeen = $null
-      $script:warnedPending = $false
-      $script:prevKey = $key
+      $st.lastEn = $text
+      $st.lastTr = $turkish
+      $st.shownKey = $key
+      $st.firstSeen = $null
+      $st.warnedPending = $false
+      $st.prevKey = $key
 
       # Dakikada bir ozet
       if (((Get-Date) - $script:lastSummary).TotalSeconds -ge 60) {
@@ -1724,14 +1873,18 @@ function Start-Run {
   }
   if (-not (Start-Translator)) { $lblStatus.Text = 'Başlatılamadı · kayda bak'; return }
 
-  $script:overlay = New-OverlayWindow $script:cfg.alan
+  # Ana alan Ingilizcenin ustune yazar; ek alanlar kendi cercevesinin icinde kalir
+  $script:areas = @(New-AreaState $script:cfg.alan 'ana' 1)
+  $no = 2
+  foreach ($ek in @($script:cfg.ekAlanlar)) {
+    if ($null -ne $ek) { $script:areas += (New-AreaState $ek 'ek' $no); $no++ }
+  }
+  foreach ($st in $script:areas) { $st.Overlay = New-OverlayWindow $st }
   $script:cache = @{}
   $script:latencies = New-Object System.Collections.ArrayList
-  $script:prevKey = ''; $script:shownKey = ''; $script:firstSeen = $null; $script:blankFrames = 0
   $script:paused = $false; $script:prevF8 = $false; $script:errorStreak = 0
   $script:frameCount = 0; $script:cacheHits = 0; $script:warnCount = 0
-  $script:lastRaw = ''; $script:lastEn = ''; $script:lastTr = ''
-  $script:warnedPending = $false; $script:lastSummary = Get-Date
+  $script:lastSummary = Get-Date
   $script:gameWindow = [IntPtr]::Zero
   $script:lockAt = (Get-Date).AddSeconds(4)
   Start-DevLog
@@ -1744,7 +1897,10 @@ function Start-Run {
 function Stop-Run {
   $timer.Stop()
   $script:running = $false
-  if ($null -ne $script:overlay) { $script:overlay.Close(); $script:overlay = $null }
+  foreach ($o in $script:areas) {
+    if ($null -ne $o.Overlay) { try { $o.Overlay.Close() } catch { } }
+  }
+  $script:areas = @()
   Stop-Translator
   $btnStart.Text = 'BAŞLAT'; $btnStart.BackColor = $C.Go
   if ($script:latencies.Count -gt 0) {
