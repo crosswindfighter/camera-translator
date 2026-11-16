@@ -743,7 +743,10 @@ function Select-Area([string]$Hedef = 'ana') {
   $picker.Opacity = 0.42
   $picker.Cursor = [System.Windows.Forms.Cursors]::Cross
   $picker.KeyPreview = $true
-  if ($null -ne $script:cfg.alan) {
+  # Ana alani yeniden cizerken mevcut dikdortgen ekranda duruyor, uzerinde
+  # oynanabiliyor. Ek alan eklerken bos baslamali: yoksa ana alanin cercevesi
+  # ekranda beliriyor ve kullanici onu yeni alan saniyor.
+  if ($Hedef -eq 'ana' -and $null -ne $script:cfg.alan) {
     $script:selRect = New-Object System.Drawing.Rectangle `
       ([int]$script:cfg.alan.X - $vs.X), ([int]$script:cfg.alan.Y - $vs.Y), `
       ([int]$script:cfg.alan.W), ([int]$script:cfg.alan.H)
@@ -1266,7 +1269,7 @@ function Update-AreaList {
         $g = $ev.Graphics
         $g.Clear($C.Card)
         $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-        $pen = New-Object System.Drawing.Pen $C.Muted, 1.6
+        $pen = New-Object System.Drawing.Pen $C.Stop, 1.9
         $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Round
         $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Round
         $k = 4.0; $cx = $se.Width / 2.0; $cy = $se.Height / 2.0
@@ -1276,12 +1279,26 @@ function Update-AreaList {
       })
     $idx = $i
     $sil.Add_Click({
-        if ($script:running) { Write-Line 'Önce durdur, sonra alanı sil'; return }
-        $kalan = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
-        $script:cfg.ekAlanlar = @($kalan | Where-Object { $kalan.IndexOf($_) -ne $idx })
-        Save-Settings
-        Update-AreaList
-        Write-Line ('Alan {0} silindi' -f ($idx + 2))
+        # Olay govdesi yakalanmazsa .NET hata penceresi aciyor ve kullanici
+        # ne oldugunu goremiyor; burada yakalayip kayda yaziyoruz
+        try {
+          if ($script:running) { Write-Line 'Önce durdur, sonra alanı sil'; return }
+          $kalan = @(@($script:cfg.ekAlanlar) | Where-Object { $null -ne $_ })
+          # Nesne karsilastirmasiyla degil sirayla eliyoruz: iki alan ayni
+          # olcude olursa IndexOf ikisini birden bulur
+          $yeniListe = @()
+          for ($q = 0; $q -lt $kalan.Count; $q++) { if ($q -ne $idx) { $yeniListe += $kalan[$q] } }
+          $script:cfg.ekAlanlar = $yeniListe
+          Save-Settings
+          Write-Line ('Alan {0} silindi' -f ($idx + 2))
+          # Listeyi tiklama olayi bittikten SONRA yenile: Update-AreaList tiklanan
+          # kontrolu de yok ediyor, olay hala onun icindeyken yapilirsa hata verir
+          [void]$form.BeginInvoke([System.Action]{
+              try { Update-AreaList } catch { Write-Line ('Liste yenilenemedi: ' + $_.Exception.Message) }
+            })
+        } catch {
+          Write-Line ('Alan silinemedi: ' + $_.Exception.Message)
+        }
       }.GetNewClosure())
     [void]$script:areaRows.Add($lbl); [void]$script:areaRows.Add($sil)
     $cardArea.Controls.AddRange(@($lbl, $sil))
@@ -1300,13 +1317,18 @@ function Update-AreaList {
 }
 
 $btnAddArea.Add_Click({
-    if ($script:running) { Write-Line 'Önce durdur, sonra alan ekle'; return }
-    $form.WindowState = 'Minimized'
-    Start-Sleep -Milliseconds 350
-    $ok = Select-Area 'ek'
-    $form.WindowState = 'Normal'
-    [void][Native]::SetForegroundWindow($form.Handle)
-    if ($ok) { Update-AreaList }
+    try {
+      if ($script:running) { Write-Line 'Önce durdur, sonra alan ekle'; return }
+      $form.WindowState = 'Minimized'
+      Start-Sleep -Milliseconds 350
+      $ok = Select-Area 'ek'
+      $form.WindowState = 'Normal'
+      [void][Native]::SetForegroundWindow($form.Handle)
+      if ($ok) { Update-AreaList }
+    } catch {
+      $form.WindowState = 'Normal'
+      Write-Line ('Alan eklenemedi: ' + $_.Exception.Message)
+    }
   })
 
 $chkLlm.Add_CheckedChanged({
