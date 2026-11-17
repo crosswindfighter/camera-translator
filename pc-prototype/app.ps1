@@ -1160,9 +1160,22 @@ $bar.Add_Paint({
         }
         'tema' {
           if ($script:cfg.tema -eq 'gece') {
-            # Hazir hilal zaten beyaz, goruntunun uzerinde oldugu gibi kullaniliyor
+            # Hazir hilal zaten beyaz, goruntunun uzerinde oldugu gibi kullaniliyor.
+            # DIKKAT: banner icin acilan HighQualityBicubic kip bu cizime de
+            # gecerli. DrawImage'in konum alan surumu resmin kendi dpi bilgisine
+            # gore olcekleyebiliyor ve bicubic yeniden orneklemede hilalin
+            # cevresinde halka birakiyordu. Hedef dikdortgeni acikca veriyoruz
+            # ve bu cizim icin yeniden orneklemeyi kapatiyoruz.
             $m = $script:moonImg
-            $g.DrawImage($m, [int]($cx - $m.Width / 2), [int]($cy - $m.Height / 2))
+            $eskiIM = $g.InterpolationMode
+            $eskiPO = $g.PixelOffsetMode
+            $g.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::NearestNeighbor
+            $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::Half
+            $hedef = New-Object System.Drawing.Rectangle `
+              ([int]($cx - $m.Width / 2)), ([int]($cy - $m.Height / 2)), $m.Width, $m.Height
+            $g.DrawImage($m, $hedef)
+            $g.InterpolationMode = $eskiIM
+            $g.PixelOffsetMode = $eskiPO
           } else {
             $rr = 4.4
             $g.FillEllipse($GLYPH, ($cx - $rr), ($cy - $rr), (2 * $rr), (2 * $rr))
