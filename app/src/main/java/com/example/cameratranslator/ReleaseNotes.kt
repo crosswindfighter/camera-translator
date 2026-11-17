@@ -25,10 +25,30 @@ object ReleaseNotes {
     /** Her "Yenilikler" penceresinin altında gösterilen teşekkür yazısı */
     const val THANKS = "Sorun bildiren, kayıt gönderen ve öneride bulunan herkese teşekkürler."
 
+    /** Basligi degistirilen surumler; yoksa "v… ile gelen yenilikler" kullanilir. */
+    private val TITLES = mapOf(
+        "1.1.6" to "Teşekkür Ederim!"
+    )
+
+    /**
+     * Madde isareti ve alttaki tesekkur satiri olmadan, duz yazi olarak
+     * gosterilen surumler. Bu sürümün notu bir liste degil, bir mektup.
+     */
+    private val PLAIN = setOf("1.1.6")
+
+    /** Bir notun basindaki bu isaret, onu ara baslik yapar. */
+    const val HEADING = "## "
+
+    fun titleFor(version: String): String =
+        TITLES[version] ?: "🎉 v$version ile gelen yenilikler"
+
+    fun isPlain(version: String): Boolean = version in PLAIN
+
     private val NOTES = mapOf(
         "1.1.6" to listOf(
-            "Camera Translator, GTA 6'yı Türkçe oynayabilmek için kendi ihtiyaçlarıma yönelik geliştirdiğim bir uygulamaydı. Zamanla gelişerek neredeyse her oyunda kullanabileceğiniz bir çeviri programına dönüştü. Uygulamanın yüzlerce kişiye ulaşmasından dolayı çok mutlu oldum. Kullanan, destekleyen ve geri bildirimleriyle katkıda bulunan herkese teşekkür ederim!",
-            "Camera Translator PC yayında. Bilgisayar ekranındaki İngilizce altyazıyı okur, Türkçesini yazının tam üstüne basar. Şu an beta aşamasındadır. Ayrıntılı bilgi ve indirme bağlantısı GitHub sayfasında."
+            "Camera Translator, GTA 6'yı Türkçe oynayabilmek için kendi ihtiyaçlarıma yönelik geliştirdiğim bir uygulamaydı. Zamanla gelişerek neredeyse her oyunda kullanabileceğiniz bir çeviri programına dönüştü. Uygulamanın yüzlerce kişiye ulaşmasından dolayı çok mutluyum. Kullanan, destekleyen ve geri bildirimleriyle katkıda bulunan herkese teşekkür ederim!",
+            HEADING + "Camera Translator PC Yayında!",
+            "Bilgisayar ekranındaki İngilizce altyazıyı okur, Türkçesini yazının tam üstüne basar. Şu an beta aşamasındadır. Ayrıntılı bilgi ve indirme bağlantısı GitHub sayfasında."
         ),
         "1.1.5" to listOf(
             "Ekran Çevirisi'ne liste görünümü: çeviri oyunun üstüne yazılmak yerine telefonda akan iri puntolu bir liste olarak gösterilir. Oyunu televizyonda oynayıp kaçırdığınız replikleri telefondan okumak içindir. Ayarlar'dan ya da oyunun içinde yüzen düğmeden açılır.",
@@ -113,27 +133,42 @@ object ReleaseNotes {
 /** "Yenilikler" penceresi: bu sürümde gelen değişiklikler. */
 @Composable
 fun WhatsNewDialog(version: String, notes: List<String>, onDismiss: () -> Unit) {
+    val duz = ReleaseNotes.isPlain(version)
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("🎉 v$version ile gelen yenilikler") },
+        title = { Text(ReleaseNotes.titleFor(version)) },
         text = {
             Column(
                 modifier = Modifier.heightIn(max = 420.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 notes.forEach { note ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("•", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
-                        Text(note, fontSize = 14.sp, lineHeight = 20.sp)
+                    when {
+                        note.startsWith(ReleaseNotes.HEADING) -> Text(
+                            note.removePrefix(ReleaseNotes.HEADING),
+                            fontSize = 15.sp,
+                            lineHeight = 21.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                        // Duz kipte madde isareti yok: bu surumun notu liste degil, yazi
+                        duz -> Text(note, fontSize = 14.sp, lineHeight = 20.sp)
+                        else -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text("•", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                            Text(note, fontSize = 14.sp, lineHeight = 20.sp)
+                        }
                     }
                 }
-                Text(
-                    ReleaseNotes.THANKS,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp)
-                )
+                if (!duz) {
+                    Text(
+                        ReleaseNotes.THANKS,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
+                }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Harika") } }
