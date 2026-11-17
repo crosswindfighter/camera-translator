@@ -1008,12 +1008,21 @@ function New-MoonImage([int]$size) {
   # Isirik sag ustte: hilalin acik tarafi sag uste bakar
   $g.FillEllipse($bos, ($m + [int]($d * 0.32)), ($m - [int]($d * 0.28)), $d, $d)
   $beyaz.Dispose(); $bos.Dispose(); $g.Dispose()
+  # Dort kati tek adimda kucultmek olmuyor: bilinear yalnizca 2x2 orneklem
+  # aliyor, 4:1 kuculmede aralari atliyor ve hilalin uzerinde yatay seritler
+  # birakiyor. Iki adimda yariliyoruz, her adim temiz 2:1 kuculme.
+  $ara = New-Object System.Drawing.Bitmap ($size * 2), ($size * 2)
+  $g1 = [System.Drawing.Graphics]::FromImage($ara)
+  $g1.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
+  $g1.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $g1.DrawImage($big, 0, 0, ($size * 2), ($size * 2))
+  $g1.Dispose(); $big.Dispose()
   $kucuk = New-Object System.Drawing.Bitmap $size, $size
   $g2 = [System.Drawing.Graphics]::FromImage($kucuk)
-  # Bicubic kuculturken keskin kenarin iki yaninda tasma yapiyor; bilinear yapmiyor
   $g2.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBilinear
-  $g2.DrawImage($big, 0, 0, $size, $size)
-  $g2.Dispose(); $big.Dispose()
+  $g2.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $g2.DrawImage($ara, 0, 0, $size, $size)
+  $g2.Dispose(); $ara.Dispose()
   return $kucuk
 }
 

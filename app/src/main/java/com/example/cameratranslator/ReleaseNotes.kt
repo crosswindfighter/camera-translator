@@ -27,10 +27,8 @@ object ReleaseNotes {
 
     private val NOTES = mapOf(
         "1.1.6" to listOf(
-            "Camera Translator, GTA 6'yı Türkçe oynayabilmek için kendi ihtiyaçlarıma yönelik geliştirdiğim bir uygulamaydı. Zamanla gelişerek neredeyse her oyunda kullanabileceğiniz kapsamlı bir çeviri programına dönüştü. Uygulamayı yayınlama kararı aldıktan sonra yüzlerce kişiye ulaşması gerçekten çok mutlu etti. Kullanan, destekleyen ve geri bildirimleriyle katkıda bulunan herkese teşekkür ederim!",
-            "Camera Translator PC yayında. Bilgisayarda oynayanlar ya da Xbox/PlayStation görüntüsünü uzak oynatmayla bilgisayara aktaranlar için masaüstü sürümü hazır: ekrandaki İngilizce altyazıyı okur, Türkçesini yazının tam üstüne basar; oyun Türkçe altyazılıymış gibi görünür. Telefon sürümüyle aynı çeviri motorunu kullanır ve tamamı çevrimdışı çalışır.",
-            "Kurulumu üç adım: GitHub'daki Releases sayfasından ZIP'i indirin, bir klasöre çıkarın, CameraTranslator.exe'ye çift tıklayın. Python ya da başka bir şey kurmanız gerekmez, hepsi paketin içindedir.",
-            "PC sürümü şu an BETA aşamasındadır. Çalışıyor ve günlük kullanılabiliyor; ancak her bilgisayarda aynı davranmayabilir, eksikler ve beklenmedik sorunlar çıkabilir. Denediğinizde bir aksilikle karşılaşırsanız bildirin, telefon sürümünde olduğu gibi tek tek üzerine gideceğim."
+            "Camera Translator, GTA 6'yı Türkçe oynayabilmek için kendi ihtiyaçlarıma yönelik geliştirdiğim bir uygulamaydı. Zamanla gelişerek neredeyse her oyunda kullanabileceğiniz bir çeviri programına dönüştü. Uygulamanın yüzlerce kişiye ulaşmasından dolayı çok mutlu oldum. Kullanan, destekleyen ve geri bildirimleriyle katkıda bulunan herkese teşekkür ederim!",
+            "Camera Translator PC yayında. Bilgisayar ekranındaki İngilizce altyazıyı okur, Türkçesini yazının tam üstüne basar. Şu an beta aşamasındadır. Ayrıntılı bilgi ve indirme bağlantısı GitHub sayfasında."
         ),
         "1.1.5" to listOf(
             "Ekran Çevirisi'ne liste görünümü: çeviri oyunun üstüne yazılmak yerine telefonda akan iri puntolu bir liste olarak gösterilir. Oyunu televizyonda oynayıp kaçırdığınız replikleri telefondan okumak içindir. Ayarlar'dan ya da oyunun içinde yüzen düğmeden açılır.",
