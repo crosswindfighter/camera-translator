@@ -1106,6 +1106,15 @@ $script:barBtns = @(
   @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle (S 476), (S 10), (S 30), (S 26)) }
 )
 
+# Uzerine gelince cizilen yuvarlak zeminin yumusatilmis kenari, dikdortgenin
+# SAG ve ALT kenarinda bir piksel disariya tasiyor. Fare ayrilinca yalnizca
+# $b.R yenilenince o piksel hic silinmiyordu: banner'in uzerinde ince bir dikey
+# ve yatay cizgi olarak kaliyordu -- ay simgesinin sagindaki ve altindaki
+# cizgiler buydu, ayin kendisiyle ilgisi yoktu. Yenilerken kareyi genis tutuyoruz.
+function Get-BtnDirty($r) {
+  New-Object System.Drawing.Rectangle ($r.X - 2), ($r.Y - 2), ($r.Width + 4), ($r.Height + 4)
+}
+
 $bar.Add_Paint({
     param($s, $e)
     $g = $e.Graphics
@@ -1133,7 +1142,8 @@ $bar.Add_Paint({
       $r = $b.R
       $cx = $r.X + $r.Width / 2.0; $cy = $r.Y + $r.Height / 2.0
       if ($script:barHover -eq $b.Ad) {
-        $hp = Get-RoundPath ([single]$r.X) ([single]$r.Y) ([single]$r.Width) ([single]$r.Height) 9
+        # Bir piksel iceriden: kenar yumusatmasi karenin disina tasmasin
+        $hp = Get-RoundPath ([single]$r.X) ([single]$r.Y) ([single]($r.Width - 1)) ([single]($r.Height - 1)) 9
         $hb = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::FromArgb(70, 255, 255, 255))
         $g.FillPath($hb, $hp); $hb.Dispose(); $hp.Dispose()
       }
@@ -1202,7 +1212,7 @@ $bar.Add_MouseMove({
       # Yalnizca degisen iki kareyi yenile: tum bandi yenilemek resmi her
       # seferinde yeniden olceklendiriyor ve gozle gorulur sekilde oynuyor
       foreach ($b in $script:barBtns) {
-        if ($b.Ad -eq $onceki -or $b.Ad -eq $h) { $s.Invalidate($b.R) }
+        if ($b.Ad -eq $onceki -or $b.Ad -eq $h) { $s.Invalidate((Get-BtnDirty $b.R)) }
       }
     }
   })
@@ -1210,7 +1220,7 @@ $bar.Add_MouseLeave({
     if ($script:barHover -ne '') {
       $eski = $script:barHover
       $script:barHover = ''
-      foreach ($b in $script:barBtns) { if ($b.Ad -eq $eski) { $bar.Invalidate($b.R) } }
+      foreach ($b in $script:barBtns) { if ($b.Ad -eq $eski) { $bar.Invalidate((Get-BtnDirty $b.R)) } }
     }
   })
 
