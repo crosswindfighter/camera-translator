@@ -26,6 +26,11 @@ object ReleaseNotes {
     const val THANKS = "Sorun bildiren, kayıt gönderen ve öneride bulunan herkese teşekkürler."
 
     private val NOTES = mapOf(
+        "1.1.6" to listOf(
+            "Bu uygulamayı aslında kendim için yaptım. GTA 6'yı Türkçe oynayabilmek istiyordum, başka bir derdim yoktu. Yol boyunca her oyunda çalışan bir çeviri programına dönüştü ve bir noktada \"bunu neden paylaşmıyorum?\" diye düşündüm. O karardan sonra uygulama yüzlerce kişiye ulaştı. Açıkçası bunu beklemiyordum ve çok mutluyum. İndiren, deneyen, sorun bildiren, kayıt gönderen ve öneride bulunan herkese ayrı ayrı teşekkür ederim; uygulamayı bugünkü hâline getiren sizsiniz.",
+            "Camera Translator PC yayında. Artık bilgisayar için de bir sürüm var: ekrandaki İngilizce altyazıyı okuyup Türkçesini yazının tam üstüne basıyor, oyun Türkçe altyazılıymış gibi görünüyor. Tamamı çevrimdışı çalışır. Bilgisayarda oynayanlar ya da Xbox/PlayStation görüntüsünü uzak oynatmayla bilgisayara aktaranlar için. GitHub'daki Releases sayfasından indirebilirsiniz.",
+            "PC sürümü şu an BETA. Çalışıyor ve günlük kullanılabiliyor ama her bilgisayarda aynı davranmayabilir; eksikler ve beklenmedik sorunlar çıkabilir. Denediğinizde bir aksilikle karşılaşırsanız bildirin, telefon sürümünde olduğu gibi tek tek üzerine gideceğim."
+        ),
         "1.1.5" to listOf(
             "Ekran Çevirisi'ne liste görünümü: çeviri oyunun üstüne yazılmak yerine telefonda akan iri puntolu bir liste olarak gösterilir. Oyunu televizyonda oynayıp kaçırdığınız replikleri telefondan okumak içindir. Ayarlar'dan ya da oyunun içinde yüzen düğmeden açılır.",
             "PlayStation oyuncuları için yeni bir yol: PS5'ten Twitch ya da YouTube'a yayın açıp telefonda o yayını paylaşırsanız Ekran Çevirisi çalışır. PS Remote Play'in engeli bu yöntemde yok. Adım adım anlatımı Nasıl kullanılır sayfasında.",
