@@ -957,7 +957,7 @@ if (Test-Path $icoPath) { try { $form.Icon = New-Object System.Drawing.Icon($ico
 # gelen banner parcasini, sonra koyu yari saydam bir yuvarlak basar.
 # Banner pencerenin ust kismini kapliyor; dugmeler goruntunun uzerinde,
 # okunakli kalsinlar diye ust kenara ince bir karartma seriliyor.
-$BANNER_H = 239
+$BANNER_H = 260
 
 $script:bannerImg = $null
 $bannerPath = Join-Path $root 'banner.png'
@@ -1110,11 +1110,8 @@ $bar.Add_Paint({
       $g.DrawString('Camera Translator', $f, $br, 22, 24)
       $f.Dispose(); $br.Dispose()
     }
-    # Ust kenara karartma: dugmeler goruntunun parlak yerine denk gelse de okunur
-    $scrim = New-Object System.Drawing.Drawing2D.LinearGradientBrush `
-      (New-Object System.Drawing.Point 0, 0), (New-Object System.Drawing.Point 0, 62), `
-      ([System.Drawing.Color]::FromArgb(140, 0, 0, 0)), ([System.Drawing.Color]::FromArgb(0, 0, 0, 0))
-    $g.FillRectangle($scrim, 0, 0, $s.Width, 62); $scrim.Dispose()
+    # Dugmelerin oturdugu bulanik serit banner.png'ye pisirildi; burada ayrica
+    # karartma yapmiyoruz, ikisi ust uste binince bant koyu bir kusak gibi duruyor
 
     # Simgeler goruntunun uzerinde: tema ne olursa olsun beyaz
     $beyaz = [System.Drawing.Color]::FromArgb(240, 255, 255, 255)
@@ -1244,7 +1241,7 @@ $pillPaint = {
   }
 
 # --- Gorunum ---
-$cardLook = New-Card 20 249 480 130
+$cardLook = New-Card 20 270 480 130
 $lblLookCap = New-Caption 'GÖRÜNÜM' 18 12 200
 $lblLookCap.Font = New-Object System.Drawing.Font('Segoe UI Semibold', 8)
 
@@ -1312,7 +1309,7 @@ $lblFontCap = New-Caption 'Yazı tipi' 18 44 120
 $cardLook.Controls.AddRange(@($lblLookCap, $lblFontCap, $fontField, $lblTextCol, $swText, $lblBoxCol, $swBox))
 
 # --- Alan ---
-$cardArea = New-Card 20 395 480 110
+$cardArea = New-Card 20 416 480 110
 $btnArea = New-Object System.Windows.Forms.Button
 $btnArea.Text = 'OCR alanını çiz'
 $btnArea.SetBounds(16, 18, 190, 36)
