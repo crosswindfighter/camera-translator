@@ -1091,10 +1091,10 @@ function Open-SurumSayfasi {
 
 $script:barHover = ''
 $script:barBtns = @(
-  @{ Ad = 'guncelle'; R = (New-Object System.Drawing.Rectangle (S 368), (S 14), (S 30), (S 26)) },
-  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle (S 404), (S 14), (S 30), (S 26)) },
-  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle (S 440), (S 14), (S 30), (S 26)) },
-  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle (S 476), (S 14), (S 30), (S 26)) }
+  @{ Ad = 'guncelle'; R = (New-Object System.Drawing.Rectangle (S 368), (S 10), (S 30), (S 26)) },
+  @{ Ad = 'tema';   R = (New-Object System.Drawing.Rectangle (S 404), (S 10), (S 30), (S 26)) },
+  @{ Ad = 'kucult'; R = (New-Object System.Drawing.Rectangle (S 440), (S 10), (S 30), (S 26)) },
+  @{ Ad = 'kapat';  R = (New-Object System.Drawing.Rectangle (S 476), (S 10), (S 30), (S 26)) }
 )
 
 $bar.Add_Paint({
